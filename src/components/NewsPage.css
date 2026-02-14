@@ -1,0 +1,24 @@
+/* News Page Styles */
+.news-page {
+  min-height: 100vh;
+  background: linear-gradient(135deg, #0a0a0a 0%, #1a1a1a 100%);
+  padding-top: 80px; /* Account for fixed navbar */
+}
+
+
+.news-page-content {
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 20px;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+  .news-page {
+    padding-top: 70px;
+  }
+  
+  .news-page-content {
+    padding: 16px;
+  }
+}

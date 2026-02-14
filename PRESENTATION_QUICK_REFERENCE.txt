@@ -1,0 +1,155 @@
+URBANSHIELD - QUICK REFERENCE GUIDE FOR PRESENTATION
+=====================================================
+
+LANDING PAGE & PUBLIC FEATURES
+- Modern landing page with hero section
+- News feed showing verified incidents (like social media)
+- About page explaining the system
+- Support page with help resources
+- Public access - no login needed to view incidents
+- Users can like and interact with incident posts
+
+AUTHENTICATION & USER TYPES
+- Secure signup and login system
+- User types: Tourist, Verified Resident, Business Owner, Government Official, Admin
+- Verification documents required for certain user types
+- Secure password and session management
+
+ADMIN DASHBOARD - OVERVIEW
+- Real-time statistics: Total Reports, Pending Review, Resolved Today, Active Users
+- Line chart showing incident trends over months
+- Pie chart showing incident breakdown by type
+- Recent reports quick-access list
+- Auto-refreshing data
+
+INCIDENT MODERATION
+- View all incident reports
+- Filter by category (Traffic, Infrastructure, Weather, Safety, Emergency)
+- Filter by severity (Low, Medium, High, Critical)
+- Filter by status (Pending, Approved, Rejected)
+- Search by keywords
+- View detailed incident modal with photos and location
+- Approve reports to make them public
+- Reject inappropriate reports
+- Delete spam or fake reports
+- See who reported and when
+
+USER REPORTS MANAGEMENT
+- Manage reports users submit about other content/users
+- Filter by status and reason (Spam, Harassment, Misinformation, etc.)
+- Resolve or dismiss reports
+- Community self-policing system
+
+USER MANAGEMENT
+- View all registered users
+- See user types and verification status
+- Review verification documents
+- Approve/reject user verification requests
+- Suspend problematic accounts
+- View user profiles and details
+- Search and filter users
+- List view and card view options
+
+ANNOUNCEMENTS MANAGEMENT
+- Create system-wide announcements
+- Target specific audiences (All Users, Verified Users, Residents, etc.)
+- Set priority levels (Normal, High, Urgent)
+- Set expiration dates
+- Edit and delete announcements
+
+ANALYTICS & TRENDS
+- Monthly incident analysis charts
+- Response time metrics
+- Resolution rate tracking
+- Trend identification
+- Performance monitoring
+
+INTERACTIVE MAP VIEW
+- Mapbox integration showing all incidents on city map
+- Color-coded markers by severity (Red=Critical, Orange=High, Yellow=Medium, Green=Low)
+- Click markers to see incident details in popup
+- Multiple map styles (Dark, Light, Satellite, Street view)
+- Zoom, pan, and navigation controls
+- Statistics overlay showing incident counts
+
+AUDIT LOG
+- Records all admin actions
+- Shows who did what, when, and to what
+- Searchable and filterable
+- Complete accountability trail
+
+ADMIN INVITATION SYSTEM
+- Generate invitation codes for new admins
+- Track code usage and expiration
+- Secure admin access control
+- One-click code copying
+
+ADMIN PROFILE & SETTINGS
+- Personal profile management
+- Upload profile pictures
+- Theme preferences (Dark/Light/Auto)
+- Language and timezone settings
+- Notification preferences
+- System-wide configuration options
+- Security settings (2FA, session timeouts)
+
+REAL-TIME UPDATES
+- Instant updates across all admin sessions
+- No page refresh needed
+- Live notification system
+- Real-time statistics updates
+
+NOTIFICATION SYSTEM
+- Notification bell with pending count badge
+- Dropdown showing recent notifications
+- Click to navigate to relevant section
+- Alerts for new incidents and verifications
+
+SEARCH & FILTERING
+- Keyword search in all sections
+- Multiple filter combinations
+- Quick access to specific data
+
+DATA VISUALIZATION
+- Charts and graphs for analytics
+- Color-coded status badges
+- Visual severity indicators
+- Category icons for quick identification
+
+RESPONSIVE DESIGN
+- Works on desktop, tablet, and mobile
+- Adaptive layouts
+- Touch-friendly mobile interface
+- Collapsible sidebar on mobile
+
+SECURITY FEATURES
+- Secure authentication
+- Database-level access control
+- Encrypted data transmission
+- Protection against common vulnerabilities
+
+TECHNICAL STACK
+- React.js 18
+- Supabase (PostgreSQL database + Auth)
+- Mapbox GL JS
+- Recharts for visualization
+- Modern CSS3 with dark red theme
+- Real-time subscriptions
+
+WORKFLOW EXAMPLE
+1. Tourist reports pothole with photo
+2. Report appears in admin dashboard
+3. Admin receives notification
+4. Admin reviews and approves
+5. Incident appears on public news feed and map
+6. Other users see the report
+7. City uses analytics to identify problem areas
+
+BENEFITS
+- Transparency for citizens
+- Efficiency for administrators
+- Data-driven decision making
+- Community engagement
+- Centralized incident management
+
+

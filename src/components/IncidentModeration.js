@@ -1,0 +1,643 @@
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
+import { 
+  AlertTriangle, 
+  Search, 
+  CheckCircle, 
+  XCircle, 
+  Trash2,
+  RefreshCw,
+  Clock,
+  MapPin,
+  User,
+  Play,
+  FileText,
+  Upload,
+  X,
+  Copy
+} from 'lucide-react';
+import { adminService, supabase } from '../config/supabase';
+import ReportDetailModal from './ReportDetailModal';
+import './IncidentModeration.css';
+
+const IncidentModeration = () => {
+  const [incidents, setIncidents] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [filterCategory, setFilterCategory] = useState('all');
+  const [filterSeverity, setFilterSeverity] = useState('all');
+  const [filterStatus, setFilterStatus] = useState('all');
+  const [selectedIncident, setSelectedIncident] = useState(null);
+  const [showModal, setShowModal] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [locationCache, setLocationCache] = useState({});
+  // Resolve modal
+  const [showResolveModal, setShowResolveModal] = useState(false);
+  const [resolveTarget, setResolveTarget] = useState(null);
+  const [resolveText, setResolveText] = useState('');
+  const [resolveProofFile, setResolveProofFile] = useState(null);
+  const [resolveProofPreview, setResolveProofPreview] = useState('');
+  // Duplicates
+  const [duplicateGroups, setDuplicateGroups] = useState({});
+  const proofInputRef = useRef(null);
+
+  useEffect(() => {
+    loadIncidents();
+  }, []);
+
+  const formatTimestamp = (timestamp) => {
+    if (!timestamp) return 'Unknown';
+    try {
+      const date = new Date(timestamp);
+      const now = new Date();
+      const diffMs = now - date;
+      const diffMins = Math.floor(diffMs / 60000);
+      const diffHours = Math.floor(diffMs / 3600000);
+      const diffDays = Math.floor(diffMs / 86400000);
+      if (diffMins < 1) return 'Just now';
+      if (diffMins < 60) return `${diffMins}m ago`;
+      if (diffHours < 24) return `${diffHours}h ago`;
+      if (diffDays < 7) return `${diffDays}d ago`;
+      return date.toLocaleDateString();
+    } catch (err) {
+      return 'Unknown';
+    }
+  };
+
+  // Status: pending → in_action → resolved (or duplicate)
+  const getStatus = (incident) => {
+    if (incident.isDuplicate) return 'duplicate';
+    if (incident.status === 'resolved') return 'resolved';
+    if (incident.status === 'in_action') return 'in_action';
+    return 'pending';
+  };
+
+  const getStatusLabel = (status) => {
+    switch (status) {
+      case 'resolved': return 'Resolved';
+      case 'in_action': return 'In Action';
+      case 'pending': return 'Pending';
+      case 'duplicate': return 'Duplicate';
+      default: return status;
+    }
+  };
+
+  // ─── Duplicate Detection ───
+  const normText = (t) => (t || '').toLowerCase().replace(/[^a-z0-9 ]/g, '').replace(/\s+/g, ' ').trim();
+
+  const similarity = (a, b) => {
+    if (!a || !b) return 0;
+    const wordsA = new Set(normText(a).split(' '));
+    const wordsB = new Set(normText(b).split(' '));
+    if (wordsA.size === 0 || wordsB.size === 0) return 0;
+    let overlap = 0;
+    wordsA.forEach(w => { if (wordsB.has(w)) overlap++; });
+    return overlap / Math.max(wordsA.size, wordsB.size);
+  };
+
+  const detectDuplicates = useCallback((list) => {
+    const groups = {};
+    const flagged = new Set();
+    for (let i = 0; i < list.length; i++) {
+      if (flagged.has(list[i].id)) continue;
+      for (let j = i + 1; j < list.length; j++) {
+        if (flagged.has(list[j].id)) continue;
+        const a = list[i], b = list[j];
+        // Same category + high title similarity + within 24h
+        const sameCat = a.category && b.category && a.category === b.category;
+        const titleSim = similarity(a.title, b.title);
+        const descSim = similarity(a.description, b.description);
+        const timeDiff = Math.abs(new Date(a.created_at) - new Date(b.created_at));
+        const within24h = timeDiff < 24 * 60 * 60 * 1000;
+        // Same location (approximate)
+        const locA = (a.resolvedLocation || a.location || '').toLowerCase();
+        const locB = (b.resolvedLocation || b.location || '').toLowerCase();
+        const sameLoc = locA && locB && (locA === locB || similarity(locA, locB) > 0.6);
+
+        if ((titleSim > 0.7 && within24h) || (sameCat && descSim > 0.6 && sameLoc && within24h)) {
+          // Mark the newer one as duplicate of the older
+          const original = new Date(a.created_at) <= new Date(b.created_at) ? a : b;
+          const dupe = original === a ? b : a;
+          groups[dupe.id] = original.id;
+          flagged.add(dupe.id);
+        }
+      }
+    }
+    return groups;
+  }, []);
+
+  // ─── Location helpers (unchanged) ───
+  const isHexOrGarbage = (text) => {
+    if (!text || text.length < 2) return true;
+    const hexOnly = text.replace(/[\s.,\-()]/g, '');
+    if (/^[0-9A-Fa-f]+$/.test(hexOnly) && hexOnly.length > 10) return true;
+    if (/[0-9A-Fa-f]{20,}/.test(text)) return true;
+    return false;
+  };
+
+  const parsePostGISPoint = (hex) => {
+    try {
+      if (!hex || typeof hex !== 'string') return null;
+      const clean = hex.replace(/[^0-9A-Fa-f]/g, '');
+      let offset = 0;
+      // PostGIS geography (SRID 4326) starts with 0101000020E6100000
+      if (clean.startsWith('0101000020E6100000')) offset = 36;
+      // PostGIS geometry (SRID 4326) starts with 0101000020E6100000
+      else if (clean.startsWith('01010000')) offset = 20;
+      else return null;
+      if (clean.length < offset + 32) return null;
+      const lonHex = clean.substring(offset, offset + 16);
+      const latHex = clean.substring(offset + 16, offset + 32);
+      const readDouble = (h) => {
+        const bytes = [];
+        for (let i = 0; i < 16; i += 2) bytes.push(parseInt(h.substring(i, i + 2), 16));
+        const buf = new ArrayBuffer(8);
+        const view = new DataView(buf);
+        bytes.forEach((b, i) => view.setUint8(i, b));
+        return view.getFloat64(0, true); // true = little-endian (WKB 01 prefix)
+      };
+      const lon = readDouble(lonHex);
+      const lat = readDouble(latHex);
+      if (lat >= -90 && lat <= 90 && lon >= -180 && lon <= 180) return { lat, lng: lon };
+    } catch (e) {
+      console.error('Error parsing PostGIS point:', e);
+    }
+    return null;
+  };
+
+  const reverseGeocode = useCallback(async (lat, lng) => {
+    const key = `${lat.toFixed(6)},${lng.toFixed(6)}`;
+    if (locationCache[key]) return locationCache[key];
+    try {
+      await new Promise(r => setTimeout(r, 1100));
+      const response = await fetch(
+        `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&zoom=16&addressdetails=1`,
+        { headers: { 'Accept-Language': 'en', 'User-Agent': 'UrbanShieldAdmin/1.0' } }
+      );
+      const data = await response.json();
+      if (data && data.display_name) {
+        const parts = data.display_name.split(',').map(s => s.trim());
+        const short = parts.slice(0, 3).join(', ');
+        setLocationCache(prev => ({ ...prev, [key]: short }));
+        return short;
+      }
+    } catch (err) {}
+    return null;
+  }, [locationCache]);
+
+  const resolveLocation = useCallback(async (incident) => {
+    console.log('🔍 Resolving location for incident:', incident.id);
+    console.log('   Address field:', incident.address);
+    console.log('   Location field (PostGIS):', incident.location);
+    
+    // First try to use the address field directly
+    if (incident.address && incident.address.trim() !== '') {
+      console.log('   ✅ Using address field:', incident.address);
+      return incident.address;
+    }
+    
+    // Fallback to parsing PostGIS geography if address is empty
+    console.log('   Address is empty, falling back to PostGIS parsing...');
+    const loc = incident.location || '';
+    let lat = parseFloat(incident.latitude);
+    let lng = parseFloat(incident.longitude);
+    
+    console.log('   Parsed lat:', lat, 'Parsed lng:', lng);
+    
+    if ((!lat || !lng || isNaN(lat) || isNaN(lng)) && incident.coordinates) {
+      const parsed = parsePostGISPoint(String(incident.coordinates));
+      if (parsed) { lat = parsed.lat; lng = parsed.lng; }
+    }
+    if ((!lat || !lng || isNaN(lat) || isNaN(lng)) && isHexOrGarbage(loc)) {
+      const parsed = parsePostGISPoint(loc);
+      if (parsed) { lat = parsed.lat; lng = parsed.lng; }
+    }
+    if (!lat || !lng || isNaN(lat) || isNaN(lng)) {
+      const coordMatch = loc.match(/([-\d.]+)[,\s]+([-\d.]+)/);
+      if (coordMatch) { lat = parseFloat(coordMatch[1]); lng = parseFloat(coordMatch[2]); }
+    }
+    
+    console.log('   Final lat:', lat, 'Final lng:', lng);
+    
+    if (lat && lng && !isNaN(lat) && isFinite(lat) && !isNaN(lng) && isFinite(lng)
+        && lat >= -90 && lat <= 90 && lng >= -180 && lng <= 180) {
+      console.log('   ✅ Valid coordinates - attempting reverse geocoding...');
+      const address = await reverseGeocode(lat, lng);
+      if (address) {
+        console.log('   ✅ Got address from reverse geocoding:', address);
+        return address;
+      }
+    }
+    
+    console.log('   ❌ Could not resolve location - returning Unknown Location');
+    return 'Unknown Location';
+  }, [reverseGeocode, locationCache]);
+
+  // ─── Load incidents ───
+  const loadIncidents = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      const data = await adminService.getAllReports();
+      if (!data || data.length === 0) { setIncidents([]); return; }
+
+      const cleanHexStrings = (text) => {
+        if (!text || typeof text !== 'string') return '';
+        let cleaned = text
+          // Remove PostGIS geography hex strings (SRID 4326)
+          .replace(/0101000020E6100000[0-9A-Fa-f]{32,}/gi, '')
+          // Remove PostGIS geometry hex strings
+          .replace(/01010000[0-9A-Fa-f]{32,}/gi, '')
+          // Remove any remaining long hex strings
+          .replace(/\b[0-9A-Fa-f]{40,}\b/gi, '')
+          // Clean up extra whitespace
+          .replace(/\s+/g, ' ').trim();
+        if (!cleaned || cleaned.length < 2) return '';
+        return cleaned;
+      };
+
+      const formattedIncidents = data.map((incident) => ({
+        ...incident,
+        reporter: incident.reporter?.full_name || 'Unknown User',
+        timestamp: incident.created_at,
+        type: incident.category,
+        priority: incident.severity || 'medium',
+        title: incident.title ? cleanHexStrings(incident.title) : 'Untitled Post',
+        location: incident.address || cleanHexStrings(incident.location) || 'Unknown Location',
+        address: incident.address || null, // Keep the address field separate
+        description: incident.description ? cleanHexStrings(incident.description) : '',
+        images: incident.images || incident.photo_urls || []
+      }));
+
+      // Detect duplicates
+      const dupes = detectDuplicates(formattedIncidents);
+      setDuplicateGroups(dupes);
+      const withDupes = formattedIncidents.map(i => ({
+        ...i,
+        isDuplicate: !!dupes[i.id],
+        duplicateOf: dupes[i.id] || null
+      }));
+
+      setIncidents(withDupes);
+
+      // Resolve locations in background
+      formattedIncidents.forEach(async (incident) => {
+        const resolved = await resolveLocation(incident);
+        if (resolved !== incident.location) {
+          setIncidents(prev => prev.map(i =>
+            i.id === incident.id ? { ...i, resolvedLocation: resolved } : i
+          ));
+        }
+      });
+    } catch (error) {
+      console.error('Error loading incidents:', error);
+      setIncidents([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const filteredIncidents = useMemo(() => {
+    return incidents.filter(incident => {
+      const matchesSearch = !searchTerm ||
+        incident.title?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        incident.description?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (incident.reporter && incident.reporter.toLowerCase().includes(searchTerm.toLowerCase())) ||
+        incident.location?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        incident.resolvedLocation?.toLowerCase().includes(searchTerm.toLowerCase());
+      const matchesCategory = filterCategory === 'all' || incident.category === filterCategory;
+      const matchesSeverity = filterSeverity === 'all' || (incident.severity || 'medium') === filterSeverity;
+      const status = getStatus(incident);
+      const matchesStatus = filterStatus === 'all' || status === filterStatus;
+      return matchesSearch && matchesCategory && matchesSeverity && matchesStatus;
+    });
+  }, [incidents, searchTerm, filterCategory, filterSeverity, filterStatus]);
+
+  const stats = useMemo(() => ({
+    pending: incidents.filter(i => getStatus(i) === 'pending').length,
+    in_action: incidents.filter(i => getStatus(i) === 'in_action').length,
+    resolved: incidents.filter(i => getStatus(i) === 'resolved').length,
+    duplicate: incidents.filter(i => getStatus(i) === 'duplicate').length,
+    total: incidents.length
+  }), [incidents]);
+
+  // ─── Actions ───
+  const handleViewIncident = (incident) => {
+    setSelectedIncident(incident);
+    setShowModal(true);
+  };
+
+  const handleStartAction = async (incidentId) => {
+    try {
+      setSaving(true);
+      await adminService.startAction(incidentId);
+      await loadIncidents();
+    } catch (error) {
+      console.error('Error starting action:', error);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const openResolveModal = (incident) => {
+    setResolveTarget(incident);
+    setResolveText('');
+    setResolveProofFile(null);
+    setResolveProofPreview('');
+    setShowResolveModal(true);
+  };
+
+  const handleProofFileChange = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    if (file.size > 5 * 1024 * 1024) { alert('File must be less than 5MB'); return; }
+    setResolveProofFile(file);
+    const reader = new FileReader();
+    reader.onloadend = () => setResolveProofPreview(reader.result);
+    reader.readAsDataURL(file);
+  };
+
+  const handleResolve = async () => {
+    if (!resolveTarget) return;
+    try {
+      setSaving(true);
+      let proofUrl = null;
+      // Upload proof if provided
+      if (resolveProofFile) {
+        const ext = resolveProofFile.name.split('.').pop();
+        const fileName = `resolve-proof-${resolveTarget.id}-${Date.now()}.${ext}`;
+        try {
+          const { error: upErr } = await supabase.storage
+            .from('avatars')
+            .upload(fileName, resolveProofFile, { upsert: true });
+          if (!upErr) {
+            const { data: { publicUrl } } = supabase.storage.from('avatars').getPublicUrl(fileName);
+            proofUrl = publicUrl;
+          }
+        } catch (e) {
+          // Fallback: base64
+          proofUrl = resolveProofPreview;
+        }
+      }
+      await adminService.resolveIncident(resolveTarget.id, {
+        updateText: resolveText || null,
+        proofUrl: proofUrl
+      });
+      setShowResolveModal(false);
+      setResolveTarget(null);
+      await loadIncidents();
+    } catch (error) {
+      console.error('Error resolving incident:', error);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleDeleteDuplicate = async (incidentId) => {
+    if (!window.confirm('Remove this duplicate post?')) return;
+    try {
+      setSaving(true);
+      await adminService.deleteReport(incidentId);
+      await loadIncidents();
+    } catch (error) {
+      console.error('Error deleting duplicate:', error);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleDelete = async (incidentId) => {
+    if (!window.confirm('Are you sure you want to delete this post? This action cannot be undone.')) return;
+    try {
+      setSaving(true);
+      await adminService.deleteReport(incidentId);
+      await loadIncidents();
+    } catch (error) {
+      console.error('Error deleting incident:', error);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  // For backwards compat with ReportDetailModal
+  const handleApprove = async (id) => handleStartAction(id);
+  const handleReject = async (id) => {
+    openResolveModal(incidents.find(i => i.id === id));
+  };
+
+  return (
+    <div className="incident-moderation">
+      {/* Stats Row */}
+      <div className="mod-stats-row">
+        <div className={`mod-stat-chip ${filterStatus === 'all' ? 'active' : ''}`} onClick={() => setFilterStatus('all')}>
+          <span className="mod-stat-num">{stats.total}</span>
+          <span className="mod-stat-label">All</span>
+        </div>
+        <div className={`mod-stat-chip pending ${filterStatus === 'pending' ? 'active' : ''}`} onClick={() => setFilterStatus('pending')}>
+          <span className="mod-stat-num">{stats.pending}</span>
+          <span className="mod-stat-label">Pending</span>
+        </div>
+        <div className={`mod-stat-chip in_action ${filterStatus === 'in_action' ? 'active' : ''}`} onClick={() => setFilterStatus('in_action')}>
+          <span className="mod-stat-num">{stats.in_action}</span>
+          <span className="mod-stat-label">In Action</span>
+        </div>
+        <div className={`mod-stat-chip resolved ${filterStatus === 'resolved' ? 'active' : ''}`} onClick={() => setFilterStatus('resolved')}>
+          <span className="mod-stat-num">{stats.resolved}</span>
+          <span className="mod-stat-label">Resolved</span>
+        </div>
+        {stats.duplicate > 0 && (
+          <div className={`mod-stat-chip duplicate ${filterStatus === 'duplicate' ? 'active' : ''}`} onClick={() => setFilterStatus('duplicate')}>
+            <span className="mod-stat-num">{stats.duplicate}</span>
+            <span className="mod-stat-label">Duplicates</span>
+          </div>
+        )}
+      </div>
+
+      {/* Filters */}
+      <div className="moderation-filters">
+        <div className="search-box">
+          <Search size={18} />
+          <input type="text" placeholder="Search posts..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
+        </div>
+        <select value={filterCategory} onChange={(e) => setFilterCategory(e.target.value)}>
+          <option value="all">All Categories</option>
+          <option value="accident">Accident</option>
+          <option value="road">Road Issue</option>
+          <option value="infrastructure">Infrastructure</option>
+          <option value="other">Other</option>
+        </select>
+        <select value={filterSeverity} onChange={(e) => setFilterSeverity(e.target.value)}>
+          <option value="all">All Severities</option>
+          <option value="low">Low</option>
+          <option value="medium">Medium</option>
+          <option value="high">High</option>
+        </select>
+      </div>
+
+      {/* Posts List */}
+      <div className="moderation-list">
+        {loading ? (
+          <div className="loading-state">
+            <RefreshCw size={32} className="spinning" />
+            <p>Loading posts...</p>
+          </div>
+        ) : incidents.length === 0 ? (
+          <div className="empty-state">
+            <AlertTriangle size={48} />
+            <h3>No posts found</h3>
+            <p>There are currently no posts in the database.</p>
+          </div>
+        ) : filteredIncidents.length === 0 ? (
+          <div className="empty-state">
+            <AlertTriangle size={48} />
+            <h3>No matching posts</h3>
+            <p>Try changing your filter settings. ({incidents.length} total posts)</p>
+          </div>
+        ) : (
+          filteredIncidents.map(incident => {
+            const status = getStatus(incident);
+            const hasImages = (incident.images?.length || 0) > 0;
+            const displayLocation = incident.resolvedLocation || incident.location;
+            return (
+              <div key={incident.id} className={`post-card ${status}`} onClick={() => handleViewIncident(incident)}>
+                {/* Duplicate banner */}
+                {status === 'duplicate' && (
+                  <div className="duplicate-banner">
+                    <Copy size={14} />
+                    <span>Duplicate post detected</span>
+                  </div>
+                )}
+                {/* Post header: thumbnail + info */}
+                <div className="post-card-top">
+                  {hasImages ? (
+                    <div className="post-thumb">
+                      <img src={incident.images[0]} alt="" />
+                    </div>
+                  ) : (
+                    <div className="post-thumb post-thumb-empty">
+                      <AlertTriangle size={20} />
+                    </div>
+                  )}
+                  <div className="post-info">
+                    <h4 className="post-title">{incident.title || 'Untitled Post'}</h4>
+                    <div className="post-meta">
+                      <span className="post-meta-item"><MapPin size={12} />{displayLocation}</span>
+                      <span className="post-meta-item"><User size={12} />{incident.reporter}</span>
+                      <span className="post-meta-item"><Clock size={12} />{formatTimestamp(incident.timestamp)}</span>
+                    </div>
+                  </div>
+                  <div className="post-badges">
+                    <span className="category-badge">{incident.category || 'Other'}</span>
+                    <span className={`status-chip ${status}`}>{getStatusLabel(status)}</span>
+                  </div>
+                </div>
+
+                {incident.description && (
+                  <p className="post-description">{incident.description.length > 120 ? incident.description.substring(0, 120) + '...' : incident.description}</p>
+                )}
+
+                {/* Actions based on status */}
+                <div className="post-actions" onClick={(e) => e.stopPropagation()}>
+                  {status === 'pending' && (
+                    <>
+                      <button className="btn-start-action" onClick={() => handleStartAction(incident.id)} disabled={saving}>
+                        <Play size={14} />
+                        Start Action
+                      </button>
+                      <button className="btn-resolve" onClick={() => openResolveModal(incident)} disabled={saving}>
+                        <CheckCircle size={14} />
+                        Mark as Resolved
+                      </button>
+                      <button className="btn-delete-sm" onClick={() => handleDelete(incident.id)} disabled={saving}>
+                        <Trash2 size={14} />
+                      </button>
+                    </>
+                  )}
+                  {status === 'in_action' && (
+                    <>
+                      <button className="btn-resolve" onClick={() => openResolveModal(incident)} disabled={saving}>
+                        <CheckCircle size={14} />
+                        Mark as Resolved
+                      </button>
+                      <button className="btn-delete-sm" onClick={() => handleDelete(incident.id)} disabled={saving}>
+                        <Trash2 size={14} />
+                      </button>
+                    </>
+                  )}
+                  {status === 'duplicate' && (
+                    <button className="btn-remove-dupe" onClick={() => handleDeleteDuplicate(incident.id)} disabled={saving}>
+                      <Trash2 size={14} />
+                      Remove Duplicate
+                    </button>
+                  )}
+                  {status === 'resolved' && incident.admin_notes && (
+                    <span className="resolved-note"><FileText size={12} /> {incident.admin_notes}</span>
+                  )}
+                </div>
+              </div>
+            );
+          })
+        )}
+      </div>
+
+      {/* Resolve Modal */}
+      {showResolveModal && resolveTarget && (
+        <div className="resolve-modal-overlay" onClick={() => setShowResolveModal(false)}>
+          <div className="resolve-modal" onClick={e => e.stopPropagation()}>
+            <div className="resolve-modal-header">
+              <h3>Mark as Resolved</h3>
+              <button className="resolve-modal-close" onClick={() => setShowResolveModal(false)}><X size={20} /></button>
+            </div>
+            <p className="resolve-modal-subtitle">Resolving: <strong>{resolveTarget.title}</strong></p>
+
+            <div className="resolve-option">
+              <label><FileText size={16} /> Add Update</label>
+              <textarea
+                placeholder="Describe what was done to resolve this incident..."
+                value={resolveText}
+                onChange={e => setResolveText(e.target.value)}
+                rows={3}
+              />
+            </div>
+
+            <div className="resolve-option">
+              <label><Upload size={16} /> Upload Proof (optional)</label>
+              <div className="proof-upload-area" onClick={() => proofInputRef.current?.click()}>
+                {resolveProofPreview ? (
+                  <img src={resolveProofPreview} alt="Proof preview" className="proof-preview-img" />
+                ) : (
+                  <span>Click to upload resolve proof image</span>
+                )}
+              </div>
+              <input
+                ref={proofInputRef}
+                type="file"
+                accept="image/*"
+                style={{ display: 'none' }}
+                onChange={handleProofFileChange}
+              />
+            </div>
+
+            <div className="resolve-modal-actions">
+              <button className="btn-cancel" onClick={() => setShowResolveModal(false)}>Cancel</button>
+              <button className="btn-resolve-confirm" onClick={handleResolve} disabled={saving}>
+                {saving ? 'Resolving...' : 'Confirm Resolved'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      <ReportDetailModal
+        report={selectedIncident}
+        isOpen={showModal}
+        onClose={() => setShowModal(false)}
+        onApprove={handleApprove}
+        onReject={handleReject}
+        loading={saving}
+      />
+    </div>
+  );
+};
+
+export default IncidentModeration;
