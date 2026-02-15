@@ -567,6 +567,9 @@ const AdminDashboard = ({ user, onLogout }) => {
       {/* Sidebar */}
       <div className={`sidebar ${sidebarCollapsed ? 'collapsed' : ''}`}>
         <div className="sidebar-header">
+          <button className="sidebar-toggle" onClick={toggleSidebar}>
+            <Menu size={20} />
+          </button>
           <div className="brand-icon">
             <img 
               src="/logourb.png" 
@@ -656,9 +659,6 @@ const AdminDashboard = ({ user, onLogout }) => {
         {/* Header */}
         <div className="header">
           <div className="header-left">
-            <button className="sidebar-toggle" onClick={toggleSidebar}>
-              <Menu size={20} />
-            </button>
             <h1 className="page-title">
               {activeTab === 'map' && 'Live Post Map'}
               {activeTab === 'overview' && 'Dashboard Overview'}
@@ -674,7 +674,7 @@ const AdminDashboard = ({ user, onLogout }) => {
               <Search className="search-icon" size={20} />
               <input 
                 type="text" 
-                placeholder="Search reports..." 
+                placeholder="Search posts..." 
                 className="search-input"
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
@@ -818,6 +818,9 @@ const AdminDashboard = ({ user, onLogout }) => {
                         outerRadius={100}
                         paddingAngle={5}
                         dataKey="value"
+                        label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
+                        labelLine={{ stroke: isDark ? 'rgba(255,255,255,0.3)' : '#94a3b8' }}
+                        style={{ fontSize: '0.75rem', fill: isDark ? '#e2e8f0' : '#374151' }}
                       >
                         {incidentTypes.map((entry, index) => (
                           <Cell key={`cell-${index}`} fill={entry.color} />
@@ -825,7 +828,7 @@ const AdminDashboard = ({ user, onLogout }) => {
                       </Pie>
                       <Tooltip 
                         contentStyle={{ 
-                          backgroundColor: isDark ? 'rgba(15,23,42,0.9)' : '#ffffff', 
+                          backgroundColor: isDark ? 'rgba(15,23,42,0.95)' : '#ffffff', 
                           border: isDark ? '1px solid rgba(59,130,246,0.3)' : '1px solid #e2e8f0',
                           borderRadius: '8px',
                           color: isDark ? '#f8fafc' : '#0f172a'

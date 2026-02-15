@@ -1,9 +1,34 @@
 import React, { useState, useCallback, useMemo } from 'react';
 import Map, { Marker, Popup, NavigationControl, FullscreenControl, ScaleControl } from 'react-map-gl/mapbox';
-import { MapPin, AlertTriangle, Shield, Clock, Users, Info, X } from 'lucide-react';
+import { MapPin, AlertTriangle, Shield, Clock, Users, Info, X, Tag, User, Calendar, ChevronRight } from 'lucide-react';
 import { MAPBOX_CONFIG } from '../config/mapbox';
 import 'mapbox-gl/dist/mapbox-gl.css';
 import './MapComponent.css';
+
+// Parse PostGIS WKB hex to lat/lng (little-endian)
+const parsePostGISHex = (hex) => {
+  try {
+    if (!hex || typeof hex !== 'string') return null;
+    const clean = hex.replace(/[^0-9A-Fa-f]/g, '');
+    let offset = 0;
+    if (clean.startsWith('0101000020E6100000')) offset = 36;
+    else if (clean.startsWith('0101000000')) offset = 10;
+    else return null;
+    if (clean.length < offset + 32) return null;
+    const lonHex = clean.substring(offset, offset + 16);
+    const latHex = clean.substring(offset + 16, offset + 32);
+    const readLE = (h) => {
+      const buf = new ArrayBuffer(8);
+      const view = new DataView(buf);
+      for (let i = 0; i < 16; i += 2) view.setUint8(i / 2, parseInt(h.substring(i, i + 2), 16));
+      return view.getFloat64(0, true);
+    };
+    const lon = readLE(lonHex);
+    const lat = readLE(latHex);
+    if (lat >= -90 && lat <= 90 && lon >= -180 && lon <= 180) return { lat, lng: lon };
+  } catch (e) {}
+  return null;
+};
 
 const MapComponent = ({ 
   incidents = [], 
@@ -17,142 +42,101 @@ const MapComponent = ({
   const [selectedMarker, setSelectedMarker] = useState(null);
   const [mapStyle, setMapStyle] = useState(MAPBOX_CONFIG.DEFAULT_STYLE);
 
-  // Process incidents from database to ensure they have coordinates
   const displayIncidents = useMemo(() => {
-    console.log('Processing incidents for map. Total incidents:', incidents.length);
-    console.log('Sample incident structure:', incidents[0]);
-    
     const processed = incidents
-      .map((incident, index) => {
+      .map((incident) => {
         let coordinates = null;
         
-        // Priority 1: Check if incident has latitude and longitude fields (most common)
+        // Priority 1: latitude/longitude fields (already parsed from PostGIS in supabase.js)
         if (incident.latitude != null && incident.longitude != null) {
           const lat = parseFloat(incident.latitude);
           const lng = parseFloat(incident.longitude);
           if (!isNaN(lat) && !isNaN(lng) && lat >= -90 && lat <= 90 && lng >= -180 && lng <= 180) {
             coordinates = { lat, lng };
-            console.log(`Incident ${index} (${incident.id}): Using latitude/longitude fields:`, coordinates);
           }
         }
         
-        // Priority 2: Check if incident has coordinates field (JSON format)
+        // Priority 2: Parse PostGIS hex from location field directly
+        if (!coordinates && incident.location && typeof incident.location === 'string') {
+          const clean = incident.location.replace(/[^0-9A-Fa-f]/g, '');
+          if (clean.startsWith('010100')) {
+            coordinates = parsePostGISHex(incident.location);
+          }
+        }
+
+        // Priority 3: coordinates field (JSON)
         if (!coordinates && incident.coordinates) {
           try {
-            let coords = incident.coordinates;
-            if (typeof coords === 'string') {
-              coords = JSON.parse(coords);
-            }
-            if (coords && (coords.lat != null || coords.latitude != null) && (coords.lng != null || coords.longitude != null)) {
+            let coords = typeof incident.coordinates === 'string' ? JSON.parse(incident.coordinates) : incident.coordinates;
+            if (coords) {
               const lat = parseFloat(coords.lat || coords.latitude);
               const lng = parseFloat(coords.lng || coords.longitude);
               if (!isNaN(lat) && !isNaN(lng) && lat >= -90 && lat <= 90 && lng >= -180 && lng <= 180) {
                 coordinates = { lat, lng };
-                console.log(`Incident ${index} (${incident.id}): Using coordinates field:`, coordinates);
               }
             }
-          } catch (e) {
-            console.error(`Error parsing coordinates for incident ${incident.id}:`, e);
-          }
+          } catch (e) {}
         }
+
+        // Skip incidents with no valid coordinates
+        if (!coordinates) return null;
         
-        // Priority 3: Try to extract coordinates from location string if it contains lat/lng
-        if (!coordinates && incident.location) {
-          const latMatch = incident.location.match(/lat[:\s]*([0-9.-]+)/i);
-          const lngMatch = incident.location.match(/lng[:\s]*([0-9.-]+)/i);
-          if (latMatch && lngMatch) {
-            const lat = parseFloat(latMatch[1]);
-            const lng = parseFloat(lngMatch[1]);
-            if (!isNaN(lat) && !isNaN(lng) && lat >= -90 && lat <= 90 && lng >= -180 && lng <= 180) {
-              coordinates = { lat, lng };
-              console.log(`Incident ${index} (${incident.id}): Extracted coordinates from location:`, coordinates);
-            }
-          }
-        }
-        
-        // If no coordinates found at all, use default center location as fallback
-        // This ensures ALL incidents are displayed on the map, even without exact coordinates
-        if (!coordinates) {
-          console.warn(`⚠️ Incident ${index} (${incident.id}) "${incident.title || 'Untitled'}" has no valid coordinates. Using default location.`, {
-            hasLatitude: incident.latitude != null,
-            hasLongitude: incident.longitude != null,
-            hasCoordinates: incident.coordinates != null,
-            latitude: incident.latitude,
-            longitude: incident.longitude,
-            coordinates: incident.coordinates,
-            location: incident.location
-          });
-          
-          // Use default map center with slight variation to avoid overlapping markers
-          // Each incident without coordinates gets a slightly different position
-          const defaultLat = MAPBOX_CONFIG.DEFAULT_CENTER.latitude + (Math.random() - 0.5) * 0.01;
-          const defaultLng = MAPBOX_CONFIG.DEFAULT_CENTER.longitude + (Math.random() - 0.5) * 0.01;
-          coordinates = { 
-            lat: defaultLat, 
-            lng: defaultLng,
-            isFallback: true // Flag to indicate this is a fallback location
-          };
-        }
-        
-        const processedIncident = {
+        return {
           ...incident,
           coordinates,
-          // Map database fields to display fields
           type: incident.category || incident.type || 'General',
           severity: incident.severity || 'medium',
           status: incident.status || 'pending',
+          displayAddress: incident.address || null,
           timestamp: incident.created_at ? new Date(incident.created_at).toLocaleString() : 'Unknown',
-          safetyScore: incident.safety_score || 75
         };
-        
-        return processedIncident;
-      });
-      // All incidents are now displayed - those without exact coordinates use fallback location
-    
-    // Calculate summary statistics
-    const withExactCoords = processed.filter(i => i?.coordinates && !i.coordinates.isFallback).length;
-    const withFallbackCoords = processed.filter(i => i?.coordinates?.isFallback).length;
-    
-    console.log(`🗺️ Map Display Summary:`);
-    console.log(`   Total incidents received: ${incidents.length}`);
-    console.log(`   Incidents displayed: ${processed.length}`);
-    console.log(`   With exact coordinates: ${withExactCoords}`);
-    console.log(`   With fallback coordinates: ${withFallbackCoords}`);
+      })
+      .filter(Boolean);
     
     return processed;
   }, [incidents]);
 
   const getSeverityColor = useCallback((severity) => {
     switch (severity) {
-      case 'critical': return '#dc2626'; // Dark red
-      case 'high': return '#ef4444';     // Red
-      case 'medium': return '#f59e0b';   // Orange
-      case 'low': return '#10b981';      // Green
-      default: return '#6b7280';         // Gray
+      case 'critical': return '#dc2626';
+      case 'high': return '#ef4444';
+      case 'medium': return '#f59e0b';
+      case 'low': return '#10b981';
+      default: return '#6b7280';
     }
   }, []);
 
-  const getIncidentIcon = useCallback((type) => {
-    switch (type) {
-      case 'Traffic': return <AlertTriangle size={16} />;
-      case 'Infrastructure': return <MapPin size={16} />;
-      case 'Construction': return <Users size={16} />;
-      case 'Weather': return <Shield size={16} />;
-      case 'Event': return <Info size={16} />;
-      default: return <AlertTriangle size={16} />;
+  const getStatusInfo = useCallback((status) => {
+    switch (status) {
+      case 'pending': return { label: 'Pending', color: '#f59e0b', bg: 'rgba(245, 158, 11, 0.15)' };
+      case 'in_action': return { label: 'In Action', color: '#3b82f6', bg: 'rgba(59, 130, 246, 0.15)' };
+      case 'resolved': return { label: 'Resolved', color: '#10b981', bg: 'rgba(16, 185, 129, 0.15)' };
+      case 'duplicate': return { label: 'Duplicate', color: '#8b5cf6', bg: 'rgba(139, 92, 246, 0.15)' };
+      default: return { label: status || 'Unknown', color: '#6b7280', bg: 'rgba(107, 114, 128, 0.15)' };
     }
   }, []);
 
   const handleMarkerClick = useCallback((incident) => {
     setSelectedMarker(incident);
-    if (onMarkerClick) {
-      onMarkerClick(incident);
-    }
+    if (onMarkerClick) onMarkerClick(incident);
   }, [onMarkerClick]);
 
   const handleClosePopup = useCallback(() => {
     setSelectedMarker(null);
   }, []);
+
+  const formatTimeAgo = (dateStr) => {
+    if (!dateStr) return '';
+    const diff = Date.now() - new Date(dateStr).getTime();
+    const mins = Math.floor(diff / 60000);
+    if (mins < 1) return 'Just now';
+    if (mins < 60) return `${mins}m ago`;
+    const hrs = Math.floor(mins / 60);
+    if (hrs < 24) return `${hrs}h ago`;
+    const days = Math.floor(hrs / 24);
+    if (days < 7) return `${days}d ago`;
+    return new Date(dateStr).toLocaleDateString();
+  };
 
   const mapStyles = MAPBOX_CONFIG.STYLES;
 
@@ -172,7 +156,7 @@ const MapComponent = ({
         </div>
         
         <div className="map-legend">
-          <h4>Severity Levels</h4>
+          <h4>Severity</h4>
           <div className="legend-items">
             <div className="legend-item">
               <div className="legend-marker" style={{ backgroundColor: '#dc2626' }}></div>
@@ -202,12 +186,10 @@ const MapComponent = ({
         mapStyle={mapStyle}
         attributionControl={false}
       >
-        {/* Navigation Controls */}
         <NavigationControl position="top-right" />
         <FullscreenControl position="top-right" />
         <ScaleControl position="bottom-left" />
 
-        {/* Incident Markers */}
         {displayIncidents.map((incident) => (
           <Marker
             key={incident.id}
@@ -220,18 +202,14 @@ const MapComponent = ({
             }}
           >
             <div 
-              className={`custom-marker ${incident.severity}`}
-              style={{ 
-                backgroundColor: getSeverityColor(incident.severity),
-                border: selectedMarker?.id === incident.id ? '3px solid white' : 'none'
-              }}
+              className={`custom-marker ${incident.severity} ${selectedMarker?.id === incident.id ? 'selected' : ''}`}
+              style={{ backgroundColor: getSeverityColor(incident.severity) }}
             >
-              {getIncidentIcon(incident.type)}
+              <AlertTriangle size={14} />
             </div>
           </Marker>
         ))}
 
-        {/* Popup for selected marker */}
         {selectedMarker && (
           <Popup
             longitude={selectedMarker.coordinates.lng}
@@ -240,77 +218,99 @@ const MapComponent = ({
             onClose={handleClosePopup}
             closeButton={false}
             className="custom-popup"
+            maxWidth="320px"
+            offset={12}
           >
-            <div className="popup-content">
-              <div className="popup-header">
-                <div className="popup-title">
-                  <div className="popup-icon" style={{ color: getSeverityColor(selectedMarker.severity) }}>
-                    {getIncidentIcon(selectedMarker.type)}
-                  </div>
-                  <h3>{selectedMarker.title}</h3>
+            <div className="popup-card">
+              {/* Top accent bar */}
+              <div className="popup-accent" style={{ background: getSeverityColor(selectedMarker.severity) }} />
+
+              {/* Header */}
+              <div className="popup-card-header">
+                <div className="popup-card-title-row">
+                  <h3 className="popup-card-title">{selectedMarker.title || 'Untitled Post'}</h3>
+                  <button className="popup-card-close" onClick={handleClosePopup}>
+                    <X size={14} />
+                  </button>
                 </div>
-                <button className="popup-close" onClick={handleClosePopup}>
-                  <X size={16} />
+                <div className="popup-card-meta">
+                  <span className="popup-card-time">
+                    <Clock size={12} />
+                    {formatTimeAgo(selectedMarker.created_at)}
+                  </span>
+                  <span className="popup-card-reporter">
+                    <User size={12} />
+                    {selectedMarker.reporter || 'Anonymous'}
+                  </span>
+                </div>
+              </div>
+
+              {/* Image preview if available */}
+              {selectedMarker.images && selectedMarker.images.length > 0 && (
+                <div className="popup-card-image">
+                  <img 
+                    src={selectedMarker.images[0]} 
+                    alt="Incident" 
+                    onError={(e) => { e.target.style.display = 'none'; }}
+                  />
+                </div>
+              )}
+
+              {/* Description */}
+              {selectedMarker.description && (
+                <p className="popup-card-desc">
+                  {selectedMarker.description.length > 120 
+                    ? selectedMarker.description.substring(0, 120) + '...' 
+                    : selectedMarker.description}
+                </p>
+              )}
+
+              {/* Info rows */}
+              <div className="popup-card-info">
+                <div className="popup-card-info-row">
+                  <MapPin size={13} />
+                  <span>{selectedMarker.displayAddress || selectedMarker.address || 'Location not specified'}</span>
+                </div>
+                <div className="popup-card-info-row">
+                  <Tag size={13} />
+                  <span>{selectedMarker.type}</span>
+                </div>
+              </div>
+
+              {/* Tags */}
+              <div className="popup-card-tags">
+                <span 
+                  className="popup-tag severity-tag" 
+                  style={{ 
+                    color: getSeverityColor(selectedMarker.severity),
+                    background: `${getSeverityColor(selectedMarker.severity)}20`,
+                    borderColor: `${getSeverityColor(selectedMarker.severity)}40`
+                  }}
+                >
+                  {selectedMarker.severity}
+                </span>
+                <span 
+                  className="popup-tag status-tag" 
+                  style={{ 
+                    color: getStatusInfo(selectedMarker.status).color,
+                    background: getStatusInfo(selectedMarker.status).bg,
+                    borderColor: `${getStatusInfo(selectedMarker.status).color}40`
+                  }}
+                >
+                  {getStatusInfo(selectedMarker.status).label}
+                </span>
+              </div>
+
+              {/* View details button */}
+              {onMarkerClick && (
+                <button 
+                  className="popup-card-btn"
+                  onClick={() => onMarkerClick(selectedMarker)}
+                >
+                  View Details
+                  <ChevronRight size={14} />
                 </button>
-              </div>
-              
-              <div className="popup-body">
-                <p className="popup-description">{selectedMarker.description}</p>
-                
-                {selectedMarker.coordinates?.isFallback && (
-                  <div className="popup-warning" style={{ 
-                    backgroundColor: '#fef3c7', 
-                    color: '#92400e', 
-                    padding: '8px', 
-                    borderRadius: '4px', 
-                    marginBottom: '12px',
-                    fontSize: '12px',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '6px'
-                  }}>
-                    <AlertTriangle size={14} />
-                    <span>Approximate location - exact coordinates not available</span>
-                  </div>
-                )}
-                
-                <div className="popup-details">
-                  <div className="popup-detail">
-                    <MapPin size={14} />
-                    <span>{selectedMarker.address || selectedMarker.location || 'Location not specified'}</span>
-                  </div>
-                  <div className="popup-detail">
-                    <Clock size={14} />
-                    <span>{selectedMarker.timestamp}</span>
-                  </div>
-                  {selectedMarker.safetyScore && (
-                    <div className="popup-detail">
-                      <Shield size={14} />
-                      <span>Safety: {selectedMarker.safetyScore}%</span>
-                    </div>
-                  )}
-                </div>
-
-                <div className="popup-badges">
-                  <span 
-                    className="severity-badge" 
-                    style={{ backgroundColor: getSeverityColor(selectedMarker.severity) }}
-                  >
-                    {selectedMarker.severity}
-                  </span>
-                  <span className="type-badge">{selectedMarker.type}</span>
-                  <span className={`status-badge ${selectedMarker.status}`}>
-                    {selectedMarker.status}
-                  </span>
-                </div>
-
-                {userType === 'admin' && selectedMarker.status === 'active' && (
-                  <div className="popup-actions">
-                    <button className="btn-approve">Approve</button>
-                    <button className="btn-reject">Reject</button>
-                  </div>
-                )}
-              </div>
+              )}
             </div>
           </Popup>
         )}
@@ -319,35 +319,34 @@ const MapComponent = ({
       {/* Map Statistics */}
       <div className="map-stats">
         <div className="stat-item">
-          <span className="stat-label">Total Incidents</span>
+          <span className="stat-label">Total Posts</span>
           <span className="stat-value">{displayIncidents.length}</span>
         </div>
         <div className="stat-item">
           <span className="stat-label">Pending</span>
-          <span className="stat-value">
+          <span className="stat-value" style={{ color: '#f59e0b' }}>
             {displayIncidents.filter(i => i.status === 'pending').length}
           </span>
         </div>
         <div className="stat-item">
           <span className="stat-label">In Action</span>
-          <span className="stat-value">
+          <span className="stat-value" style={{ color: '#3b82f6' }}>
             {displayIncidents.filter(i => i.status === 'in_action').length}
           </span>
         </div>
         <div className="stat-item">
           <span className="stat-label">Resolved</span>
-          <span className="stat-value">
+          <span className="stat-value" style={{ color: '#10b981' }}>
             {displayIncidents.filter(i => i.status === 'resolved').length}
           </span>
         </div>
       </div>
 
-      {/* No Data Message */}
       {displayIncidents.length === 0 && (
         <div className="no-data-message">
           <MapPin size={48} />
-          <h3>No Incidents Reported</h3>
-          <p>There are currently no incidents to display on the map. Check back later for updates.</p>
+          <h3>No Posts to Display</h3>
+          <p>There are currently no posts with valid locations to display on the map.</p>
         </div>
       )}
     </div>
