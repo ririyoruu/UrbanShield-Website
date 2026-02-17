@@ -50,8 +50,8 @@ export const authService = {
         throw new Error('Invalid or expired invitation code');
       }
 
-      console.log('Step 3: Creating Supabase auth account...');
-      // Create the Supabase auth account
+      console.log('Step 3: Creating Supabase auth account with email verification...');
+      // Create the Supabase auth account with email verification
       const { data, error } = await supabase.auth.signUp({
         email,
         password,
@@ -61,7 +61,8 @@ export const authService = {
             username: userData.name + '_' + Date.now(), // Make unique
             user_type: 'admin', // Must match constraint: ['resident', 'government', 'admin']
             phone_number: userData.phone || null
-          }
+          },
+          emailRedirectTo: `${window.location.origin}/`
         }
       });
 
@@ -183,6 +184,17 @@ export const authService = {
       }
 
       console.log('=== SIGNUP PROCESS COMPLETE ===');
+      
+      // Check if email verification is required
+      if (data.user && !data.user.email_confirmed_at) {
+        return {
+          user: data.user,
+          session: null,
+          message: 'Account created! Please check your email to verify your account before logging in.',
+          requiresEmailVerification: true
+        };
+      }
+      
       return data;
     } catch (error) {
       console.error('=== SIGNUP ERROR ===');
@@ -337,6 +349,30 @@ export const authService = {
       return data;
     } catch (error) {
       console.error('Update profile error:', error);
+      throw error;
+    }
+  },
+
+  // Send admin email via Edge Function
+  async sendAdminEmail(email, type, urls = {}) {
+    try {
+      const { data, error } = await supabase.functions.invoke('admin-email-verify', {
+        body: {
+          email,
+          type,
+          confirmation_url: urls.confirmation_url,
+          reset_url: urls.reset_url
+        }
+      });
+
+      if (error) {
+        console.error('Admin email error:', error);
+        throw error;
+      }
+
+      return data;
+    } catch (error) {
+      console.error('Send admin email error:', error);
       throw error;
     }
   },

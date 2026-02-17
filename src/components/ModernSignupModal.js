@@ -48,8 +48,16 @@ const ModernSignupModal = ({ onClose, onSignup, onSwitchToLogin }) => {
         invitationCode: formData.invitationCode
       });
       
-      if (result.success) {
-        setSuccess(result.message || 'Admin account created successfully!');
+      if (result.requiresEmailVerification) {
+        // Email verification required
+        setSuccess(result.message || 'Account created! Please check your email to verify your account.');
+        setTimeout(() => {
+          onClose();
+          onSwitchToLogin(); // Switch to login modal after showing message
+        }, 5000);
+      } else if (result.success || result.user) {
+        // Direct login (no verification needed)
+        setSuccess('Account created successfully!');
         setTimeout(() => {
           onClose();
         }, 3000);

@@ -1,8 +1,10 @@
 import React, { useState, useEffect } from 'react';
+import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import SimpleAuth from './components/SimpleAuth';
 import AdminDashboard from './components/AdminDashboard';
 import ModernLoginModal from './components/ModernLoginModal';
 import ModernSignupModal from './components/ModernSignupModal';
+import EmailVerification from './pages/EmailVerification';
 import { authService } from './services/authService';
 import { ThemeProvider } from './contexts/ThemeContext';
 import './App.css';
@@ -100,47 +102,54 @@ function App() {
 
   return (
     <ThemeProvider>
-      <div className="App">
-        {!user ? (
-          <SimpleAuth 
-            onLoginClick={() => setShowLoginModal(true)}
-            onSignupClick={() => setShowSignupModal(true)}
-          />
-        ) : (
-          user.type === 'admin' ? (
-            <AdminDashboard user={user} onLogout={handleLogout} />
-          ) : (
-            <div className="user-dashboard">
-              <h1>Welcome, {user.name}!</h1>
-              <p>Your account type: {user.type}</p>
-              <button onClick={handleLogout}>Logout</button>
+      <Router>
+        <Routes>
+          <Route path="/verify-email" element={<EmailVerification />} />
+          <Route path="/" element={
+            <div className="App">
+              {!user ? (
+                <SimpleAuth 
+                  onLoginClick={() => setShowLoginModal(true)}
+                  onSignupClick={() => setShowSignupModal(true)}
+                />
+              ) : (
+                user.type === 'admin' ? (
+                  <AdminDashboard user={user} onLogout={handleLogout} />
+                ) : (
+                  <div className="user-dashboard">
+                    <h1>Welcome, {user.name}!</h1>
+                    <p>Your account type: {user.type}</p>
+                    <button onClick={handleLogout}>Logout</button>
+                  </div>
+                )
+              )}
+
+              {showLoginModal && (
+                <ModernLoginModal
+                  onClose={() => setShowLoginModal(false)}
+                  onLogin={handleLogin}
+                  onSwitchToSignup={() => {
+                    setShowLoginModal(false);
+                    setShowSignupModal(true);
+                  }}
+                />
+              )}
+
+              {showSignupModal && (
+                <ModernSignupModal
+                  onClose={() => setShowSignupModal(false)}
+                  onSignup={handleSignup}
+                  onSwitchToLogin={() => {
+                    setShowSignupModal(false);
+                    setShowLoginModal(true);
+                  }}
+                />
+              )}
             </div>
-          )
-        )}
-
-          {showLoginModal && (
-            <ModernLoginModal
-              onClose={() => setShowLoginModal(false)}
-              onLogin={handleLogin}
-              onSwitchToSignup={() => {
-                setShowLoginModal(false);
-                setShowSignupModal(true);
-              }}
-            />
-          )}
-
-          {showSignupModal && (
-            <ModernSignupModal
-              onClose={() => setShowSignupModal(false)}
-              onSignup={handleSignup}
-              onSwitchToLogin={() => {
-                setShowSignupModal(false);
-                setShowLoginModal(true);
-              }}
-            />
-          )}
-
-      </div>
+          } />
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Routes>
+      </Router>
     </ThemeProvider>
   );
 }
