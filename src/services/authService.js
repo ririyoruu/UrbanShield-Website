@@ -341,10 +341,29 @@ export const authService = {
     }
   },
 
-  // Reset password
+  // Reset password (admin only)
   async resetPassword(email) {
     try {
-      console.log('Sending password reset email to:', email);
+      console.log('Checking admin status for email:', email);
+      
+      // First check if user is an admin
+      const { data: profileData, error: profileError } = await supabase
+        .from('profiles')
+        .select('user_type')
+        .eq('email', email)
+        .single();
+      
+      if (profileError || !profileData) {
+        console.log('User not found:', email);
+        throw new Error('No account found with this email address');
+      }
+      
+      if (profileData.user_type !== 'admin') {
+        console.log('Non-admin user attempted reset:', email, profileData.user_type);
+        throw new Error('Only administrators can reset their password');
+      }
+      
+      console.log('Admin user verified, sending reset email to:', email);
       console.log('Redirect URL will be:', `${window.location.origin}/reset-password`);
       
       const { data, error } = await supabase.auth.resetPasswordForEmail(email, {
@@ -358,7 +377,7 @@ export const authService = {
         throw error;
       }
 
-      console.log('Password reset email sent successfully');
+      console.log('Password reset email sent successfully to admin');
       return data;
     } catch (error) {
       console.error('Reset password error:', error);

@@ -172,8 +172,7 @@ const AdminDashboard = ({ user, onLogout }) => {
     try {
       const incidents = await adminService.getAllReports();
       const pendingCount = incidents.filter(incident => {
-        const verified = incident.is_verified;
-        return verified === null || verified === undefined;
+        return incident.status === 'pending';
       }).length;
       setNotificationCount(pendingCount);
     } catch (error) {

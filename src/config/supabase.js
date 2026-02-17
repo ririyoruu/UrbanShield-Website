@@ -25,20 +25,32 @@ export const adminService = {
       
       if (error) throw error;
       
-      // Process PostGIS location data
+      // Process location data
       const processedData = (data || []).map(incident => {
         const processed = { ...incident };
         
+        // Log ALL fields to find where coordinates live
+        console.log(`📍 Incident ${incident.id} raw fields:`, {
+          location: incident.location,
+          location_type: typeof incident.location,
+          latitude: incident.latitude,
+          longitude: incident.longitude,
+          coordinates: incident.coordinates,
+          address: incident.address,
+          city: incident.city,
+          all_keys: Object.keys(incident)
+        });
+        
         // Extract coordinates from PostGIS geography if available
         if (incident.location && typeof incident.location === 'string') {
-          // Parse PostGIS geography hex to extract lat/lng
+          console.log(`🔍 Parsing location for ${incident.id}:`, incident.location);
           const coords = this.parsePostGISLocation(incident.location);
           if (coords) {
             processed.latitude = coords.lat;
             processed.longitude = coords.lng;
-            console.log(`✅ Extracted coordinates for ${incident.id}: lat=${coords.lat}, lng=${coords.lng}`);
+            console.log(`✅ Parsed coords for ${incident.id}: lat=${coords.lat}, lng=${coords.lng}`);
           } else {
-            console.warn(`⚠️ Could not parse location for incident ${incident.id}`);
+            console.warn(`⚠️ Could not parse location for incident ${incident.id}:`, incident.location.substring(0, 60));
           }
         }
         
@@ -73,36 +85,43 @@ export const adminService = {
     }
   },
 
-  // Helper function to parse PostGIS geography hex to lat/lng
+  // Helper: parse PostGIS WKB hex → {lat, lng}
   parsePostGISLocation(hex) {
     try {
       if (!hex || typeof hex !== 'string') return null;
       const clean = hex.replace(/[^0-9A-Fa-f]/g, '');
-      let offset = 0;
-      // PostGIS geography (SRID 4326) starts with 0101000020E6100000
-      if (clean.startsWith('0101000020E6100000')) offset = 36;
-      // PostGIS geometry starts with 0101000000
-      else if (clean.startsWith('0101000000')) offset = 10;
-      else return null;
-      if (clean.length < offset + 32) return null;
-      const lonHex = clean.substring(offset, offset + 16);
-      const latHex = clean.substring(offset + 16, offset + 32);
-      // WKB with 01 prefix = little-endian byte order
-      const readDoublLE = (h) => {
-        const bytes = [];
-        for (let i = 0; i < 16; i += 2) bytes.push(parseInt(h.substring(i, i + 2), 16));
+      
+      // Determine offset based on WKB header
+      let offset = -1;
+      if (clean.startsWith('0101000020E6100000')) offset = 36;      // geography SRID 4326
+      else if (clean.startsWith('0101000000')) offset = 10;          // geometry
+      if (offset < 0 || clean.length < offset + 32) return null;
+      
+      // Read little-endian IEEE 754 double from hex (16 chars = 8 bytes)
+      const readLE = (h) => {
         const buf = new ArrayBuffer(8);
-        const view = new DataView(buf);
-        bytes.forEach((b, i) => view.setUint8(i, b));
-        return view.getFloat64(0, true); // true = little-endian
+        const dv = new DataView(buf);
+        for (let i = 0; i < 8; i++) {
+          dv.setUint8(i, parseInt(h.substring(i * 2, i * 2 + 2), 16));
+        }
+        return dv.getFloat64(0, true);
       };
-      const lon = readDoublLE(lonHex);
-      const lat = readDoublLE(latHex);
-      if (lat >= -90 && lat <= 90 && lon >= -180 && lon <= 180) {
-        return { lat, lng: lon };
+      
+      // WKB Point stores X (longitude) first, then Y (latitude)
+      const x = readLE(clean.substring(offset, offset + 16));
+      const y = readLE(clean.substring(offset + 16, offset + 32));
+      
+      // x = longitude, y = latitude in standard WKB
+      // Validate and return
+      if (y >= -90 && y <= 90 && x >= -180 && x <= 180) {
+        return { lat: y, lng: x };
+      }
+      // Sometimes stored as lat,lng instead of lng,lat — try swapped
+      if (x >= -90 && x <= 90 && y >= -180 && y <= 180) {
+        return { lat: x, lng: y };
       }
     } catch (e) {
-      console.error('Error parsing PostGIS location:', e);
+      console.error('PostGIS parse error:', e);
     }
     return null;
   },
@@ -705,6 +724,11 @@ export const adminService = {
       
       console.log('Users fetch result:', { data, error });
       
+      if (data && data.length > 0) {
+        console.log('🔍 Profile columns found:', Object.keys(data[0]));
+        console.log('🔍 Sample user data:', data[0]);
+      }
+      
       if (error) throw error;
       return data;
     } catch (error) {
@@ -715,33 +739,24 @@ export const adminService = {
 
   async updateUserVerification(userId, isVerified, verificationStatus = null) {
     try {
-      console.log('Updating user verification:', { userId, isVerified, verificationStatus });
-      
       if (!userId) {
         throw new Error('User ID is required');
       }
       
       // Determine verification_status based on isVerified if not explicitly provided
-      // Database accepts: 'pending', 'verified', 'rejected', 'suspended'
+      // Database accepts: 'pending', 'verified', 'null'
       let status = verificationStatus;
       if (!status) {
-        if (isVerified === true) {
-          status = 'verified';  // Changed from 'approved' to 'verified'
-        } else if (isVerified === false) {
-          status = 'rejected';
-        } else {
-          status = 'pending';
-        }
+        status = isVerified ? 'verified' : 'pending';
       }
       
-      // Update both is_verified and verification_status
+      // Update only verification_status (is_verified column doesn't exist)
       const updateData = { 
-        is_verified: isVerified,
         verification_status: status,
         updated_at: new Date().toISOString()
       };
       
-      console.log('Update data:', updateData);
+      console.log('Updating user verification:', { userId, updateData });
       
       // Update profiles table
       const { data, error } = await supabase
@@ -750,18 +765,13 @@ export const adminService = {
         .eq('id', userId)
         .select();
       
-      if (error) {
-        console.error('Supabase error:', error);
-        throw error;
-      }
+      if (error) throw error;
       
-      if (!data || data.length === 0) {
-        throw new Error('No user found with the provided ID');
-      }
-      
-      console.log('User verification updated successfully:', data);
-      return data[0];
+      console.log('✅ User verification updated successfully:', data);
+      return data;
     } catch (error) {
+      console.error('❌ Error updating user verification:', error);
+      throw error;
       console.error('Error updating user verification:', error);
       // Re-throw with more context
       if (error.message) {

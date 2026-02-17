@@ -49,8 +49,7 @@ const UserDetailModal = ({ user, isOpen, onClose, onApprove, onReject, loading }
   documents = documents.filter(doc => doc && doc.trim() !== '');
   const hasDocuments = documents.length > 0;
 
-  const canVerify = (user.verification_status === 'pending' || user.verification_status === null || user.verification_status === undefined) && 
-                   (user.is_verified === null || user.is_verified === undefined || user.is_verified === false);
+  const canVerify = user.verification_status === 'pending' || user.verification_status === null || user.verification_status === undefined;
 
   const handlePreviousDocument = () => {
     setCurrentDocumentIndex((prev) => (prev > 0 ? prev - 1 : documents.length - 1));
@@ -77,9 +76,9 @@ const UserDetailModal = ({ user, isOpen, onClose, onApprove, onReject, loading }
   };
 
   const getStatusBadge = () => {
-    if (user.verification_status === 'approved' || user.verification_status === 'verified' || user.is_verified === true) {
+    if (user.verification_status === 'verified') {
       return { text: 'Verified', color: '#10b981', icon: <CheckCircle size={16} /> };
-    } else if (user.verification_status === 'rejected' || user.is_verified === false) {
+    } else if (user.verification_status === 'rejected') {
       return { text: 'Rejected', color: '#ef4444', icon: <XCircle size={16} /> };
     } else if (user.verification_status === 'suspended') {
       return { text: 'Suspended', color: '#ef4444', icon: <XCircle size={16} /> };

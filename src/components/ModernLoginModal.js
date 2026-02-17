@@ -80,7 +80,7 @@ const ModernLoginModal = ({ onClose, onLogin, onSwitchToSignup }) => {
           </h1>
           <p className="auth-subtitle">
             {showForgotPassword 
-              ? 'Enter your email to receive reset instructions'
+              ? 'Enter your admin email to receive reset instructions'
               : 'Sign in to manage your incident dashboard'
             }
           </p>
@@ -104,7 +104,7 @@ const ModernLoginModal = ({ onClose, onLogin, onSwitchToSignup }) => {
                     value={forgotPasswordEmail}
                     onChange={(e) => setForgotPasswordEmail(e.target.value)}
                     className="auth-input"
-                    placeholder="Enter your email address"
+                    placeholder="Enter your admin email address"
                     required
                   />
                   <Mail className="auth-input-icon" size={20} />

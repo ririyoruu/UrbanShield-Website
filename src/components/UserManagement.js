@@ -216,15 +216,16 @@ const UserManagement = () => {
     return !noApprovalNeeded.includes(userType);
   };
 
-  const getApprovalStatus = (user) => {
-    if (!requiresApproval(user.user_type)) {
+  const getStatusBadge = (user) => {
+    // Auto-approved users (admin-created) get special status
+    if (user.user_type === 'admin' || user.user_type === 'superadmin') {
       return { status: 'auto-approved', color: '#10b981', text: 'Auto-Approved' };
     }
     
-    // Check verification_status field (from database) - accepts 'verified', 'rejected', 'suspended', 'pending'
-    if (user.verification_status === 'verified' || user.is_verified === true) {
+    // Check only verification_status field
+    if (user.verification_status === 'verified') {
       return { status: 'approved', color: '#10b981', text: 'Verified' };
-    } else if (user.verification_status === 'rejected' || user.is_verified === false) {
+    } else if (user.verification_status === 'rejected') {
       return { status: 'rejected', color: '#ef4444', text: 'Unverified' };
     } else if (user.verification_status === 'suspended') {
       return { status: 'suspended', color: '#ef4444', text: 'Suspended' };
@@ -232,6 +233,10 @@ const UserManagement = () => {
       // Default to pending for null, undefined, or 'pending' values
       return { status: 'pending', color: '#f59e0b', text: 'Pending Verification' };
     }
+  };
+
+  const getApprovalStatus = (user) => {
+    return getStatusBadge(user);
   };
 
   const filteredUsers = useMemo(() => {
