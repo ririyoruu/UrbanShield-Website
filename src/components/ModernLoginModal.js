@@ -80,14 +80,16 @@ const ModernLoginModal = ({ onClose, onLogin, onSwitchToSignup }) => {
 
   const handleVerificationCodeSubmit = async (e) => {
     e.preventDefault();
-    setResetLoading(true);
     setError('');
     
+    if (newPassword !== confirmPassword) {
+      setError('Passwords do not match');
+      return;
+    }
+    
+    setResetLoading(true);
+    
     try {
-      if (newPassword !== confirmPassword) {
-        setError('Passwords do not match');
-        return;
-      }
       
       const result = await authService.verifyCodeAndResetPassword(
         forgotPasswordEmail,
@@ -176,6 +178,8 @@ const ModernLoginModal = ({ onClose, onLogin, onSwitchToSignup }) => {
                       className="auth-input"
                       placeholder="Enter 6-digit code"
                       maxLength={6}
+                      pattern="\d{6}"
+                      title="Please enter exactly 6 digits"
                       required
                     />
                     <Mail className="auth-input-icon" size={20} />
@@ -204,6 +208,13 @@ const ModernLoginModal = ({ onClose, onLogin, onSwitchToSignup }) => {
                     />
                     <Lock className="auth-input-icon" size={20} />
                   </div>
+
+                  {error && (
+                    <div className="auth-message error">
+                      <X size={20} />
+                      {error}
+                    </div>
+                  )}
 
                   <button type="submit" className="auth-submit" disabled={resetLoading}>
                     {resetLoading ? (

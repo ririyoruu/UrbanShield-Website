@@ -41,7 +41,10 @@
 }
 
 html {
-  font-size: 60%;
+  font-size: 62.5%;
+  -webkit-text-size-adjust: 100%;
+  -ms-text-size-adjust: 100%;
+  touch-action: manipulation;
 }
 
 body {
@@ -190,4 +193,27 @@ code {
 [data-theme="light"] .btn-save {
   background: var(--accent-color);
   color: white;
+}
+
+/* Mobile-specific global styles */
+@media (max-width: 768px) {
+  html {
+    font-size: 62.5%;
+  }
+  
+  /* Prevent zoom on input focus (iOS) */
+  input, select, textarea {
+    font-size: 16px !important;
+  }
+  
+  /* Ensure minimum touch target size */
+  button, a, input[type="submit"], input[type="button"] {
+    min-height: 44px;
+  }
+  
+  /* Hide scrollbar on mobile but keep scrollable */
+  ::-webkit-scrollbar {
+    width: 0px;
+    background: transparent;
+  }
 }
