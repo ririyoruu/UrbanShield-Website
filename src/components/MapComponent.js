@@ -19,9 +19,36 @@ const MapComponent = ({
   const [mapStyle, setMapStyle] = useState(MAPBOX_CONFIG.DEFAULT_STYLE);
   const [pins, setPins] = useState([]);
 
+  // Geocode address to coordinates using Nominatim (OpenStreetMap)
+  const geocodeAddress = async (address) => {
+    if (!address) return null;
+    
+    try {
+      // Add "Bohol, Philippines" to improve geocoding accuracy for local addresses
+      const query = `${address}, Bohol, Philippines`;
+      const response = await fetch(
+        `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=1`
+      );
+      
+      if (!response.ok) return null;
+      
+      const data = await response.json();
+      if (data && data.length > 0) {
+        const result = data[0];
+        return {
+          lat: parseFloat(result.lat),
+          lng: parseFloat(result.lon)
+        };
+      }
+    } catch (error) {
+      console.error('Geocoding error:', error);
+    }
+    return null;
+  };
+
   // Extract coordinates from incident (database already parses PostGIS)
   const extractCoordinates = (incident) => {
-    // Database service already parses PostGIS location into latitude/longitude
+    // First check if latitude/longitude are already parsed
     if (incident.latitude && incident.longitude) {
       const lat = parseFloat(incident.latitude);
       const lng = parseFloat(incident.longitude);
@@ -29,50 +56,85 @@ const MapComponent = ({
         return { lat, lng };
       }
     }
+    
+    // If no coordinates but has address, we'll geocode it later
+    if (incident.address) {
+      return null; // Will be handled in geocoding step
+    }
+    
     return null;
   };
 
   // Process incidents into pins
   useEffect(() => {
-    const validPins = incidents
-      .map(incident => {
-        const coords = extractCoordinates(incident);
-        if (!coords) return null;
+    const processIncidents = async () => {
+      // First, handle incidents with existing coordinates
+      const pinsWithCoords = incidents
+        .map(incident => {
+          const coords = extractCoordinates(incident);
+          if (coords) {
+            return {
+              ...incident,
+              _lat: coords.lat,
+              _lng: coords.lng,
+              _type: incident.category || 'General',
+              _severity: incident.severity || 'medium',
+              _status: incident.status || 'pending',
+              _address: incident.address || null,
+            };
+          }
+          return null;
+        })
+        .filter(Boolean);
+
+      // Then, geocode incidents with addresses but no coordinates
+      const incidentsToGeocode = incidents.filter(
+        incident => !incident.latitude && !incident.longitude && incident.address
+      );
+
+      const geocodedPins = [];
+      for (const incident of incidentsToGeocode) {
+        const coords = await geocodeAddress(incident.address);
+        if (coords) {
+          geocodedPins.push({
+            ...incident,
+            _lat: coords.lat,
+            _lng: coords.lng,
+            _type: incident.category || 'General',
+            _severity: incident.severity || 'medium',
+            _status: incident.status || 'pending',
+            _address: incident.address,
+            _geocoded: true, // Mark as geocoded
+          });
+        }
+      }
+
+      const allPins = [...pinsWithCoords, ...geocodedPins];
+      setPins(allPins);
+
+      // Auto-fit map to pins if we have any
+      if (allPins.length > 0) {
+        let minLat = 90, maxLat = -90, minLng = 180, maxLng = -180;
+        allPins.forEach(pin => {
+          minLat = Math.min(minLat, pin._lat);
+          maxLat = Math.max(maxLat, pin._lat);
+          minLng = Math.min(minLng, pin._lng);
+          maxLng = Math.max(maxLng, pin._lng);
+        });
         
-        return {
-          ...incident,
-          _lat: coords.lat,
-          _lng: coords.lng,
-          _type: incident.category || 'General',
-          _severity: incident.severity || 'medium',
-          _status: incident.status || 'pending',
-          _address: incident.address || null,
-        };
-      })
-      .filter(Boolean); // Remove null entries
+        const centerLat = (minLat + maxLat) / 2;
+        const centerLng = (minLng + maxLng) / 2;
+        const zoom = 12; // Fixed zoom for Tubigon area
+        
+        setViewState({
+          latitude: centerLat,
+          longitude: centerLng,
+          zoom
+        });
+      }
+    };
 
-    setPins(validPins);
-
-    // Auto-fit map to pins if we have any
-    if (validPins.length > 0) {
-      let minLat = 90, maxLat = -90, minLng = 180, maxLng = -180;
-      validPins.forEach(pin => {
-        minLat = Math.min(minLat, pin._lat);
-        maxLat = Math.max(maxLat, pin._lat);
-        minLng = Math.min(minLng, pin._lng);
-        maxLng = Math.max(maxLng, pin._lng);
-      });
-      
-      const centerLat = (minLat + maxLat) / 2;
-      const centerLng = (minLng + maxLng) / 2;
-      const zoom = 12; // Fixed zoom for Tubigon area
-      
-      setViewState({
-        latitude: centerLat,
-        longitude: centerLng,
-        zoom
-      });
-    }
+    processIncidents();
   }, [incidents]);
 
   const severityColor = (severity) => {
@@ -174,10 +236,16 @@ const MapComponent = ({
             }}
           >
             <div
-              className={`custom-marker ${pin._severity} ${selectedMarker?.id === pin.id ? 'selected' : ''}`}
+              className={`custom-marker ${pin._severity} ${pin._geocoded ? 'geocoded' : ''} ${selectedMarker?.id === pin.id ? 'selected' : ''}`}
               style={{ backgroundColor: severityColor(pin._severity) }}
+              title={pin._geocoded ? `Location geocoded from: ${pin._address}` : 'Exact coordinates'}
             >
               <AlertTriangle size={14} />
+              {pin._geocoded && (
+                <div className="geocode-indicator">
+                  <MapPin size={8} />
+                </div>
+              )}
             </div>
           </Marker>
         ))}
@@ -239,6 +307,12 @@ const MapComponent = ({
                   <MapPin size={13} />
                   <span>{selectedMarker._address || 'Location not specified'}</span>
                 </div>
+                {selectedMarker._geocoded && (
+                  <div className="popup-card-info-row" style={{color: '#3b82f6'}}>
+                    <MapPin size={13} />
+                    <span>📍 Location geocoded from address</span>
+                  </div>
+                )}
                 <div className="popup-card-info-row">
                   <Tag size={13} />
                   <span>{selectedMarker._type}</span>
