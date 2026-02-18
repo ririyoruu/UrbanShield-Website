@@ -325,7 +325,7 @@ const AdminDashboard = ({ user, onLogout }) => {
       
       const statsData = [
         { 
-          title: 'Total Reports', 
+          title: 'Total Posts', 
           value: (dashboardStats.totalReports || 0).toString(), 
           change: null, 
           icon: <AlertTriangle />, 
@@ -358,7 +358,7 @@ const AdminDashboard = ({ user, onLogout }) => {
     } catch (err) {
       console.error('Error loading stats:', err);
       setStats([
-        { title: 'Total Reports', value: '0', change: null, icon: <AlertTriangle />, color: '#dc2626' },
+        { title: 'Total Posts', value: '0', change: null, icon: <AlertTriangle />, color: '#dc2626' },
         { title: 'Pending Review', value: '0', change: null, icon: <Clock />, color: '#f59e0b' },
         { title: 'Resolved Today', value: '0', change: null, icon: <CheckCircle />, color: '#10b981' },
         { title: 'Active Users', value: '0', change: null, icon: <Users />, color: '#3b82f6' }
@@ -634,7 +634,7 @@ const AdminDashboard = ({ user, onLogout }) => {
             onClick={() => handleTabChange('reports')}
           >
             <Flag size={20} />
-            <span>Reports</span>
+            <span>Posts</span>
           </button>
           <button 
             className={`nav-item ${activeTab === 'users' ? 'active' : ''}`}
@@ -682,7 +682,7 @@ const AdminDashboard = ({ user, onLogout }) => {
               {activeTab === 'map' && 'Live Post Map'}
               {activeTab === 'overview' && 'Dashboard Overview'}
               {activeTab === 'incidents' && 'Post Management'}
-              {activeTab === 'reports' && 'Reports Management'}
+              {activeTab === 'reports' && 'Posts Management'}
               {activeTab === 'users' && 'User Management'}
               {activeTab === 'announcements' && 'Announcements'}
               {activeTab === 'profile' && 'Settings'}
