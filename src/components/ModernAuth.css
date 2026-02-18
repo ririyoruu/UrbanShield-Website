@@ -430,6 +430,8 @@
 @media (max-width: 768px) {
   .auth-modal-overlay {
     padding: 1rem;
+    align-items: center;
+    justify-content: center;
   }
   
   .auth-modal-container {
@@ -437,6 +439,7 @@
     max-width: 400px;
     max-height: 90vh;
     overflow-y: auto;
+    margin: 0;
   }
   
   .auth-modal-header {

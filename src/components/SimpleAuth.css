@@ -563,7 +563,8 @@
   }
   
   .admin-hero-section {
-    padding: 5rem 0.75rem 1.5rem;
+    padding: 4.5rem 0.75rem 1.5rem;
+    min-height: 100vh;
   }
   
   .admin-hero-logo {

@@ -77,7 +77,7 @@ const AdminDashboard = ({ user, onLogout }) => {
   const [realtimeSubscription, setRealtimeSubscription] = useState(null);
   const [notificationCount, setNotificationCount] = useState(0);
   const [showNotifications, setShowNotifications] = useState(false);
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(true);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(window.innerWidth <= 768);
   const [newReportsAvailable, setNewReportsAvailable] = useState(false);
   const [reportsViewMode, setReportsViewMode] = useState('default'); // 'default' or 'list'
   const [selectedReport, setSelectedReport] = useState(null);
@@ -86,6 +86,18 @@ const AdminDashboard = ({ user, onLogout }) => {
   const [settingsSubTab, setSettingsSubTab] = useState('settings');
   const [adminAvatarUrl, setAdminAvatarUrl] = useState('');
   const [adminName, setAdminName] = useState(user?.name || '');
+
+  // Handle window resize for responsive sidebar
+  useEffect(() => {
+    const handleResize = () => {
+      if (window.innerWidth <= 768) {
+        setSidebarCollapsed(true);
+      }
+    };
+
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
   // Load admin profile (avatar)
   useEffect(() => {
