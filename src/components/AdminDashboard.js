@@ -653,11 +653,19 @@ const AdminDashboard = ({ user, onLogout }) => {
         </button>
       </div>
 
+      {/* Mobile Sidebar Overlay */}
+      {!sidebarCollapsed && (
+        <div className="sidebar-overlay" onClick={toggleSidebar} />
+      )}
+
       {/* Main Content */}
       <div className="main-content">
         {/* Header */}
         <div className="header">
           <div className="header-left">
+            <button className="mobile-menu-btn" onClick={toggleSidebar}>
+              <Menu size={22} />
+            </button>
             <h1 className="page-title">
               {activeTab === 'map' && 'Live Post Map'}
               {activeTab === 'overview' && 'Dashboard Overview'}

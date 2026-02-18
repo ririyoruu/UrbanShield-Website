@@ -702,85 +702,13 @@ body {
   animation: spin 1s linear infinite;
 }
 
-/* Responsive Design */
+/* Responsive Design - defer to AdminDashboard.css for mobile */
 @media (max-width: 1024px) {
-  .sidebar {
-    width: 240px;
-  }
-  
-  .admin-dashboard:has(.sidebar:not(.collapsed)) .main-content {
-    margin-left: 240px;
-  }
-  
   .stats-grid {
     grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
   }
   
   .charts-grid {
     grid-template-columns: 1fr;
-  }
-  
-  .table-row {
-    grid-template-columns: 1fr;
-    gap: 0.5rem;
-  }
-  
-  .table-row:not(:last-child) {
-    border-bottom: 1px solid var(--gray-100);
-  }
-}
-
-@media (max-width: 768px) {
-  .sidebar {
-    width: 100%;
-    position: fixed;
-    top: 0;
-    left: -100%;
-    z-index: 20;
-    transition: left 0.3s ease;
-  }
-  
-  .sidebar:not(.collapsed) {
-    left: 0;
-  }
-  
-  .main-content {
-    margin-left: 0;
-  }
-  
-  .admin-dashboard:has(.sidebar:not(.collapsed)) .main-content {
-    margin-left: 0;
-  }
-  
-  .header {
-    flex-direction: column;
-    gap: 1rem;
-    align-items: stretch;
-  }
-  
-  .header-right {
-    justify-content: space-between;
-  }
-  
-  .search-input {
-    width: 100%;
-  }
-  
-  .stats-grid {
-    grid-template-columns: 1fr;
-  }
-  
-  .table-row {
-    grid-template-columns: 1fr;
-    gap: 0.5rem;
-  }
-  
-  .table-row:not(:last-child) {
-    border-bottom: 1px solid var(--gray-100);
-  }
-  
-  .btn {
-    flex: 1;
-    justify-content: center;
   }
 }
