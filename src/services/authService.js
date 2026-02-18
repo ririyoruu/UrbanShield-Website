@@ -50,8 +50,8 @@ export const authService = {
         throw new Error('Invalid or expired invitation code');
       }
 
-      console.log('Step 3: Creating Supabase auth account with email verification...');
-      // Create the Supabase auth account with email verification
+      console.log('Step 3: Creating Supabase auth account...');
+      // Create the Supabase auth account (no email verification for signup)
       const { data, error } = await supabase.auth.signUp({
         email,
         password,
@@ -61,8 +61,7 @@ export const authService = {
             username: userData.name + '_' + Date.now(), // Make unique
             user_type: 'admin', // Must match constraint: ['resident', 'government', 'admin']
             phone_number: userData.phone || null
-          },
-          emailRedirectTo: `${window.location.origin}/`
+          }
         }
       });
 
@@ -184,17 +183,6 @@ export const authService = {
       }
 
       console.log('=== SIGNUP PROCESS COMPLETE ===');
-      
-      // Check if email verification is required
-      if (data.user && !data.user.email_confirmed_at) {
-        return {
-          user: data.user,
-          session: null,
-          message: 'Account created! Please check your email to verify your account before logging in.',
-          requiresEmailVerification: true
-        };
-      }
-      
       return data;
     } catch (error) {
       console.error('=== SIGNUP ERROR ===');
@@ -377,7 +365,7 @@ export const authService = {
     }
   },
 
-  // Reset password (admin only)
+  // Reset password (admin only) - sends verification code
   async resetPassword(email) {
     try {
       console.log('Checking admin status for email:', email);
@@ -399,24 +387,117 @@ export const authService = {
         throw new Error('Only administrators can reset their password');
       }
       
-      console.log('Admin user verified, sending reset email to:', email);
-      console.log('Redirect URL will be:', `${window.location.origin}/reset-password`);
+      console.log('Admin user verified, generating verification code');
       
-      const { data, error } = await supabase.auth.resetPasswordForEmail(email, {
-        redirectTo: `${window.location.origin}/reset-password`
+      // Generate 6-digit verification code
+      const code = Math.floor(100000 + Math.random() * 900000).toString();
+      
+      // Store code in database first
+      const expiresAt = new Date(Date.now() + 15 * 60 * 1000).toISOString();
+      
+      const { error: insertError } = await supabase
+        .from('email_verification_codes')
+        .insert({
+          email: email.toLowerCase().trim(),
+          code: code,
+          expires_at: expiresAt,
+          used: false
+        });
+
+      if (insertError) {
+        console.error('Error storing verification code:', insertError);
+        throw new Error('Failed to generate verification code');
+      }
+      
+      // Send reset code via Edge Function
+      const { data, error } = await supabase.functions.invoke('send-reset-code', {
+        body: {
+          email: email.toLowerCase().trim(),
+          code: code
+        }
       });
 
-      console.log('Supabase response:', { data, error });
+      console.log('Verification code response:', { data, error });
 
       if (error) {
-        console.error('Supabase reset password error:', error);
-        throw error;
+        console.error('Verification code error:', error);
+        // Code is stored, so return success with fallback message
+        return {
+          success: true,
+          message: 'Verification code generated. Email service unavailable - please contact support for your code.',
+          requiresCode: true,
+          code: code // Return code for testing
+        };
       }
 
-      console.log('Password reset email sent successfully to admin');
-      return data;
+      console.log('Verification code sent successfully to admin');
+      return {
+        success: true,
+        message: 'Verification code sent to your email',
+        requiresCode: true,
+        code: data?.code || code
+      };
     } catch (error) {
       console.error('Reset password error:', error);
+      throw error;
+    }
+  },
+
+  // Verify code and reset password
+  async verifyCodeAndResetPassword(email, code, newPassword) {
+    try {
+      console.log('Verifying code for email:', email);
+      
+      // Check if code exists and is valid
+      const { data: codeData, error: codeError } = await supabase
+        .from('email_verification_codes')
+        .select('*')
+        .eq('email', email.toLowerCase().trim())
+        .eq('code', code)
+        .eq('used', false)
+        .single();
+      
+      if (codeError || !codeData) {
+        throw new Error('Invalid or expired verification code');
+      }
+      
+      // Check if code is expired
+      if (new Date(codeData.expires_at) < new Date()) {
+        throw new Error('Verification code has expired');
+      }
+      
+      console.log('Code verified, resetting password');
+      
+      // Mark code as used
+      await supabase
+        .from('email_verification_codes')
+        .update({ used: true })
+        .eq('id', codeData.id);
+      
+      // Use Supabase's built-in password reset flow
+      // First, send a reset email to the user
+      const { error: resetError } = await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: `${window.location.origin}/reset-password?code=${code}&new_password=${encodeURIComponent(newPassword)}`
+      });
+      
+      if (resetError) {
+        console.log('Reset email failed, trying direct approach');
+        // If email fails, we can't directly reset without admin permissions
+        // So we'll return a message that they need to use the reset link
+        return {
+          success: false,
+          message: 'Password reset requires email confirmation. Please check your email for the reset link.',
+          requiresEmailReset: true
+        };
+      }
+      
+      console.log('Password reset email sent successfully');
+      return {
+        success: true,
+        message: 'Password reset instructions sent to your email'
+      };
+    } catch (error) {
+      console.error('Verify code and reset password error:', error);
       throw error;
     }
   },

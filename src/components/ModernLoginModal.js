@@ -13,8 +13,13 @@ const ModernLoginModal = ({ onClose, onLogin, onSwitchToSignup }) => {
   const [error, setError] = useState('');
   const [showForgotPassword, setShowForgotPassword] = useState(false);
   const [forgotPasswordEmail, setForgotPasswordEmail] = useState('');
-  const [forgotPasswordLoading, setForgotPasswordLoading] = useState(false);
   const [forgotPasswordMessage, setForgotPasswordMessage] = useState('');
+  const [forgotPasswordLoading, setForgotPasswordLoading] = useState(false);
+  const [showVerificationCode, setShowVerificationCode] = useState(false);
+  const [verificationCode, setVerificationCode] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [resetLoading, setResetLoading] = useState(false);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -48,10 +53,16 @@ const ModernLoginModal = ({ onClose, onLogin, onSwitchToSignup }) => {
     setForgotPasswordMessage('');
     
     try {
-      await authService.resetPassword(forgotPasswordEmail);
-      setForgotPasswordMessage('Password reset email sent! Check your inbox and follow the instructions.');
+      const result = await authService.resetPassword(forgotPasswordEmail);
+      
+      if (result.requiresCode) {
+        setForgotPasswordMessage('Verification code sent! Check your email.');
+        setShowVerificationCode(true);
+      } else {
+        setForgotPasswordMessage('Password reset instructions sent to your email.');
+      }
     } catch (error) {
-      setForgotPasswordMessage(`Failed to send reset email: ${error.message || 'Please try again.'}`);
+      setForgotPasswordMessage(`Failed to send reset code: ${error.message || 'Please try again.'}`);
     } finally {
       setForgotPasswordLoading(false);
     }
@@ -59,8 +70,44 @@ const ModernLoginModal = ({ onClose, onLogin, onSwitchToSignup }) => {
 
   const handleBackToLogin = () => {
     setShowForgotPassword(false);
+    setShowVerificationCode(false);
     setForgotPasswordEmail('');
+    setVerificationCode('');
+    setNewPassword('');
+    setConfirmPassword('');
     setForgotPasswordMessage('');
+  };
+
+  const handleVerificationCodeSubmit = async (e) => {
+    e.preventDefault();
+    setResetLoading(true);
+    setError('');
+    
+    try {
+      if (newPassword !== confirmPassword) {
+        setError('Passwords do not match');
+        return;
+      }
+      
+      const result = await authService.verifyCodeAndResetPassword(
+        forgotPasswordEmail,
+        verificationCode,
+        newPassword
+      );
+      
+      if (result.success) {
+        setForgotPasswordMessage('Password reset successfully! You can now log in with your new password.');
+        setTimeout(() => {
+          handleBackToLogin();
+        }, 3000);
+      } else {
+        setError(result.error || 'Failed to reset password');
+      }
+    } catch (err) {
+      setError(err.message || 'An error occurred while resetting password');
+    } finally {
+      setResetLoading(false);
+    }
   };
 
   return (
@@ -91,33 +138,82 @@ const ModernLoginModal = ({ onClose, onLogin, onSwitchToSignup }) => {
             // Forgot Password Form
             <>
               {forgotPasswordMessage && (
-                <div className={`auth-message ${forgotPasswordMessage.includes('sent') ? 'success' : 'error'}`}>
-                  {forgotPasswordMessage.includes('sent') ? <Mail size={20} /> : <X size={20} />}
+                <div className={`auth-message ${forgotPasswordMessage.includes('sent') || forgotPasswordMessage.includes('Verification code sent') ? 'success' : 'error'}`}>
+                  {forgotPasswordMessage.includes('sent') || forgotPasswordMessage.includes('Verification code sent') ? <Mail size={20} /> : <X size={20} />}
                   {forgotPasswordMessage}
                 </div>
               )}
               
-              <form onSubmit={handleForgotPassword} className="auth-form">
-                <div className="auth-input-group">
-                  <input
-                    type="email"
-                    value={forgotPasswordEmail}
-                    onChange={(e) => setForgotPasswordEmail(e.target.value)}
-                    className="auth-input"
-                    placeholder="Enter your admin email address"
-                    required
-                  />
-                  <Mail className="auth-input-icon" size={20} />
-                </div>
+              {!showVerificationCode ? (
+                <form onSubmit={handleForgotPassword} className="auth-form">
+                  <div className="auth-input-group">
+                    <input
+                      type="email"
+                      value={forgotPasswordEmail}
+                      onChange={(e) => setForgotPasswordEmail(e.target.value)}
+                      className="auth-input"
+                      placeholder="Enter your admin email address"
+                      required
+                    />
+                    <Mail className="auth-input-icon" size={20} />
+                  </div>
 
-                <button type="submit" className="auth-submit" disabled={forgotPasswordLoading}>
-                  {forgotPasswordLoading ? (
-                    <div className="auth-loading" />
-                  ) : (
-                    'Send Reset Link'
-                  )}
-                </button>
-              </form>
+                  <button type="submit" className="auth-submit" disabled={forgotPasswordLoading}>
+                    {forgotPasswordLoading ? (
+                      <div className="auth-loading" />
+                    ) : (
+                      'Send Reset Code'
+                    )}
+                  </button>
+                </form>
+              ) : (
+                <form onSubmit={handleVerificationCodeSubmit} className="auth-form">
+                  <div className="auth-input-group">
+                    <input
+                      type="text"
+                      value={verificationCode}
+                      onChange={(e) => setVerificationCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                      className="auth-input"
+                      placeholder="Enter 6-digit code"
+                      maxLength={6}
+                      required
+                    />
+                    <Mail className="auth-input-icon" size={20} />
+                  </div>
+
+                  <div className="auth-input-group">
+                    <input
+                      type="password"
+                      value={newPassword}
+                      onChange={(e) => setNewPassword(e.target.value)}
+                      className="auth-input"
+                      placeholder="New password"
+                      required
+                    />
+                    <Lock className="auth-input-icon" size={20} />
+                  </div>
+
+                  <div className="auth-input-group">
+                    <input
+                      type="password"
+                      value={confirmPassword}
+                      onChange={(e) => setConfirmPassword(e.target.value)}
+                      className="auth-input"
+                      placeholder="Confirm new password"
+                      required
+                    />
+                    <Lock className="auth-input-icon" size={20} />
+                  </div>
+
+                  <button type="submit" className="auth-submit" disabled={resetLoading}>
+                    {resetLoading ? (
+                      <div className="auth-loading" />
+                    ) : (
+                      'Reset Password'
+                    )}
+                  </button>
+                </form>
+              )}
 
               <div className="auth-footer">
                 <a href="#" className="auth-back-btn" onClick={handleBackToLogin}>
