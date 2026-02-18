@@ -373,6 +373,59 @@
   to { transform: rotate(360deg); }
 }
 
+/* Email Domain Suggestions */
+.email-suggestions-wrapper {
+  position: relative;
+  width: 100%;
+}
+
+.email-suggestions {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  background: var(--glass-bg);
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  margin-top: 4px;
+  max-height: 200px;
+  overflow-y: auto;
+  z-index: 1000;
+  backdrop-filter: blur(20px);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+}
+
+.email-suggestion {
+  padding: 0.75rem 1rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.email-suggestion:last-child {
+  border-bottom: none;
+}
+
+.email-suggestion:hover,
+.email-suggestion.selected {
+  background: rgba(59, 130, 246, 0.1);
+  color: var(--accent-blue);
+}
+
+.suggestion-text {
+  font-size: 0.9rem;
+  color: var(--text-secondary);
+  transition: color 0.2s ease;
+}
+
+.email-suggestion:hover .suggestion-text,
+.email-suggestion.selected .suggestion-text {
+  color: var(--accent-blue);
+}
+
 /* Responsive Design */
 @media (max-width: 768px) {
   .auth-modal-overlay {
@@ -474,5 +527,18 @@
   
   .auth-modal-body {
     padding: 1rem;
+  }
+  
+  .email-suggestions {
+    max-height: 150px;
+    border-radius: 10px;
+  }
+  
+  .email-suggestion {
+    padding: 0.625rem 0.875rem;
+  }
+  
+  .suggestion-text {
+    font-size: 0.85rem;
   }
 }

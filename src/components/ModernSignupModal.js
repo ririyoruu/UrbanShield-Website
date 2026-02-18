@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { X, Shield, Eye, EyeOff, Mail, Lock, User, Phone, Key } from 'lucide-react';
+import EmailDomainSuggestions from './EmailDomainSuggestions';
 import './ModernAuth.css';
 
 const ModernSignupModal = ({ onClose, onSignup, onSwitchToLogin }) => {
@@ -78,6 +79,14 @@ const ModernSignupModal = ({ onClose, onSignup, onSwitchToLogin }) => {
     });
   };
 
+  const handleEmailKeyDown = (e) => {
+    // Let the EmailDomainSuggestions component handle keyboard navigation
+    if (['ArrowDown', 'ArrowUp', 'Enter', 'Tab', 'Escape'].includes(e.key)) {
+      // The event will be handled by the EmailDomainSuggestions component
+      return;
+    }
+  };
+
   return (
     <div className="auth-modal-overlay" onClick={onClose}>
       <div className="auth-modal-container" onClick={(e) => e.stopPropagation()}>
@@ -131,11 +140,16 @@ const ModernSignupModal = ({ onClose, onSignup, onSwitchToLogin }) => {
                 name="email"
                 value={formData.email}
                 onChange={handleChange}
+                onKeyDown={handleEmailKeyDown}
                 className="auth-input"
                 placeholder="Email address"
                 required
               />
               <Mail className="auth-input-icon" size={20} />
+              <EmailDomainSuggestions
+                emailValue={formData.email}
+                onChange={(value) => setFormData(prev => ({ ...prev, email: value }))}
+              />
             </div>
 
             <div className="auth-input-group">

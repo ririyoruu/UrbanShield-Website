@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { X, Shield, Eye, EyeOff, Mail, Lock, ArrowLeft } from 'lucide-react';
 import { authService } from '../services/authService';
+import EmailDomainSuggestions from './EmailDomainSuggestions';
 import './ModernAuth.css';
 
 const ModernLoginModal = ({ onClose, onLogin, onSwitchToSignup }) => {
@@ -45,6 +46,14 @@ const ModernLoginModal = ({ onClose, onLogin, onSwitchToSignup }) => {
       ...formData,
       [e.target.name]: e.target.value
     });
+  };
+
+  const handleEmailKeyDown = (e) => {
+    // Let the EmailDomainSuggestions component handle keyboard navigation
+    if (['ArrowDown', 'ArrowUp', 'Enter', 'Tab', 'Escape'].includes(e.key)) {
+      // The event will be handled by the EmailDomainSuggestions component
+      return;
+    }
   };
 
   const handleForgotPassword = async (e) => {
@@ -154,10 +163,14 @@ const ModernLoginModal = ({ onClose, onLogin, onSwitchToSignup }) => {
                       value={forgotPasswordEmail}
                       onChange={(e) => setForgotPasswordEmail(e.target.value)}
                       className="auth-input"
-                      placeholder="Enter your admin email address"
+                      placeholder="Enter your email address"
                       required
                     />
                     <Mail className="auth-input-icon" size={20} />
+                    <EmailDomainSuggestions
+                      emailValue={forgotPasswordEmail}
+                      onChange={setForgotPasswordEmail}
+                    />
                   </div>
 
                   <button type="submit" className="auth-submit" disabled={forgotPasswordLoading}>
@@ -250,11 +263,16 @@ const ModernLoginModal = ({ onClose, onLogin, onSwitchToSignup }) => {
                     name="email"
                     value={formData.email}
                     onChange={handleChange}
+                    onKeyDown={handleEmailKeyDown}
                     className="auth-input"
                     placeholder="Email address"
                     required
                   />
                   <Mail className="auth-input-icon" size={20} />
+                  <EmailDomainSuggestions
+                    emailValue={formData.email}
+                    onChange={(value) => setFormData(prev => ({ ...prev, email: value }))}
+                  />
                 </div>
 
                 <div className="auth-input-group">
