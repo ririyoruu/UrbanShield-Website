@@ -26,7 +26,6 @@ import {
   UserCheck,
   FileText,
   MessageSquare,
-  Flag,
   Megaphone,
   Database,
   Settings as SettingsIcon,
@@ -629,14 +628,7 @@ const AdminDashboard = ({ user, onLogout }) => {
             <AlertTriangle size={20} />
             <span>Posts</span>
           </button>
-          <button 
-            className={`nav-item ${activeTab === 'reports' ? 'active' : ''}`}
-            onClick={() => handleTabChange('reports')}
-          >
-            <Flag size={20} />
-            <span>Posts</span>
-          </button>
-          <button 
+                    <button 
             className={`nav-item ${activeTab === 'users' ? 'active' : ''}`}
             onClick={() => handleTabChange('users')}
           >

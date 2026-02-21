@@ -12,7 +12,11 @@ import {
   ChevronRight,
   Download,
   ZoomIn,
-  ZoomOut
+  ZoomOut,
+  FileText,
+  Calendar,
+  Tag,
+  Info
 } from 'lucide-react';
 import './ReportDetailModal.css';
 
@@ -92,270 +96,305 @@ const ReportDetailModal = ({ report, isOpen, onClose, onApprove, onReject, loadi
   };
 
   return (
-    <div className="report-modal-overlay" onClick={onClose}>
-      <div className="report-modal-content" onClick={(e) => e.stopPropagation()}>
+    <div className="report-detail-container">
+      {/* Main Content Card */}
+      <div className="report-content-card">
+        {/* Sidebar - Image Gallery */}
+        <div className="report-sidebar">
+        {hasImages ? (
+          <div className="image-gallery">
+            <div className="gallery-header">
+              <h3 className="gallery-title">
+                <ImageIcon size={20} />
+                Evidence Photos
+              </h3>
+              <span className="image-count">{images.length} photos</span>
+            </div>
+            
+            <div className="main-image-container">
+              <img 
+                src={images[currentImageIndex]} 
+                alt={`Evidence ${currentImageIndex + 1}`}
+                className="main-image"
+                onClick={handleImageClick}
+                onError={(e) => {
+                  e.target.src = 'https://via.placeholder.com/600x400?text=Image+Not+Available';
+                }}
+              />
+              
+              {images.length > 1 && (
+                <div className="image-controls">
+                  <button 
+                    type="button"
+                    className="image-nav-btn prev" 
+                    onClick={handlePreviousImage}
+                    disabled={loading}
+                  >
+                    <ChevronLeft size={20} />
+                  </button>
+                  <button 
+                    type="button"
+                    className="image-nav-btn next" 
+                    onClick={handleNextImage}
+                    disabled={loading}
+                  >
+                    <ChevronRight size={20} />
+                  </button>
+                </div>
+              )}
+              
+              <div className="image-indicator">
+                {currentImageIndex + 1} / {images.length}
+              </div>
+            </div>
+
+            {images.length > 1 && (
+              <div className="thumbnail-strip">
+                {images.map((img, idx) => (
+                  <img
+                    key={idx}
+                    src={img}
+                    alt={`Thumbnail ${idx + 1}`}
+                    className={`thumbnail ${idx === currentImageIndex ? 'active' : ''}`}
+                    onClick={() => setCurrentImageIndex(idx)}
+                    onError={(e) => {
+                      e.target.src = 'https://via.placeholder.com/80x60?text=Error';
+                    }}
+                  />
+                ))}
+              </div>
+            )}
+          </div>
+        ) : (
+          <div className="no-images-container">
+            <div className="no-images-content">
+              <ImageIcon size={48} />
+              <h3>No Evidence Photos</h3>
+              <p>This report doesn't contain any photos</p>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Main Content */}
+      <div className="report-main-content">
         {/* Header */}
-        <div className="report-modal-header">
-          <div className="report-modal-title-section">
-            <h2 className="report-modal-title">{report.title || 'Untitled Report'}</h2>
-            <div className="report-modal-badges">
-              <span 
-                className="status-badge-modal" 
-                style={{ backgroundColor: statusBadge.color }}
-              >
+        <div className="report-header">
+          <div className="report-title-section">
+            <h1 className="report-title">{report.title || 'Untitled Report'}</h1>
+            <div className="report-badges">
+              <span className="status-badge" style={{ backgroundColor: statusBadge.color }}>
                 {statusBadge.icon}
                 {statusBadge.text}
               </span>
               {report.priority && (
                 <span 
-                  className="priority-badge-modal" 
+                  className="priority-badge" 
                   style={{ backgroundColor: getPriorityColor(report.priority) }}
                 >
                   {report.priority?.toUpperCase()}
                 </span>
               )}
               {report.type && (
-                <span className="type-badge-modal">
+                <span className="type-badge">
+                  <Tag size={14} />
                   {report.type}
                 </span>
               )}
             </div>
           </div>
-          <button className="report-modal-close" onClick={onClose}>
+          <button type="button" className="close-btn" onClick={onClose}>
             <X size={24} />
           </button>
         </div>
 
-        {/* Content */}
-        <div className="report-modal-body">
-          {/* Images Section */}
-          {hasImages ? (
-            <div className="report-images-section">
-              <div className="images-header">
-                <div className="images-title">
-                  <ImageIcon size={20} />
-                  <span>Evidence Photos ({images.length})</span>
+        {/* Content Grid */}
+        <div className="report-content-grid">
+          {/* Left Column - Details */}
+          <div className="report-details-column">
+            <div className="detail-section">
+              <h2 className="section-title">
+                <FileText size={20} />
+                Incident Details
+              </h2>
+              
+              <div className="detail-cards">
+                <div className="detail-card">
+                  <div className="detail-card-header">
+                    <h3><MapPin size={16} /> Location</h3>
+                  </div>
+                  <div className="detail-card-body">
+                    <div className="detail-card-value">{report.location || 'Not specified'}</div>
+                    {(report.latitude && report.longitude) && (
+                      <div className="detail-card-meta">
+                        {report.latitude.toFixed(6)}, {report.longitude.toFixed(6)}
+                      </div>
+                    )}
+                  </div>
                 </div>
-                {images.length > 1 && (
-                  <div className="image-navigation">
-                    <button 
-                      className="nav-image-btn" 
-                      onClick={handlePreviousImage}
-                      disabled={loading}
-                    >
-                      <ChevronLeft size={18} />
-                    </button>
-                    <span className="image-counter">
-                      {currentImageIndex + 1} / {images.length}
-                    </span>
-                    <button 
-                      className="nav-image-btn" 
-                      onClick={handleNextImage}
-                      disabled={loading}
-                    >
-                      <ChevronRight size={18} />
-                    </button>
+
+                <div className="detail-card">
+                  <div className="detail-card-header">
+                    <h3><User size={16} /> Reporter</h3>
+                  </div>
+                  <div className="detail-card-body">
+                    <div className="detail-card-value">{report.reporter || 'Unknown'}</div>
+                  </div>
+                </div>
+
+                <div className="detail-card">
+                  <div className="detail-card-header">
+                    <h3><Clock size={16} /> Date & Time</h3>
+                  </div>
+                  <div className="detail-card-body">
+                    <div className="detail-card-value">{formatDate(report.created_at)}</div>
+                  </div>
+                </div>
+
+                {report.category && (
+                  <div className="detail-card">
+                    <div className="detail-card-header">
+                      <h3><AlertTriangle size={16} /> Category</h3>
+                    </div>
+                    <div className="detail-card-body">
+                      <div className="detail-card-value">{report.category}</div>
+                    </div>
                   </div>
                 )}
-              </div>
-              <div className={`image-container ${imageZoom ? 'zoomed' : ''}`}>
-                <img 
-                  src={images[currentImageIndex]} 
-                  alt={`Evidence ${currentImageIndex + 1}`}
-                  className="report-image"
-                  onClick={handleImageClick}
-                  onError={(e) => {
-                    e.target.src = 'https://via.placeholder.com/600x400?text=Image+Not+Available';
-                  }}
-                />
-                {imageZoom && (
-                  <div className="image-zoom-controls">
-                    <button 
-                      className="zoom-btn" 
-                      onClick={() => setImageZoom(false)}
-                      title="Zoom Out"
-                    >
-                      <ZoomOut size={18} />
-                    </button>
-                  </div>
-                )}
-                {images.length > 1 && (
-                  <div className="image-thumbnails">
-                    {images.map((img, idx) => (
-                      <img
-                        key={idx}
-                        src={img}
-                        alt={`Thumbnail ${idx + 1}`}
-                        className={`thumbnail ${idx === currentImageIndex ? 'active' : ''}`}
-                        onClick={() => setCurrentImageIndex(idx)}
-                        onError={(e) => {
-                          e.target.src = 'https://via.placeholder.com/80x60?text=Error';
-                        }}
-                      />
-                    ))}
+
+                {report.severity && (
+                  <div className="detail-card">
+                    <div className="detail-card-header">
+                      <h3><AlertTriangle size={16} /> Severity</h3>
+                    </div>
+                    <div className="detail-card-body">
+                      <div className="detail-card-value">{report.severity}</div>
+                    </div>
                   </div>
                 )}
               </div>
             </div>
-          ) : (
-            <div className="no-images-warning">
-              <AlertTriangle size={24} />
-              <div>
-                <h3>No Photos Available</h3>
-                <p>This report does not contain any evidence photos. Verification may require additional information.</p>
-              </div>
-            </div>
-          )}
 
-          {/* Report Details */}
-          <div className="report-details-section">
-            <h3 className="section-title">Report Details</h3>
-            
-            <div className="details-grid">
-              <div className="detail-item">
-                <div className="detail-label">
-                  <MapPin size={18} />
-                  <span>Location</span>
-                </div>
-                <div className="detail-value">{report.location || 'Not specified'}</div>
-                {(report.latitude && report.longitude) && (
-                  <div className="detail-coords">
-                    {report.latitude.toFixed(6)}, {report.longitude.toFixed(6)}
-                  </div>
-                )}
-              </div>
-
-              <div className="detail-item">
-                <div className="detail-label">
-                  <User size={18} />
-                  <span>Reporter</span>
-                </div>
-                <div className="detail-value">{report.reporter || 'Unknown'}</div>
-              </div>
-
-              <div className="detail-item">
-                <div className="detail-label">
-                  <Clock size={18} />
-                  <span>Reported At</span>
-                </div>
-                <div className="detail-value">{formatDate(report.created_at)}</div>
-              </div>
-
-              {report.category && (
-                <div className="detail-item">
-                  <div className="detail-label">
-                    <AlertTriangle size={18} />
-                    <span>Category</span>
-                  </div>
-                  <div className="detail-value">{report.category}</div>
-                </div>
-              )}
-
-              {report.severity && (
-                <div className="detail-item">
-                  <div className="detail-label">
-                    <span>Severity</span>
-                  </div>
-                  <div className="detail-value">
-                    <span 
-                      className="severity-badge" 
-                      style={{ backgroundColor: getPriorityColor(report.severity) }}
-                    >
-                      {report.severity?.toUpperCase()}
-                    </span>
-                  </div>
-                </div>
-              )}
-            </div>
-
+            {/* Description */}
             {report.description && (
               <div className="description-section">
-                <h4 className="description-title">Description</h4>
-                <p className="description-text">{report.description}</p>
+                <h2 className="section-title">
+                  <FileText size={20} />
+                  Description
+                </h2>
+                <div className="description-card">
+                  <p>{report.description}</p>
+                </div>
               </div>
             )}
 
+            {/* Admin Notes */}
             {report.admin_notes && (
               <div className="admin-notes-section">
-                <h4 className="admin-notes-title">Admin Notes</h4>
-                <p className="admin-notes-text">{report.admin_notes}</p>
+                <h2 className="section-title">
+                  <Info size={20} />
+                  Admin Notes
+                </h2>
+                <div className="admin-notes-card">
+                  <p>{report.admin_notes}</p>
+                </div>
               </div>
             )}
           </div>
 
-          {/* Resolution Status */}
-          {report.status === 'resolved' && (
-            <div className="verification-status-section">
-              <div className="verification-status approved">
-                <CheckCircle size={24} />
-                <div>
-                  <h4>Incident Resolved</h4>
-                  <p>{report.admin_notes || 'This incident has been resolved by a responder.'}</p>
+          {/* Right Column - Status & Actions */}
+          <div className="report-actions-column">
+            {/* Status Display */}
+            <div className="status-display">
+              {report.status === 'resolved' && (
+                <div className="status-card resolved">
+                  <div className="status-icon">
+                    <CheckCircle size={20} />
+                  </div>
+                  <div className="status-content">
+                    <h3>Incident Resolved</h3>
+                    <p>{report.admin_notes || 'This incident has been successfully resolved.'}</p>
+                  </div>
                 </div>
-              </div>
-            </div>
-          )}
-          {report.status === 'in_action' && (
-            <div className="verification-status-section">
-              <div className="verification-status" style={{ borderColor: 'rgba(59,130,246,0.3)', background: 'rgba(59,130,246,0.08)' }}>
-                <Clock size={24} style={{ color: '#3b82f6' }} />
-                <div>
-                  <h4>Action In Progress</h4>
-                  <p>A responder is currently handling this incident.</p>
+              )}
+              
+              {report.status === 'in_action' && (
+                <div className="status-card in-action">
+                  <div className="status-icon">
+                    <AlertTriangle size={32} />
+                  </div>
+                  <div className="status-content">
+                    <h3>Action in Progress</h3>
+                    <p>Response team is currently addressing this incident.</p>
+                  </div>
                 </div>
-              </div>
+              )}
+              
+              {report.status === 'pending' && (
+                <div className="status-card pending">
+                  <div className="status-icon">
+                    <Clock size={32} />
+                  </div>
+                  <div className="status-content">
+                    <h3>Awaiting Review</h3>
+                    <p>This incident is pending admin review and action.</p>
+                  </div>
+                </div>
+              )}
             </div>
-          )}
-        </div>
 
-        {/* Footer Actions */}
-        <div className="report-modal-footer">
-          {report.status !== 'resolved' && report.status !== 'in_action' && (
-            <div className="modal-actions">
-              <button 
-                className="btn-approve-modal"
-                onClick={() => onApprove(report.id)}
-                disabled={loading}
-                style={{ background: 'linear-gradient(135deg, #f97316, #ea580c)', borderRadius: '20px' }}
-              >
-                <CheckCircle size={18} />
-                Start Action
-              </button>
-              <button 
-                className="btn-reject-modal"
-                onClick={() => onReject(report.id)}
-                disabled={loading}
-                style={{ background: '#10b981', borderRadius: '20px' }}
-              >
-                <CheckCircle size={18} />
-                Mark as Resolved
-              </button>
+            {/* Action Buttons */}
+            {canVerify && (
+              <div className="action-section">
+                <h3 className="action-title">Take Action</h3>
+                <div className="action-buttons">
+                  <button 
+                    type="button"
+                    className="action-btn reject" 
+                    onClick={() => onReject(report.id)}
+                    disabled={loading}
+                  >
+                    <XCircle size={20} />
+                    <span>Reject Report</span>
+                  </button>
+                  <button 
+                    type="button"
+                    className="action-btn approve" 
+                    onClick={() => onApprove(report.id)}
+                    disabled={loading}
+                  >
+                    <CheckCircle size={20} />
+                    <span>Approve & Dispatch</span>
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* Quick Info */}
+            <div className="quick-info">
+              <h3 className="info-title">Quick Info</h3>
+              <div className="info-grid">
+                <div className="info-item">
+                  <span className="info-label">Report ID</span>
+                  <span className="info-value">#{report.id}</span>
+                </div>
+                <div className="info-item">
+                  <span className="info-label">Status</span>
+                  <span className="info-value">{statusBadge.text}</span>
+                </div>
+                <div className="info-item">
+                  <span className="info-label">Priority</span>
+                  <span className="info-value">{report.priority || 'N/A'}</span>
+                </div>
+                <div className="info-item">
+                  <span className="info-label">Images</span>
+                  <span className="info-value">{images.length}</span>
+                </div>
+              </div>
             </div>
-          )}
-          {report.status === 'in_action' && (
-            <div className="modal-actions">
-              <button 
-                className="btn-reject-modal"
-                onClick={() => onReject(report.id)}
-                disabled={loading}
-                style={{ background: '#10b981', borderRadius: '20px' }}
-              >
-                <CheckCircle size={18} />
-                Mark as Resolved
-              </button>
-            </div>
-          )}
-          {report.status === 'resolved' && (
-            <div className="modal-actions">
-              <button 
-                className="btn-close-modal"
-                onClick={onClose}
-              >
-                Close
-              </button>
-            </div>
-          )}
+          </div>
         </div>
+      </div>
       </div>
     </div>
   );
