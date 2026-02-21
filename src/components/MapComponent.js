@@ -255,98 +255,97 @@ const MapComponent = ({
           <Popup
             longitude={selectedMarker._lng}
             latitude={selectedMarker._lat}
-            anchor="top"
+            anchor="bottom"
             onClose={closePopup}
-            closeButton={false}
-            className="custom-popup"
-            maxWidth="320px"
-            offset={12}
+            closeButton={true}
+            className="modern-popup"
+            maxWidth="360px"
+            offset={25}
+            closeOnClick={false}
           >
-            <div className="popup-card">
-              <div className="popup-accent" style={{ background: severityColor(selectedMarker._severity) }} />
-              
-              <div className="popup-card-header">
-                <div className="popup-card-title-row">
-                  <h3 className="popup-card-title">
-                    {selectedMarker.title || selectedMarker.description || 'Incident'}
+            <div className="modern-popup-content">
+              {/* Header with gradient */}
+              <div className="popup-header" style={{ background: `linear-gradient(135deg, ${severityColor(selectedMarker._severity)}dd, ${severityColor(selectedMarker._severity)}99)` }}>
+                <div className="popup-title-section">
+                  <h3 className="popup-title">
+                    {selectedMarker.title || 'Incident Report'}
                   </h3>
-                  <button className="popup-card-close" onClick={closePopup}>
-                    <X size={14} />
-                  </button>
-                </div>
-                <div className="popup-card-meta">
-                  <span className="popup-card-time">
-                    <Clock size={12} /> {timeAgo(selectedMarker.created_at)}
-                  </span>
-                  <span className="popup-card-reporter">
-                    <User size={12} /> {selectedMarker.reporter || 'Anonymous'}
-                  </span>
+                  <div className="popup-meta">
+                    <span className="popup-time">{timeAgo(selectedMarker.created_at)}</span>
+                    <span className="popup-separator">•</span>
+                    <span className="popup-reporter">{selectedMarker.reporter || 'Anonymous'}</span>
+                  </div>
                 </div>
               </div>
 
-              {selectedMarker.images && selectedMarker.images.length > 0 && (
-                <div className="popup-card-image">
-                  <img 
-                    src={selectedMarker.images[0]} 
-                    alt="Incident" 
-                    onError={(e) => { e.target.style.display = 'none'; }} 
-                  />
-                </div>
-              )}
-
-              {selectedMarker.description && (
-                <p className="popup-card-desc">
-                  {selectedMarker.description.length > 120 
-                    ? selectedMarker.description.substring(0, 120) + '...'
-                    : selectedMarker.description}
-                </p>
-              )}
-
-              <div className="popup-card-info">
-                <div className="popup-card-info-row">
-                  <MapPin size={13} />
-                  <span>{selectedMarker._address || 'Location not specified'}</span>
-                </div>
-                {selectedMarker._geocoded && (
-                  <div className="popup-card-info-row" style={{color: '#3b82f6'}}>
-                    <MapPin size={13} />
-                    <span>📍 Location geocoded from address</span>
+              {/* Content */}
+              <div className="popup-body">
+                {selectedMarker.images && selectedMarker.images.length > 0 && (
+                  <div className="popup-image-container">
+                    <img 
+                      src={selectedMarker.images[0]} 
+                      alt="Incident" 
+                      className="popup-image"
+                      onError={(e) => { e.target.style.display = 'none'; }} 
+                    />
                   </div>
                 )}
-                <div className="popup-card-info-row">
-                  <Tag size={13} />
-                  <span>{selectedMarker._type}</span>
+
+                {selectedMarker.description && (
+                  <div className="popup-description">
+                    <p>{selectedMarker.description}</p>
+                  </div>
+                )}
+
+                {/* Info Grid */}
+                <div className="popup-info-grid">
+                  <div className="info-item">
+                    <MapPin size={16} className="info-icon" />
+                    <div className="info-content">
+                      <span className="info-label">Location</span>
+                      <span className="info-value">{selectedMarker._address || 'Not specified'}</span>
+                      {selectedMarker._geocoded && (
+                        <span className="info-note">📍 Geocoded from address</span>
+                      )}
+                    </div>
+                  </div>
+                  
+                  <div className="info-item">
+                    <Tag size={16} className="info-icon" />
+                    <div className="info-content">
+                      <span className="info-label">Type</span>
+                      <span className="info-value">{selectedMarker._type}</span>
+                    </div>
+                  </div>
                 </div>
-              </div>
 
-              <div className="popup-card-tags">
-                <span 
-                  className="popup-tag" 
-                  style={{ 
-                    color: severityColor(selectedMarker._severity), 
-                    background: `${severityColor(selectedMarker._severity)}20`,
-                    borderColor: `${severityColor(selectedMarker._severity)}40`
-                  }}
-                >
-                  {selectedMarker._severity}
-                </span>
-                <span 
-                  className="popup-tag"
-                  style={{
+                {/* Status Tags */}
+                <div className="popup-tags">
+                  <div className="status-tag severity" style={{ 
+                    backgroundColor: `${severityColor(selectedMarker._severity)}20`,
+                    color: severityColor(selectedMarker._severity),
+                    borderColor: severityColor(selectedMarker._severity)
+                  }}>
+                    <div className="tag-dot" style={{ backgroundColor: severityColor(selectedMarker._severity) }} />
+                    {selectedMarker._severity}
+                  </div>
+                  <div className="status-tag" style={{
+                    backgroundColor: `${statusInfo(selectedMarker._status).color}20`,
                     color: statusInfo(selectedMarker._status).color,
-                    background: statusInfo(selectedMarker._status).bg,
-                    borderColor: `${statusInfo(selectedMarker._status).color}40`
-                  }}
-                >
-                  {statusInfo(selectedMarker._status).label}
-                </span>
-              </div>
+                    borderColor: statusInfo(selectedMarker._status).color
+                  }}>
+                    {statusInfo(selectedMarker._status).label}
+                  </div>
+                </div>
 
-              {onMarkerClick && (
-                <button className="popup-card-btn" onClick={() => onMarkerClick(selectedMarker)}>
-                  View Details <ChevronRight size={14} />
-                </button>
-              )}
+                {/* Action Button */}
+                {onMarkerClick && (
+                  <button className="popup-action-btn" onClick={() => onMarkerClick(selectedMarker)}>
+                    View Full Report
+                    <ChevronRight size={16} />
+                  </button>
+                )}
+              </div>
             </div>
           </Popup>
         )}
