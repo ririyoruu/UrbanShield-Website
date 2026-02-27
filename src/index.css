@@ -5,14 +5,31 @@
 }
 
 :root {
-  /* Dark theme variables (default) */
-  --bg-primary: #0a0a0a;
-  --bg-secondary: #1a1a1a;
-  --bg-tertiary: #2a2a2a;
-  --text-primary: #ffffff;
-  --text-secondary: rgba(255, 255, 255, 0.7);
-  --text-muted: rgba(255, 255, 255, 0.5);
-  --border-color: rgba(255, 255, 255, 0.1);
+  /* Light theme defaults */
+  --bg-primary: #ffffff;
+  --bg-secondary: #f8fafc;
+  --bg-tertiary: #f1f5f9;
+  --text-primary: #09090b;
+  --text-secondary: #52525b;
+  --text-muted: #71717a;
+  --border-color: #e4e4e7;
+  --accent-color: #2563eb;
+  --accent-blue: #2563eb;
+  --accent-hover: #1d4ed8;
+  --success-color: #10b981;
+  --warning-color: #f59e0b;
+  --error-color: #ef4444;
+  --shadow: rgba(0, 0, 0, 0.05);
+}
+
+[data-theme="dark"] {
+  --bg-primary: #09090b;
+  --bg-secondary: #18181b;
+  --bg-tertiary: #27272a;
+  --text-primary: #fafafa;
+  --text-secondary: #a1a1aa;
+  --text-muted: #71717a;
+  --border-color: #27272a;
   --accent-color: #3b82f6;
   --accent-blue: #3b82f6;
   --accent-hover: #2563eb;
@@ -22,26 +39,9 @@
   --shadow: rgba(0, 0, 0, 0.3);
 }
 
-[data-theme="light"] {
-  /* Light theme variables - pure white with blue accents */
-  --bg-primary: #ffffff;
-  --bg-secondary: #ffffff;
-  --bg-tertiary: #f8fafc;
-  --text-primary: #1e293b;
-  --text-secondary: #475569;
-  --text-muted: #64748b;
-  --border-color: #e2e8f0;
-  --accent-color: #3b82f6;
-  --accent-blue: #3b82f6;
-  --accent-hover: #2563eb;
-  --success-color: #10b981;
-  --warning-color: #f59e0b;
-  --error-color: #ef4444;
-  --shadow: rgba(0, 0, 0, 0.05);
-}
-
 html {
-  font-size: 60%;
+  font-size: 62.5%;
+  /* 1rem = 10px */
 }
 
 body {
@@ -72,12 +72,20 @@ code {
 }
 
 ::-webkit-scrollbar-thumb {
-  background: var(--accent-color);
+  background: #d4d4d8;
   border-radius: 4px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: var(--accent-hover);
+  background: #a1a1aa;
+}
+
+[data-theme="dark"] ::-webkit-scrollbar-thumb {
+  background: #3f3f46;
+}
+
+[data-theme="dark"] ::-webkit-scrollbar-thumb:hover {
+  background: #52525b;
 }
 
 /* Global animations */
@@ -86,6 +94,7 @@ code {
     opacity: 0;
     transform: translateY(20px);
   }
+
   to {
     opacity: 1;
     transform: translateY(0);
@@ -97,6 +106,7 @@ code {
     opacity: 0;
     transform: translateX(-20px);
   }
+
   to {
     opacity: 1;
     transform: translateX(0);
@@ -104,9 +114,12 @@ code {
 }
 
 @keyframes pulse {
-  0%, 100% {
+
+  0%,
+  100% {
     opacity: 1;
   }
+
   50% {
     opacity: 0.5;
   }
@@ -191,4 +204,3 @@ code {
   background: var(--accent-color);
   color: white;
 }
-

@@ -1,422 +1,267 @@
 import React, { useState, useEffect } from 'react';
-import { 
-  X, 
-  MapPin, 
-  Clock, 
-  User, 
-  CheckCircle, 
-  XCircle, 
-  AlertTriangle,
+import {
+  X,
+  Mail,
+  Phone,
+  MapPin,
+  Calendar,
+  Clock,
+  Shield,
+  Crown,
+  User,
   FileText,
   ChevronLeft,
   ChevronRight,
-  Download,
-  ZoomIn,
+  CheckCircle,
+  XCircle,
+  AlertTriangle,
   ZoomOut,
-  Mail,
-  Phone,
-  Building,
-  Calendar,
-  Shield,
-  Image as ImageIcon
+  Ban,
+  RotateCcw
 } from 'lucide-react';
 import './UserDetailModal.css';
 
-const UserDetailModal = ({ user, isOpen, onClose, onApprove, onReject, loading }) => {
+const UserDetailModal = ({ user, isOpen, onClose, onApprove, onReject, onSuspend, onRestore, loading }) => {
   const [currentDocumentIndex, setCurrentDocumentIndex] = useState(0);
   const [documentZoom, setDocumentZoom] = useState(false);
 
-  // Reset document index when modal opens or user changes
   useEffect(() => {
     if (isOpen && user) {
       setCurrentDocumentIndex(0);
       setDocumentZoom(false);
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = '';
     }
+    return () => { document.body.style.overflow = ''; };
   }, [isOpen, user?.id]);
 
   if (!isOpen || !user) return null;
 
-  // Handle different document data formats
+  // Normalize documents
   let documents = [];
-  if (user.verification_documents) {
-    documents = Array.isArray(user.verification_documents) ? user.verification_documents : [user.verification_documents];
-  } else if (user.documents) {
-    documents = Array.isArray(user.documents) ? user.documents : [user.documents];
-  } else if (user.id_documents) {
-    documents = Array.isArray(user.id_documents) ? user.id_documents : [user.id_documents];
-  }
-  // Filter out null/undefined/empty strings
-  documents = documents.filter(doc => doc && doc.trim() !== '');
+  if (user.verification_documents) documents = Array.isArray(user.verification_documents) ? user.verification_documents : [user.verification_documents];
+  else if (user.documents) documents = Array.isArray(user.documents) ? user.documents : [user.documents];
+  else if (user.id_documents) documents = Array.isArray(user.id_documents) ? user.id_documents : [user.id_documents];
+  documents = documents.filter(d => d && d.trim() !== '');
   const hasDocuments = documents.length > 0;
 
   const canVerify = user.verification_status === 'pending' || user.verification_status === null || user.verification_status === undefined;
+  const requiresApproval = (type) => !['admin'].includes(type);
 
-  const handlePreviousDocument = () => {
-    setCurrentDocumentIndex((prev) => (prev > 0 ? prev - 1 : documents.length - 1));
+  const formatDate = (ds) => {
+    if (!ds) return 'N/A';
+    return new Date(ds).toLocaleString('en-US', { year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' });
   };
 
-  const handleNextDocument = () => {
-    setCurrentDocumentIndex((prev) => (prev < documents.length - 1 ? prev + 1 : 0));
-  };
-
-  const handleDocumentClick = () => {
-    setDocumentZoom(!documentZoom);
-  };
-
-  const formatDate = (dateString) => {
-    if (!dateString) return 'N/A';
-    const date = new Date(dateString);
-    return date.toLocaleString('en-US', {
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit'
-    });
-  };
-
-  const getStatusBadge = () => {
-    if (user.verification_status === 'verified') {
-      return { text: 'Verified', color: '#10b981', icon: <CheckCircle size={16} /> };
-    } else if (user.verification_status === 'rejected') {
-      return { text: 'Rejected', color: '#ef4444', icon: <XCircle size={16} /> };
-    } else if (user.verification_status === 'suspended') {
-      return { text: 'Suspended', color: '#ef4444', icon: <XCircle size={16} /> };
-    }
-    return { text: 'Pending Verification', color: '#f59e0b', icon: <AlertTriangle size={16} /> };
-  };
-
-  const statusBadge = getStatusBadge();
-
-  const getUserTypeColor = (userType) => {
-    switch (userType) {
-      case 'admin': return '#dc2626';
-      case 'tourist': return '#3b82f6';
-      case 'verified_resident': return '#10b981';
-      case 'business_owner': return '#3b82f6';
-      case 'government_official': return '#8b5cf6';
-      default: return '#6b7280';
+  // Role config — 3 roles only
+  const getRoleConfig = (type) => {
+    switch (type) {
+      case 'admin':
+      case 'superadmin':
+        return { label: 'Admin', color: '#dc2626', bg: 'rgba(220,38,38,.1)', border: 'rgba(220,38,38,.2)', icon: <Crown size={14} /> };
+      case 'government_responder':
+      case 'government_official':
+        return { label: 'Gov / Responder', color: '#8b5cf6', bg: 'rgba(139,92,246,.1)', border: 'rgba(139,92,246,.2)', icon: <Shield size={14} /> };
+      default:
+        return { label: 'Resident', color: '#10b981', bg: 'rgba(16,185,129,.1)', border: 'rgba(16,185,129,.2)', icon: <User size={14} /> };
     }
   };
 
-  const getUserTypeDisplayName = (userType) => {
-    switch (userType) {
-      case 'admin': return 'Admin';
-      case 'tourist': return 'Tourist';
-      case 'verified_resident': return 'Verified Resident';
-      case 'business_owner': return 'Business Owner';
-      case 'government_official': return 'Government Official';
-      default: return userType;
-    }
+  const getStatusConfig = () => {
+    if (user.verification_status === 'verified') return { label: 'Verified', color: '#10b981', bg: 'rgba(16,185,129,.1)', border: 'rgba(16,185,129,.2)', icon: <CheckCircle size={13} /> };
+    if (user.verification_status === 'rejected') return { label: 'Unverified', color: '#ef4444', bg: 'rgba(239,68,68,.1)', border: 'rgba(239,68,68,.2)', icon: <XCircle size={13} /> };
+    if (user.verification_status === 'suspended') return { label: 'Suspended', color: '#ef4444', bg: 'rgba(239,68,68,.1)', border: 'rgba(239,68,68,.2)', icon: <XCircle size={13} /> };
+    if (user.user_type === 'admin') return { label: 'Active', color: '#10b981', bg: 'rgba(16,185,129,.1)', border: 'rgba(16,185,129,.2)', icon: <CheckCircle size={13} /> };
+    return { label: 'Pending', color: '#f59e0b', bg: 'rgba(245,158,11,.1)', border: 'rgba(245,158,11,.2)', icon: <AlertTriangle size={13} /> };
   };
 
-  const getUserTypeIcon = (userType) => {
-    switch (userType) {
-      case 'admin': return <Shield size={20} />;
-      case 'tourist': return <User size={20} />;
-      case 'verified_resident': return <User size={20} />;
-      case 'business_owner': return <Building size={20} />;
-      case 'government_official': return <Shield size={20} />;
-      default: return <User size={20} />;
-    }
-  };
+  const role = getRoleConfig(user.user_type);
+  const status = getStatusConfig();
 
-  const requiresApproval = (userType) => {
-    const noApprovalNeeded = ['admin', 'tourist'];
-    return !noApprovalNeeded.includes(userType);
-  };
+  const initials = (user.full_name || user.name || '?').split(' ').map(w => w[0]).slice(0, 2).join('').toUpperCase();
 
   return (
-    <div className="user-modal-overlay" onClick={onClose}>
-      <div className="user-modal-content" onClick={(e) => e.stopPropagation()}>
-        {/* Header */}
+    <>
+      <div className="user-modal-backdrop" onClick={onClose} />
+      <div className="user-modal-panel">
+
+        {/* ── Header ── */}
         <div className="user-modal-header">
-          <div className="user-modal-title-section">
-            <div className="user-header-info">
-              <div 
-                className="user-avatar-large" 
-                style={{ backgroundColor: getUserTypeColor(user.user_type) + '20' }}
-              >
-                {getUserTypeIcon(user.user_type)}
-              </div>
-              <div>
-                <h2 className="user-modal-title">{user.full_name || user.name || 'Unknown User'}</h2>
-                <p className="user-modal-subtitle">{user.email}</p>
-              </div>
-            </div>
-            <div className="user-modal-badges">
-              <span 
-                className="status-badge-modal" 
-                style={{ backgroundColor: statusBadge.color }}
-              >
-                {statusBadge.icon}
-                {statusBadge.text}
-              </span>
-              <span 
-                className="user-type-badge-modal" 
-                style={{ color: getUserTypeColor(user.user_type) }}
-              >
-                {getUserTypeIcon(user.user_type)}
-                {getUserTypeDisplayName(user.user_type)}
-              </span>
-            </div>
+          <div className="user-modal-avatar" style={{ background: role.bg, border: `2px solid ${role.border}`, color: role.color }}>
+            {initials}
           </div>
-          <button className="user-modal-close" onClick={onClose}>
-            <X size={24} />
-          </button>
+          <div className="user-modal-header-info">
+            <span className="user-modal-eyebrow">User Profile</span>
+            <h2 className="user-modal-title">{user.full_name || user.name || 'Unknown User'}</h2>
+            <span className="user-modal-email">{user.email}</span>
+          </div>
+          <button className="user-modal-close" onClick={onClose}><X size={18} /></button>
         </div>
 
-        {/* Content */}
+        {/* ── Badges ── */}
+        <div className="user-modal-badges">
+          <span className="user-badge" style={{ color: role.color, background: role.bg, border: `1px solid ${role.border}` }}>
+            {role.icon} {role.label}
+          </span>
+          <span className="user-badge" style={{ color: status.color, background: status.bg, border: `1px solid ${status.border}` }}>
+            {status.icon} {status.label}
+          </span>
+          {hasDocuments && (
+            <span className="user-badge user-badge-gray"><FileText size={11} /> {documents.length} doc{documents.length > 1 ? 's' : ''}</span>
+          )}
+        </div>
+
+        {/* ── Body ── */}
         <div className="user-modal-body">
-          {/* Documents Section */}
+
+          {/* Verification documents */}
           {hasDocuments ? (
-            <div className="user-documents-section">
-              <div className="documents-header">
-                <div className="documents-title">
-                  <FileText size={20} />
-                  <span>Verification Documents ({documents.length})</span>
-                </div>
-                {documents.length > 1 && (
-                  <div className="document-navigation">
-                    <button 
-                      className="nav-document-btn" 
-                      onClick={handlePreviousDocument}
-                      disabled={loading}
-                    >
-                      <ChevronLeft size={18} />
-                    </button>
-                    <span className="document-counter">
-                      {currentDocumentIndex + 1} / {documents.length}
-                    </span>
-                    <button 
-                      className="nav-document-btn" 
-                      onClick={handleNextDocument}
-                      disabled={loading}
-                    >
-                      <ChevronRight size={18} />
-                    </button>
-                  </div>
-                )}
-              </div>
-              <div className={`document-container ${documentZoom ? 'zoomed' : ''}`}>
-                <img 
-                  src={documents[currentDocumentIndex]} 
-                  alt={`Verification Document ${currentDocumentIndex + 1}`}
-                  className="user-document"
-                  onClick={handleDocumentClick}
-                  onError={(e) => {
-                    e.target.src = 'https://via.placeholder.com/600x400?text=Document+Not+Available';
-                  }}
+            <div className="user-doc-block">
+              <div className="user-doc-main">
+                <img
+                  src={documents[currentDocumentIndex]}
+                  alt={`Document ${currentDocumentIndex + 1}`}
+                  className={`user-doc-img ${documentZoom ? 'zoomed' : ''}`}
+                  onClick={() => setDocumentZoom(!documentZoom)}
+                  onError={(e) => { e.target.src = 'https://placehold.co/600x400?text=Not+Available'; }}
                 />
                 {documentZoom && (
-                  <div className="document-zoom-controls">
-                    <button 
-                      className="zoom-btn" 
-                      onClick={() => setDocumentZoom(false)}
-                      title="Zoom Out"
-                    >
-                      <ZoomOut size={18} />
-                    </button>
-                  </div>
+                  <button className="user-doc-zoom-out" onClick={() => setDocumentZoom(false)}><ZoomOut size={16} /></button>
                 )}
                 {documents.length > 1 && (
-                  <div className="document-thumbnails">
-                    {documents.map((doc, idx) => (
-                      <img
-                        key={idx}
-                        src={doc}
-                        alt={`Thumbnail ${idx + 1}`}
-                        className={`thumbnail ${idx === currentDocumentIndex ? 'active' : ''}`}
-                        onClick={() => setCurrentDocumentIndex(idx)}
-                        onError={(e) => {
-                          e.target.src = 'https://via.placeholder.com/80x60?text=Error';
-                        }}
-                      />
-                    ))}
-                  </div>
+                  <>
+                    <button className="user-doc-nav prev" onClick={() => setCurrentDocumentIndex(i => i > 0 ? i - 1 : documents.length - 1)}><ChevronLeft size={18} /></button>
+                    <button className="user-doc-nav next" onClick={() => setCurrentDocumentIndex(i => i < documents.length - 1 ? i + 1 : 0)}><ChevronRight size={18} /></button>
+                    <span className="user-doc-counter">{currentDocumentIndex + 1} / {documents.length}</span>
+                  </>
                 )}
               </div>
+              {documents.length > 1 && (
+                <div className="user-doc-thumbs">
+                  {documents.map((doc, idx) => (
+                    <img key={idx} src={doc} alt="" className={`user-doc-thumb ${idx === currentDocumentIndex ? 'active' : ''}`}
+                      onClick={() => setCurrentDocumentIndex(idx)}
+                      onError={(e) => { e.target.src = 'https://placehold.co/80x60'; }} />
+                  ))}
+                </div>
+              )}
             </div>
           ) : (
-            <div className="no-documents-warning">
-              <AlertTriangle size={24} />
+            <div className="user-no-docs">
+              <AlertTriangle size={18} />
+              <span>No verification documents submitted</span>
+            </div>
+          )}
+
+          {/* Info grid */}
+          <div className="user-info-grid">
+            <div className="user-info-item">
+              <Mail size={13} className="user-info-icon" />
               <div>
-                <h3>No Verification Documents Available</h3>
-                <p>This user has not submitted any verification documents. Verification may require additional information.</p>
+                <span className="user-info-label">Email</span>
+                <span className="user-info-value">{user.email || '—'}</span>
               </div>
             </div>
-          )}
-
-          {/* User Details */}
-          <div className="user-details-section">
-            <h3 className="section-title">User Information</h3>
-            
-            <div className="details-grid">
-              <div className="detail-item">
-                <div className="detail-label">
-                  <Mail size={18} />
-                  <span>Email</span>
-                </div>
-                <div className="detail-value">{user.email || 'Not provided'}</div>
-              </div>
-
-              <div className="detail-item">
-                <div className="detail-label">
-                  <Phone size={18} />
-                  <span>Phone</span>
-                </div>
-                <div className="detail-value">{user.phone || user.phone_number || 'Not provided'}</div>
-              </div>
-
-              <div className="detail-item">
-                <div className="detail-label">
-                  <Calendar size={18} />
-                  <span>Joined</span>
-                </div>
-                <div className="detail-value">{formatDate(user.created_at)}</div>
-              </div>
-
-              <div className="detail-item">
-                <div className="detail-label">
-                  <Clock size={18} />
-                  <span>Last Updated</span>
-                </div>
-                <div className="detail-value">{formatDate(user.updated_at)}</div>
-              </div>
-
-              {user.address && (
-                <div className="detail-item">
-                  <div className="detail-label">
-                    <MapPin size={18} />
-                    <span>Address</span>
-                  </div>
-                  <div className="detail-value">{user.address}</div>
-                </div>
-              )}
-
-              {user.business_name && (
-                <div className="detail-item">
-                  <div className="detail-label">
-                    <Building size={18} />
-                    <span>Business Name</span>
-                  </div>
-                  <div className="detail-value">{user.business_name}</div>
-                </div>
-              )}
-
-              {user.department && (
-                <div className="detail-item">
-                  <div className="detail-label">
-                    <Building size={18} />
-                    <span>Department</span>
-                  </div>
-                  <div className="detail-value">{user.department}</div>
-                </div>
-              )}
-
-              <div className="detail-item">
-                <div className="detail-label">
-                  <Shield size={18} />
-                  <span>Account Status</span>
-                </div>
-                <div className="detail-value">
-                  <span 
-                    className="status-badge-inline" 
-                    style={{ 
-                      backgroundColor: user.is_active ? '#10b981' : '#ef4444',
-                      color: 'white'
-                    }}
-                  >
-                    {user.is_active ? 'Active' : 'Inactive'}
-                  </span>
-                </div>
+            <div className="user-info-item">
+              <Phone size={13} className="user-info-icon" />
+              <div>
+                <span className="user-info-label">Phone</span>
+                <span className="user-info-value">{user.phone || user.phone_number || '—'}</span>
               </div>
             </div>
+            <div className="user-info-item">
+              <Calendar size={13} className="user-info-icon" />
+              <div>
+                <span className="user-info-label">Joined</span>
+                <span className="user-info-value">{formatDate(user.created_at)}</span>
+              </div>
+            </div>
+            <div className="user-info-item">
+              <Clock size={13} className="user-info-icon" />
+              <div>
+                <span className="user-info-label">Last Updated</span>
+                <span className="user-info-value">{formatDate(user.updated_at)}</span>
+              </div>
+            </div>
+            {user.address && user.address !== 'Not provided' && (
+              <div className="user-info-item" style={{ gridColumn: '1 / -1' }}>
+                <MapPin size={13} className="user-info-icon" />
+                <div>
+                  <span className="user-info-label">Address</span>
+                  <span className="user-info-value">{user.address}</span>
+                </div>
+              </div>
+            )}
+            {user.department && (
+              <div className="user-info-item" style={{ gridColumn: '1 / -1' }}>
+                <Shield size={13} className="user-info-icon" />
+                <div>
+                  <span className="user-info-label">Department</span>
+                  <span className="user-info-value">{user.department}</span>
+                </div>
+              </div>
+            )}
           </div>
-
-          {/* Verification Status */}
-          {!canVerify && (
-            <div className="verification-status-section">
-              <div className={`verification-status ${user.is_verified ? 'approved' : 'rejected'}`}>
-                {user.is_verified ? (
-                  <>
-                    <CheckCircle size={24} />
-                    <div>
-                      <h4>User Verified</h4>
-                      <p>This user has been verified and approved by an administrator.</p>
-                    </div>
-                  </>
-                ) : (
-                  <>
-                    <XCircle size={24} />
-                    <div>
-                      <h4>User Not Verified</h4>
-                      <p>This user has been reviewed and is not verified.</p>
-                    </div>
-                  </>
-                )}
-              </div>
-            </div>
-          )}
         </div>
 
-        {/* Footer Actions */}
+        {/* ── Footer ── */}
         <div className="user-modal-footer">
+          {/* PENDING — show Reject + Verify */}
           {canVerify && requiresApproval(user.user_type) && (
             <>
               {!hasDocuments && (
-                <div className="verification-warning">
-                  <AlertTriangle size={18} />
-                  <span>Warning: This user has no verification documents. Verify authenticity before approval.</span>
+                <div className="user-warn">
+                  <AlertTriangle size={14} />
+                  <span>No documents — verify identity before approving</span>
                 </div>
               )}
-              <div className="modal-actions">
-                <button 
-                  className="btn-approve-modal"
-                  onClick={() => {
-                    if (!hasDocuments) {
-                      if (!window.confirm('This user has no verification documents. Are you sure you want to approve them without documents?')) {
-                        return;
-                      }
-                    }
-                    onApprove(user.id);
-                  }}
-                  disabled={loading}
-                >
-                  <CheckCircle size={18} />
-                  Approve User
+              <div className="user-modal-actions">
+                <button className="user-action-btn reject" onClick={() => { const r = window.prompt('Rejection reason (optional):'); onReject(user.id, r); }} disabled={loading}>
+                  <XCircle size={15} /> Reject
                 </button>
-                <button 
-                  className="btn-reject-modal"
-                  onClick={() => {
-                    const reason = window.prompt('Please provide a reason for rejection (optional):');
-                    onReject(user.id, reason);
-                  }}
-                  disabled={loading}
-                >
-                  <XCircle size={18} />
-                  Reject User
+                <button className="user-action-btn approve" onClick={() => {
+                  if (!hasDocuments && !window.confirm('No documents found. Approve anyway?')) return;
+                  onApprove(user.id);
+                }} disabled={loading}>
+                  <CheckCircle size={15} /> Verify User
                 </button>
               </div>
             </>
           )}
-          {(!canVerify || !requiresApproval(user.user_type)) && (
-            <div className="modal-actions">
-              <button 
-                className="btn-close-modal"
-                onClick={onClose}
-              >
-                Close
+
+          {/* VERIFIED — show Suspend */}
+          {user.verification_status === 'verified' && requiresApproval(user.user_type) && onSuspend && (
+            <div className="user-modal-actions">
+              <button className="user-action-btn close-btn" onClick={onClose}>Close</button>
+              <button className="user-action-btn suspend" onClick={() => {
+                if (window.confirm('Suspend this account? The user will lose access.')) onSuspend(user.id);
+              }} disabled={loading}>
+                <Ban size={15} /> Suspend Account
               </button>
+            </div>
+          )}
+
+          {/* SUSPENDED — show Restore */}
+          {user.verification_status === 'suspended' && requiresApproval(user.user_type) && onRestore && (
+            <div className="user-modal-actions">
+              <button className="user-action-btn close-btn" onClick={onClose}>Close</button>
+              <button className="user-action-btn restore" onClick={() => onRestore(user.id)} disabled={loading}>
+                <RotateCcw size={15} /> Restore Access
+              </button>
+            </div>
+          )}
+
+          {/* ADMIN / no action needed */}
+          {(!requiresApproval(user.user_type) || (!canVerify && user.verification_status !== 'verified' && user.verification_status !== 'suspended')) && (
+            <div className="user-modal-actions">
+              <button className="user-action-btn close-btn" onClick={onClose}>Close</button>
             </div>
           )}
         </div>
       </div>
-    </div>
+    </>
   );
 };
 
 export default UserDetailModal;
-
-
-

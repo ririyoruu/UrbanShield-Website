@@ -1,19 +1,16 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { 
-  UserCheck, 
-  Search, 
-  Filter, 
-  CheckCircle, 
-  XCircle, 
-  Clock, 
-  Eye,
+import {
+  UserCheck,
+  Search,
+  CheckCircle,
+  XCircle,
+  Clock,
   FileText,
   AlertTriangle,
   RefreshCw,
   User,
-  Building,
   Shield,
-  Users as UsersIcon
+  Crown
 } from 'lucide-react';
 import { adminService } from '../config/supabase';
 import UserDetailModal from './UserDetailModal';
@@ -29,210 +26,172 @@ const VerificationManagement = () => {
   const [showModal, setShowModal] = useState(false);
   const [saving, setSaving] = useState(false);
 
-  useEffect(() => {
-    loadUsers();
-  }, []);
+  useEffect(() => { loadUsers(); }, []);
 
-  // Helper functions - defined first
-  const requiresApproval = (userType) => {
-    const noApprovalNeeded = ['admin', 'tourist'];
-    return !noApprovalNeeded.includes(userType);
-  };
+  const requiresApproval = (userType) => !['admin'].includes(userType);
 
   const getApprovalStatus = (user) => {
-    if (!requiresApproval(user.user_type)) {
+    if (!requiresApproval(user.user_type))
       return { status: 'auto-approved', color: '#10b981', text: 'Auto-Approved' };
-    }
-    // Use is_verified (boolean) as the primary source
-    if (user.is_verified === true) {
+    if (user.verification_status === 'verified' || user.is_verified === true)
       return { status: 'approved', color: '#10b981', text: 'Verified' };
-    } else if (user.is_verified === false) {
+    if (user.verification_status === 'rejected' || user.is_verified === false)
       return { status: 'rejected', color: '#ef4444', text: 'Rejected' };
-    } else {
-      // is_verified is null or undefined = pending
-      return { status: 'pending', color: '#f59e0b', text: 'Pending Verification' };
-    }
+    if (user.verification_status === 'suspended')
+      return { status: 'suspended', color: '#a855f7', text: 'Suspended' };
+    return { status: 'pending', color: '#f59e0b', text: 'Pending' };
+  };
+
+  const getRoleLabel = (type) => {
+    if (type === 'admin' || type === 'superadmin') return 'Admin';
+    if (type === 'government_responder' || type === 'government_official') return 'Gov / Responder';
+    return 'Resident';
+  };
+
+  const getRoleIcon = (type) => {
+    if (type === 'admin' || type === 'superadmin') return <Crown size={11} />;
+    if (type === 'government_responder' || type === 'government_official') return <Shield size={11} />;
+    return <User size={11} />;
+  };
+
+  const getRoleColor = (type) => {
+    if (type === 'admin' || type === 'superadmin') return '#dc2626';
+    if (type === 'government_responder' || type === 'government_official') return '#8b5cf6';
+    return '#10b981';
   };
 
   const loadUsers = async () => {
     try {
       setLoading(true);
       const data = await adminService.getAllUsers();
-      const transformedUsers = data.map(user => ({
-        ...user,
-        full_name: user.full_name || user.name || 'Unknown User',
-        verification_documents: user.verification_documents || user.documents || user.id_documents || []
+      const transformed = data.map(u => ({
+        ...u,
+        full_name: u.full_name || u.name || 'Unknown User',
+        verification_documents: u.verification_documents || u.documents || u.id_documents || []
       }));
-      setUsers(transformedUsers);
-    } catch (error) {
-      console.error('Error loading users:', error);
+      setUsers(transformed);
+    } catch (err) {
+      console.error('Error loading users:', err);
     } finally {
       setLoading(false);
     }
   };
 
-  // Use useMemo for computed values
   const filteredUsers = useMemo(() => {
     return users.filter(user => {
-      const matchesSearch = user.full_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                           user.email?.toLowerCase().includes(searchTerm.toLowerCase());
-      const matchesType = filterType === 'all' || user.user_type === filterType;
-      const approvalStatus = getApprovalStatus(user);
-      const matchesStatus = filterStatus === 'all' || approvalStatus.status === filterStatus;
+      const matchesSearch =
+        user.full_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        user.email?.toLowerCase().includes(searchTerm.toLowerCase());
+      const matchesType = filterType === 'all'
+        || user.user_type === filterType
+        || (filterType === 'government_responder' && user.user_type === 'government_official')
+        || (filterType === 'resident' && user.user_type === 'verified_resident');
+      const status = getApprovalStatus(user);
+      const matchesStatus = filterStatus === 'all' || status.status === filterStatus;
       return matchesSearch && matchesType && matchesStatus;
     });
   }, [users, searchTerm, filterType, filterStatus]);
 
-  const stats = useMemo(() => {
-    return {
-      pending: users.filter(u => getApprovalStatus(u).status === 'pending' && requiresApproval(u.user_type)).length,
-      verified: users.filter(u => getApprovalStatus(u).status === 'approved').length,
-      rejected: users.filter(u => getApprovalStatus(u).status === 'rejected').length,
-      suspended: users.filter(u => getApprovalStatus(u).status === 'suspended').length
-    };
-  }, [users]);
+  const stats = useMemo(() => ({
+    pending: users.filter(u => getApprovalStatus(u).status === 'pending').length,
+    verified: users.filter(u => getApprovalStatus(u).status === 'approved').length,
+    rejected: users.filter(u => getApprovalStatus(u).status === 'rejected').length,
+    suspended: users.filter(u => getApprovalStatus(u).status === 'suspended').length
+  }), [users]);
 
-  const handleViewUser = (user) => {
-    setSelectedUser(user);
-    setShowModal(true);
-  };
+  const handleViewUser = (user) => { setSelectedUser(user); setShowModal(true); };
+  const handleCloseModal = () => { setShowModal(false); setSelectedUser(null); };
 
   const handleApprove = async (userId) => {
-    if (!userId) {
-      alert('Error: User ID is missing. Cannot approve user.');
-      console.error('handleApprove called without userId');
-      return;
-    }
-    
     try {
       setSaving(true);
-      console.log('Approving user:', userId);
-      // Set is_verified to true (don't pass verification_status since it's not used)
-      const result = await adminService.updateUserVerification(userId, true);
-      console.log('Approval result:', result);
+      await adminService.updateUserVerification(userId, true, 'verified');
       await loadUsers();
-      setShowModal(false);
-      alert('User approved successfully');
-    } catch (error) {
-      console.error('Error approving user:', error);
-      const errorMessage = error?.message || error?.error?.message || error?.code || 'Unknown error';
-      console.error('Full error details:', error);
-      alert(`Failed to approve user: ${errorMessage}. Please check the console for details.`);
-    } finally {
-      setSaving(false);
-    }
+      handleCloseModal();
+    } catch (err) {
+      console.error('Error verifying user:', err);
+      alert(`Failed to verify user: ${err?.message || 'Unknown error'}`);
+    } finally { setSaving(false); }
   };
 
-  const handleReject = async (userId, reason = null) => {
-    if (!userId) {
-      alert('Error: User ID is missing. Cannot reject user.');
-      return;
-    }
-    
+  const handleReject = async (userId) => {
     try {
       setSaving(true);
-      console.log('Rejecting user:', userId);
-      // Set is_verified to false
-      await adminService.updateUserVerification(userId, false);
+      await adminService.updateUserVerification(userId, false, 'rejected');
       await loadUsers();
-      setShowModal(false);
-      alert('User rejected successfully');
-    } catch (error) {
-      console.error('Error rejecting user:', error);
-      const errorMessage = error?.message || error?.error?.message || error?.code || 'Unknown error';
-      alert(`Failed to reject user: ${errorMessage}. Please check the console for details.`);
-    } finally {
-      setSaving(false);
-    }
+      handleCloseModal();
+    } catch (err) {
+      console.error('Error rejecting user:', err);
+      alert(`Failed to reject user: ${err?.message || 'Unknown error'}`);
+    } finally { setSaving(false); }
   };
 
   const handleSuspend = async (userId) => {
-    if (!userId) {
-      alert('Error: User ID is missing. Cannot suspend user.');
-      return;
-    }
-    
-    if (!window.confirm('Are you sure you want to suspend this user? They will not be able to access the system.')) {
-      return;
-    }
     try {
       setSaving(true);
-      console.log('Suspending user:', userId);
-      // Set is_verified to false for suspension
-      await adminService.updateUserVerification(userId, false);
+      await adminService.updateUserVerification(userId, false, 'suspended');
       await loadUsers();
-      setShowModal(false);
-      alert('User has been suspended.');
-    } catch (error) {
-      console.error('Error suspending user:', error);
-      const errorMessage = error?.message || error?.error?.message || error?.code || 'Unknown error';
-      alert(`Failed to suspend user: ${errorMessage}. Please check the console for details.`);
-    } finally {
-      setSaving(false);
-    }
+      handleCloseModal();
+    } catch (err) {
+      console.error('Error suspending user:', err);
+      alert(`Failed to suspend user: ${err?.message || 'Unknown error'}`);
+    } finally { setSaving(false); }
+  };
+
+  const handleRestore = async (userId) => {
+    try {
+      setSaving(true);
+      await adminService.updateUserVerification(userId, true, 'verified');
+      await loadUsers();
+      handleCloseModal();
+    } catch (err) {
+      console.error('Error restoring user:', err);
+      alert(`Failed to restore user: ${err?.message || 'Unknown error'}`);
+    } finally { setSaving(false); }
   };
 
   return (
     <div className="verification-management">
-      <div className="verification-header">
-        <div>
-          <h2>User Verification Management</h2>
-          <p>Review and manage user verification requests</p>
-        </div>
-        <button className="btn-refresh" onClick={loadUsers} disabled={loading}>
-          <RefreshCw size={18} className={loading ? 'spinning' : ''} />
-          Refresh
-        </button>
+
+      {/* ── Stat chips ── */}
+      <div className="verif-stat-row">
+        {[
+          { label: 'Pending', count: stats.pending, color: '#f59e0b', filter: 'pending', icon: <Clock size={13} /> },
+          { label: 'Verified', count: stats.verified, color: '#10b981', filter: 'approved', icon: <CheckCircle size={13} /> },
+          { label: 'Rejected', count: stats.rejected, color: '#ef4444', filter: 'rejected', icon: <XCircle size={13} /> },
+          { label: 'Suspended', count: stats.suspended, color: '#a855f7', filter: 'suspended', icon: <AlertTriangle size={13} /> },
+        ].map(({ label, count, color, filter, icon }) => (
+          <button
+            key={filter}
+            className={`verif-stat-chip ${filterStatus === filter ? 'active' : ''}`}
+            onClick={() => setFilterStatus(filterStatus === filter ? 'all' : filter)}
+            style={filterStatus === filter ? { borderColor: color, color } : {}}
+          >
+            <span className="verif-stat-icon" style={{ color }}>{icon}</span>
+            <span className="verif-stat-num" style={filterStatus === filter ? { color } : {}}>{count}</span>
+            <span className="verif-stat-label">{label}</span>
+          </button>
+        ))}
       </div>
 
-      <div className="verification-stats">
-        <div className="stat-card" style={{ borderColor: 'rgba(245, 158, 11, 0.3)' }}>
-          <Clock size={24} style={{ color: '#f59e0b', backgroundColor: 'rgba(245, 158, 11, 0.1)' }} />
-          <div>
-            <h3>{stats.pending}</h3>
-            <p>Pending</p>
-          </div>
-        </div>
-        <div className="stat-card" style={{ borderColor: 'rgba(16, 185, 129, 0.3)' }}>
-          <CheckCircle size={24} style={{ color: '#10b981', backgroundColor: 'rgba(16, 185, 129, 0.1)' }} />
-          <div>
-            <h3>{stats.verified}</h3>
-            <p>Verified</p>
-          </div>
-        </div>
-        <div className="stat-card" style={{ borderColor: 'rgba(239, 68, 68, 0.3)' }}>
-          <XCircle size={24} style={{ color: '#ef4444', backgroundColor: 'rgba(239, 68, 68, 0.1)' }} />
-          <div>
-            <h3>{stats.rejected}</h3>
-            <p>Rejected</p>
-          </div>
-        </div>
-        <div className="stat-card" style={{ borderColor: 'rgba(239, 68, 68, 0.3)' }}>
-          <AlertTriangle size={24} style={{ color: '#ef4444', backgroundColor: 'rgba(239, 68, 68, 0.1)' }} />
-          <div>
-            <h3>{stats.suspended}</h3>
-            <p>Suspended</p>
-          </div>
-        </div>
-      </div>
-
-      <div className="verification-filters">
-        <div className="search-box">
-          <Search size={20} />
+      {/* ── Filters ── */}
+      <div className="verif-filters">
+        <div className="verif-search">
+          <Search size={14} />
           <input
             type="text"
             placeholder="Search by name or email..."
             value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
+            onChange={e => setSearchTerm(e.target.value)}
           />
         </div>
-        <select value={filterType} onChange={(e) => setFilterType(e.target.value)}>
-          <option value="all">All User Types</option>
-          <option value="verified_resident">Resident</option>
-          <option value="business_owner">Business</option>
-          <option value="government_official">Government</option>
+        <select value={filterType} onChange={e => setFilterType(e.target.value)}>
+          <option value="all">All Roles</option>
+          <option value="admin">Admin</option>
+          <option value="government_responder">Gov / Responders</option>
+          <option value="resident">Residents</option>
         </select>
-        <select value={filterStatus} onChange={(e) => setFilterStatus(e.target.value)}>
+        <select value={filterStatus} onChange={e => setFilterStatus(e.target.value)}>
           <option value="all">All Status</option>
           <option value="pending">Pending</option>
           <option value="approved">Verified</option>
@@ -241,88 +200,54 @@ const VerificationManagement = () => {
         </select>
       </div>
 
-      <div className="verification-list">
+      {/* ── List ── */}
+      <div className="verif-list">
+        <div className="verif-list-header">
+          <div>User</div>
+          <div>Role &amp; Status</div>
+          <div>Documents</div>
+        </div>
+
         {loading ? (
-          <div className="loading-state">
-            <RefreshCw size={32} className="spinning" />
-            <p>Loading users...</p>
-          </div>
+          <div className="verif-empty"><RefreshCw size={28} className="spinning" /><p>Loading...</p></div>
         ) : filteredUsers.length === 0 ? (
-          <div className="empty-state">
-            <UserCheck size={48} />
-            <h3>No users found</h3>
-            <p>No users match your current filters</p>
-          </div>
+          <div className="verif-empty"><UserCheck size={36} /><p>No users match your filters</p></div>
         ) : (
           filteredUsers.map(user => {
             const status = getApprovalStatus(user);
+            const roleColor = getRoleColor(user.user_type);
             const hasDocs = (user.verification_documents?.length || 0) > 0;
             return (
-              <div key={user.id} className="verification-item card" onClick={() => handleViewUser(user)}>
-                <div className="verification-item-single-line">
-                  <div className="verification-item-left">
-                    <div className="user-avatar-small">
-                      <User size={18} />
-                    </div>
-                    <div className="user-info-inline">
-                      <h4>{user.full_name}</h4>
-                      <span className="user-email-inline">{user.email}</span>
-                    </div>
-                    {hasDocs && (
-                      <span className="doc-indicator" title="Has documents">
-                        <FileText size={14} />
-                      </span>
-                    )}
+              <div key={user.id} className="verif-row" onClick={() => handleViewUser(user)}>
+                {/* User */}
+                <div className="verif-cell verif-user">
+                  <div className="verif-avatar" style={{ background: roleColor + '18', color: roleColor }}>
+                    {getRoleIcon(user.user_type)}
                   </div>
-                  <div className="verification-item-middle">
-                    <span className="user-type-badge">{user.user_type}</span>
-                    <span className="status-badge" style={{ backgroundColor: status.color }}>
+                  <div>
+                    <div className="verif-name">{user.full_name}</div>
+                    <div className="verif-email">{user.email}</div>
+                  </div>
+                </div>
+
+                {/* Role & Status */}
+                <div className="verif-cell">
+                  <div className="verif-badges">
+                    <span className="verif-role-badge" style={{ color: roleColor, background: roleColor + '15', borderColor: roleColor + '30' }}>
+                      {getRoleIcon(user.user_type)} {getRoleLabel(user.user_type)}
+                    </span>
+                    <span className="verif-status-badge" style={{ color: status.color, background: status.color + '15', borderColor: status.color + '30' }}>
                       {status.text}
                     </span>
                   </div>
-                  <div className="verification-item-actions" onClick={(e) => e.stopPropagation()}>
-                    {status.status === 'pending' && requiresApproval(user.user_type) && (
-                      <>
-                        <button 
-                          className="btn-approve" 
-                          onClick={() => {
-                            if (!user.id) {
-                              console.error('User ID is missing:', user);
-                              alert('Error: User ID is missing. Cannot approve.');
-                              return;
-                            }
-                            handleApprove(user.id);
-                          }} 
-                          disabled={saving}
-                        >
-                          <CheckCircle size={14} />
-                          Approve
-                        </button>
-                        <button className="btn-reject" onClick={() => handleReject(user.id)} disabled={saving}>
-                          <XCircle size={14} />
-                          Reject
-                        </button>
-                      </>
-                    )}
-                    {status.status === 'approved' && (
-                      <button 
-                        className="btn-suspend" 
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleSuspend(user.id);
-                        }} 
-                        disabled={saving}
-                        title="Suspend verified user"
-                      >
-                        <AlertTriangle size={14} />
-                        Suspend
-                      </button>
-                    )}
-                    <button className="btn-view" onClick={() => handleViewUser(user)}>
-                      <Eye size={14} />
-                      View
-                    </button>
-                  </div>
+                </div>
+
+                {/* Documents */}
+                <div className="verif-cell">
+                  {hasDocs
+                    ? <span className="verif-doc-pill"><FileText size={11} /> {user.verification_documents.length} doc{user.verification_documents.length > 1 ? 's' : ''}</span>
+                    : <span className="verif-no-doc">None</span>
+                  }
                 </div>
               </div>
             );
@@ -333,9 +258,11 @@ const VerificationManagement = () => {
       <UserDetailModal
         user={selectedUser}
         isOpen={showModal}
-        onClose={() => setShowModal(false)}
+        onClose={handleCloseModal}
         onApprove={handleApprove}
         onReject={handleReject}
+        onSuspend={handleSuspend}
+        onRestore={handleRestore}
         loading={saving}
       />
     </div>
@@ -343,4 +270,3 @@ const VerificationManagement = () => {
 };
 
 export default VerificationManagement;
-

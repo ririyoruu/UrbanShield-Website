@@ -1,9 +1,9 @@
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
-import { 
-  AlertTriangle, 
-  Search, 
-  CheckCircle, 
-  XCircle, 
+import {
+  AlertTriangle,
+  Search,
+  CheckCircle,
+  XCircle,
   Trash2,
   RefreshCw,
   Clock,
@@ -19,11 +19,11 @@ import { adminService, supabase } from '../config/supabase';
 import ReportDetailModal from './ReportDetailModal';
 import './IncidentModeration.css';
 
-const IncidentModeration = () => {
+const IncidentModeration = ({ initialSearch = '' }) => {
   const [incidents, setIncidents] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
-  const [searchTerm, setSearchTerm] = useState('');
+  const [searchTerm, setSearchTerm] = useState(initialSearch);
   const [filterCategory, setFilterCategory] = useState('all');
   const [filterSeverity, setFilterSeverity] = useState('all');
   const [filterStatus, setFilterStatus] = useState('all');
@@ -181,7 +181,7 @@ const IncidentModeration = () => {
         setLocationCache(prev => ({ ...prev, [key]: short }));
         return short;
       }
-    } catch (err) {}
+    } catch (err) { }
     return null;
   }, [locationCache]);
 
@@ -189,21 +189,21 @@ const IncidentModeration = () => {
     console.log('🔍 Resolving location for incident:', incident.id);
     console.log('   Address field:', incident.address);
     console.log('   Location field (PostGIS):', incident.location);
-    
+
     // First try to use the address field directly
     if (incident.address && incident.address.trim() !== '') {
       console.log('   ✅ Using address field:', incident.address);
       return incident.address;
     }
-    
+
     // Fallback to parsing PostGIS geography if address is empty
     console.log('   Address is empty, falling back to PostGIS parsing...');
     const loc = incident.location || '';
     let lat = parseFloat(incident.latitude);
     let lng = parseFloat(incident.longitude);
-    
+
     console.log('   Parsed lat:', lat, 'Parsed lng:', lng);
-    
+
     if ((!lat || !lng || isNaN(lat) || isNaN(lng)) && incident.coordinates) {
       const parsed = parsePostGISPoint(String(incident.coordinates));
       if (parsed) { lat = parsed.lat; lng = parsed.lng; }
@@ -216,11 +216,11 @@ const IncidentModeration = () => {
       const coordMatch = loc.match(/([-\d.]+)[,\s]+([-\d.]+)/);
       if (coordMatch) { lat = parseFloat(coordMatch[1]); lng = parseFloat(coordMatch[2]); }
     }
-    
+
     console.log('   Final lat:', lat, 'Final lng:', lng);
-    
+
     if (lat && lng && !isNaN(lat) && isFinite(lat) && !isNaN(lng) && isFinite(lng)
-        && lat >= -90 && lat <= 90 && lng >= -180 && lng <= 180) {
+      && lat >= -90 && lat <= 90 && lng >= -180 && lng <= 180) {
       console.log('   ✅ Valid coordinates - attempting reverse geocoding...');
       const address = await reverseGeocode(lat, lng);
       if (address) {
@@ -228,7 +228,7 @@ const IncidentModeration = () => {
         return address;
       }
     }
-    
+
     console.log('   ❌ Could not resolve location - returning Unknown Location');
     return 'Unknown Location';
   }, [reverseGeocode, locationCache]);
@@ -509,21 +509,17 @@ const IncidentModeration = () => {
                 )}
                 {/* Post header: thumbnail + info */}
                 <div className="post-card-top">
-                  {hasImages ? (
+                  {hasImages && (
                     <div className="post-thumb">
                       <img src={incident.images[0]} alt="" />
-                    </div>
-                  ) : (
-                    <div className="post-thumb post-thumb-empty">
-                      <AlertTriangle size={20} />
                     </div>
                   )}
                   <div className="post-info">
                     <h4 className="post-title">{incident.title || 'Untitled Post'}</h4>
-                    <div className="post-meta">
-                      <span className="post-meta-item"><MapPin size={12} />{displayLocation}</span>
-                      <span className="post-meta-item"><User size={12} />{incident.reporter}</span>
-                      <span className="post-meta-item"><Clock size={12} />{formatTimestamp(incident.timestamp)}</span>
+                    <div className="mod-card-meta">
+                      <span className="mod-card-meta-item"><MapPin size={13} />{displayLocation}</span>
+                      <span className="mod-card-meta-item"><User size={13} />{incident.reporter}</span>
+                      <span className="mod-card-meta-item"><Clock size={13} />{formatTimestamp(incident.timestamp)}</span>
                     </div>
                   </div>
                   <div className="post-badges">

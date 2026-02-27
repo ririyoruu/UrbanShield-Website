@@ -1,179 +1,243 @@
 import React, { useState } from 'react';
-import { 
-  Megaphone, 
-  Plus, 
-  Edit, 
-  Trash2, 
-  Eye,
+import {
+  Megaphone,
+  Plus,
+  Edit,
+  Trash2,
   Save,
-  X
+  X,
+  Users,
+  Clock,
+  AlertTriangle,
+  Bell,
+  CheckCircle,
+  Calendar
 } from 'lucide-react';
 import './AnnouncementsManagement.css';
 
+const PRIORITY_CONFIG = {
+  normal: { label: 'Normal', color: '#71717a', bg: '#f4f4f5', border: '#e4e4e7' },
+  high: { label: 'High', color: '#d97706', bg: '#fffbeb', border: '#fde68a' },
+  urgent: { label: 'Urgent', color: '#dc2626', bg: '#fef2f2', border: '#fecaca' },
+};
+
+const AUDIENCE_LABELS = {
+  all: 'All Users',
+  verified: 'Verified Only',
+  resident: 'Residents',
+  government: 'Gov / Responders',
+};
+
+const emptyForm = {
+  title: '',
+  description: '',
+  content: '',
+  target_audience: 'all',
+  priority: 'normal',
+  expiration_date: ''
+};
+
 const AnnouncementsManagement = () => {
   const [announcements, setAnnouncements] = useState([]);
-  const [showForm, setShowForm] = useState(false);
+  const [drawerOpen, setDrawerOpen] = useState(false);
   const [editing, setEditing] = useState(null);
-  const [formData, setFormData] = useState({
-    title: '',
-    description: '',
-    content: '',
-    target_audience: 'all',
-    priority: 'normal',
-    expiration_date: ''
-  });
+  const [formData, setFormData] = useState(emptyForm);
+
+  const openCreate = () => { setEditing(null); setFormData(emptyForm); setDrawerOpen(true); };
+  const openEdit = (a) => { setEditing(a.id); setFormData({ ...a }); setDrawerOpen(true); };
+  const closeDrawer = () => { setDrawerOpen(false); setEditing(null); };
 
   const handleSubmit = (e) => {
     e.preventDefault();
     if (editing) {
-      setAnnouncements(announcements.map(a => a.id === editing ? { ...a, ...formData } : a));
-      setEditing(null);
+      setAnnouncements(prev => prev.map(a => a.id === editing ? { ...a, ...formData } : a));
     } else {
-      setAnnouncements([...announcements, { id: Date.now(), ...formData, created_at: new Date() }]);
+      setAnnouncements(prev => [{ id: Date.now(), ...formData, created_at: new Date().toISOString() }, ...prev]);
     }
-    setShowForm(false);
-    setFormData({ title: '', description: '', content: '', target_audience: 'all', priority: 'normal', expiration_date: '' });
+    closeDrawer();
+  };
+
+  const handleDelete = (id) => {
+    if (window.confirm('Delete this announcement?')) {
+      setAnnouncements(prev => prev.filter(a => a.id !== id));
+    }
+  };
+
+  const formatDate = (iso) => {
+    if (!iso) return '';
+    return new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
   };
 
   return (
-    <div className="announcements-management">
-      <div className="announcements-header">
-        <div>
-          <h2>Announcements Management</h2>
-          <p>Create and manage system announcements</p>
+    <div className="ann-root">
+
+      {/* ── Top bar ── */}
+      <div className="ann-topbar">
+        <div className="ann-topbar-left">
+          <span className="ann-count-pill">{announcements.length}</span>
+          <span className="ann-topbar-label">Announcements</span>
         </div>
-        <button className="btn-create" onClick={() => setShowForm(true)}>
-          <Plus size={18} />
-          Create Announcement
+        <button className="ann-btn-create" onClick={openCreate}>
+          <Plus size={15} /> New Announcement
         </button>
       </div>
 
-      {showForm && (
-        <div className="announcement-form card">
-          <div className="form-header">
-            <h3>{editing ? 'Edit' : 'Create'} Announcement</h3>
-            <button className="btn-close" onClick={() => { setShowForm(false); setEditing(null); }}>
-              <X size={20} />
-            </button>
-          </div>
-          <form onSubmit={handleSubmit}>
-            <div className="form-group">
-              <label>Title</label>
-              <input
-                type="text"
-                value={formData.title}
-                onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-                required
-              />
-            </div>
-            <div className="form-group">
-              <label>Description</label>
-              <input
-                type="text"
-                value={formData.description}
-                onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                required
-              />
-            </div>
-            <div className="form-group">
-              <label>Content</label>
-              <textarea
-                value={formData.content}
-                onChange={(e) => setFormData({ ...formData, content: e.target.value })}
-                rows={5}
-                required
-              />
-            </div>
-            <div className="form-row">
-              <div className="form-group">
-                <label>Target Audience</label>
-                <select
-                  value={formData.target_audience}
-                  onChange={(e) => setFormData({ ...formData, target_audience: e.target.value })}
-                >
-                  <option value="all">All Users</option>
-                  <option value="verified">Verified Users Only</option>
-                  <option value="resident">Residents</option>
-                  <option value="business">Business Owners</option>
-                  <option value="government">Government Officials</option>
-                </select>
+      {/* ── List ── */}
+      {announcements.length === 0 ? (
+        <div className="ann-empty">
+          <div className="ann-empty-icon"><Megaphone size={28} /></div>
+          <h3>No announcements yet</h3>
+          <p>Create your first announcement and it will appear here.</p>
+          <button className="ann-btn-create" onClick={openCreate}><Plus size={14} /> Create Announcement</button>
+        </div>
+      ) : (
+        <div className="ann-list">
+          {announcements.map(ann => {
+            const p = PRIORITY_CONFIG[ann.priority] || PRIORITY_CONFIG.normal;
+            return (
+              <div key={ann.id} className="ann-card">
+                <div className="ann-card-left" style={{ background: p.bg, borderColor: p.border }}>
+                  <Bell size={16} style={{ color: p.color }} />
+                </div>
+                <div className="ann-card-body">
+                  <div className="ann-card-top">
+                    <div className="ann-card-meta-row">
+                      <span className="ann-priority-pill" style={{ color: p.color, background: p.bg, borderColor: p.border }}>
+                        {p.label}
+                      </span>
+                      <span className="ann-audience-pill">
+                        <Users size={11} /> {AUDIENCE_LABELS[ann.target_audience] || ann.target_audience}
+                      </span>
+                    </div>
+                    <div className="ann-card-actions">
+                      <button className="ann-icon-btn" onClick={() => openEdit(ann)} title="Edit">
+                        <Edit size={14} />
+                      </button>
+                      <button className="ann-icon-btn danger" onClick={() => handleDelete(ann.id)} title="Delete">
+                        <Trash2 size={14} />
+                      </button>
+                    </div>
+                  </div>
+                  <h4 className="ann-card-title">{ann.title}</h4>
+                  {ann.description && <p className="ann-card-desc">{ann.description}</p>}
+                  {ann.content && <p className="ann-card-content">{ann.content}</p>}
+                  <div className="ann-card-footer">
+                    {ann.created_at && (
+                      <span className="ann-footer-item"><Clock size={11} /> {formatDate(ann.created_at)}</span>
+                    )}
+                    {ann.expiration_date && (
+                      <span className="ann-footer-item warn"><Calendar size={11} /> Expires {ann.expiration_date}</span>
+                    )}
+                  </div>
+                </div>
               </div>
-              <div className="form-group">
-                <label>Priority</label>
-                <select
-                  value={formData.priority}
-                  onChange={(e) => setFormData({ ...formData, priority: e.target.value })}
-                >
-                  <option value="normal">Normal</option>
-                  <option value="high">High</option>
-                  <option value="urgent">Urgent</option>
-                </select>
-              </div>
-            </div>
-            <div className="form-group">
-              <label>Expiration Date (Optional)</label>
-              <input
-                type="date"
-                value={formData.expiration_date}
-                onChange={(e) => setFormData({ ...formData, expiration_date: e.target.value })}
-              />
-            </div>
-            <div className="form-actions">
-              <button type="button" className="btn-cancel" onClick={() => { setShowForm(false); setEditing(null); }}>
-                Cancel
-              </button>
-              <button type="submit" className="btn-save">
-                <Save size={16} />
-                {editing ? 'Update' : 'Create'} Announcement
-              </button>
-            </div>
-          </form>
+            );
+          })}
         </div>
       )}
 
-      <div className="announcements-list">
-        {announcements.length === 0 ? (
-          <div className="empty-state">
-            <Megaphone size={48} />
-            <h3>No announcements</h3>
-            <p>Create your first announcement to get started</p>
-          </div>
-        ) : (
-          announcements.map(announcement => (
-            <div key={announcement.id} className="announcement-item card">
-              <div className="announcement-header">
-                <div>
-                  <h4>{announcement.title}</h4>
-                  <p>{announcement.description}</p>
-                </div>
-                <span className="priority-badge" data-priority={announcement.priority}>
-                  {announcement.priority}
-                </span>
+      {/* ── Right-side Drawer ── */}
+      {drawerOpen && (
+        <>
+          <div className="ann-backdrop" onClick={closeDrawer} />
+          <div className="ann-drawer">
+            {/* Drawer Header */}
+            <div className="ann-drawer-header">
+              <div>
+                <p className="ann-drawer-eyebrow">{editing ? 'Edit' : 'New'} Announcement</p>
+                <h3 className="ann-drawer-title">{editing ? 'Update Announcement' : 'Create Announcement'}</h3>
               </div>
-              <div className="announcement-content">
-                <p>{announcement.content}</p>
-              </div>
-              <div className="announcement-meta">
-                <span>Target: {announcement.target_audience}</span>
-                {announcement.expiration_date && <span>Expires: {announcement.expiration_date}</span>}
-              </div>
-              <div className="announcement-actions">
-                <button className="btn-edit" onClick={() => { setEditing(announcement.id); setFormData(announcement); setShowForm(true); }}>
-                  <Edit size={16} />
-                  Edit
-                </button>
-                <button className="btn-delete" onClick={() => setAnnouncements(announcements.filter(a => a.id !== announcement.id))}>
-                  <Trash2 size={16} />
-                  Delete
-                </button>
-              </div>
+              <button className="ann-drawer-close" onClick={closeDrawer}><X size={16} /></button>
             </div>
-          ))
-        )}
-      </div>
+
+            {/* Drawer Form */}
+            <form className="ann-drawer-body" onSubmit={handleSubmit}>
+
+              <div className="ann-field">
+                <label>Title <span>*</span></label>
+                <input
+                  type="text"
+                  placeholder="e.g. Scheduled Maintenance Tonight"
+                  value={formData.title}
+                  onChange={e => setFormData({ ...formData, title: e.target.value })}
+                  required
+                />
+              </div>
+
+              <div className="ann-field">
+                <label>Short Description</label>
+                <input
+                  type="text"
+                  placeholder="Brief summary shown in the list"
+                  value={formData.description}
+                  onChange={e => setFormData({ ...formData, description: e.target.value })}
+                />
+              </div>
+
+              <div className="ann-field">
+                <label>Full Content <span>*</span></label>
+                <textarea
+                  rows={5}
+                  placeholder="Write the full announcement body here..."
+                  value={formData.content}
+                  onChange={e => setFormData({ ...formData, content: e.target.value })}
+                  required
+                />
+              </div>
+
+              <div className="ann-field-row">
+                <div className="ann-field">
+                  <label>Priority</label>
+                  <select value={formData.priority} onChange={e => setFormData({ ...formData, priority: e.target.value })}>
+                    <option value="normal">Normal</option>
+                    <option value="high">High</option>
+                    <option value="urgent">Urgent</option>
+                  </select>
+                </div>
+                <div className="ann-field">
+                  <label>Target Audience</label>
+                  <select value={formData.target_audience} onChange={e => setFormData({ ...formData, target_audience: e.target.value })}>
+                    <option value="all">All Users</option>
+                    <option value="verified">Verified Only</option>
+                    <option value="resident">Residents</option>
+                    <option value="government">Gov / Responders</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="ann-field">
+                <label>Expiration Date <span className="ann-optional">(optional)</span></label>
+                <input
+                  type="date"
+                  value={formData.expiration_date}
+                  onChange={e => setFormData({ ...formData, expiration_date: e.target.value })}
+                />
+              </div>
+
+              {/* Priority preview */}
+              {formData.priority !== 'normal' && (
+                <div className="ann-priority-preview" style={{
+                  background: PRIORITY_CONFIG[formData.priority]?.bg,
+                  borderColor: PRIORITY_CONFIG[formData.priority]?.border,
+                  color: PRIORITY_CONFIG[formData.priority]?.color,
+                }}>
+                  <AlertTriangle size={14} />
+                  This announcement is marked as <strong>{PRIORITY_CONFIG[formData.priority]?.label}</strong> priority.
+                </div>
+              )}
+
+              <div className="ann-drawer-footer">
+                <button type="button" className="ann-btn-cancel" onClick={closeDrawer}>Cancel</button>
+                <button type="submit" className="ann-btn-submit">
+                  <CheckCircle size={15} /> {editing ? 'Update' : 'Publish'} Announcement
+                </button>
+              </div>
+            </form>
+          </div>
+        </>
+      )}
     </div>
   );
 };
 
 export default AnnouncementsManagement;
-

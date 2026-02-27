@@ -22,16 +22,16 @@ const MapComponent = ({
   // Geocode address to coordinates using Nominatim (OpenStreetMap)
   const geocodeAddress = async (address) => {
     if (!address) return null;
-    
+
     try {
       // Add "Bohol, Philippines" to improve geocoding accuracy for local addresses
       const query = `${address}, Bohol, Philippines`;
       const response = await fetch(
         `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=1`
       );
-      
+
       if (!response.ok) return null;
-      
+
       const data = await response.json();
       if (data && data.length > 0) {
         const result = data[0];
@@ -56,12 +56,12 @@ const MapComponent = ({
         return { lat, lng };
       }
     }
-    
+
     // If no coordinates but has address, we'll geocode it later
     if (incident.address) {
       return null; // Will be handled in geocoding step
     }
-    
+
     return null;
   };
 
@@ -121,11 +121,11 @@ const MapComponent = ({
           minLng = Math.min(minLng, pin._lng);
           maxLng = Math.max(maxLng, pin._lng);
         });
-        
+
         const centerLat = (minLat + maxLat) / 2;
         const centerLng = (minLng + maxLng) / 2;
         const zoom = 12; // Fixed zoom for Tubigon area
-        
+
         setViewState({
           latitude: centerLat,
           longitude: centerLng,
@@ -142,7 +142,7 @@ const MapComponent = ({
     if (status === 'resolved') {
       return '#10b981'; // Green for resolved
     }
-    
+
     // For non-resolved, use severity colors
     const severityColors = {
       critical: '#dc2626',
@@ -277,44 +277,80 @@ const MapComponent = ({
           </Marker>
         ))}
 
-        {/* Popup - Minimal Professional */}
+        {/* Popup */}
         {selectedMarker && (
           <Popup
             longitude={selectedMarker._lng}
             latitude={selectedMarker._lat}
             anchor="bottom"
             onClose={closePopup}
-            closeButton={true}
+            closeButton={false}
             className="modern-popup"
-            maxWidth="300px"
-            offset={25}
+            maxWidth="320px"
+            offset={28}
             closeOnClick={false}
           >
             <div className="modern-popup-content">
+              {/* Colored accent bar */}
+              <div
+                className="popup-accent-bar"
+                style={{ background: getMarkerColor(selectedMarker._severity, selectedMarker._status) }}
+              />
+
+              {/* Header */}
               <div className="popup-header">
-                <h4 className="popup-title">{selectedMarker.title || 'Incident Report'}</h4>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <h4 className="popup-title">{selectedMarker.title || 'Incident Report'}</h4>
+                </div>
                 <span className="popup-time">{timeAgo(selectedMarker.created_at)}</span>
               </div>
-              <div className="popup-body">
-                <div className="popup-location">
-                  <MapPin size={14} />
-                  <span>{selectedMarker._address || 'Location not specified'}</span>
-                </div>
-                <div className="popup-tags">
-                  <span className="popup-severity-tag" style={{ backgroundColor: getMarkerColor(selectedMarker._severity, selectedMarker._status) }}>
-                    {selectedMarker._severity?.toUpperCase()}
+
+              {/* Tags */}
+              <div className="popup-tags">
+                <span className="popup-severity-tag" style={{ background: getMarkerColor(selectedMarker._severity, selectedMarker._status) }}>
+                  {selectedMarker._severity || 'unknown'}
+                </span>
+                <span className="popup-status-tag" style={{ background: statusInfo(selectedMarker._status).color }}>
+                  {statusInfo(selectedMarker._status).label}
+                </span>
+                {selectedMarker._type && (
+                  <span className="popup-status-tag" style={{ background: '#71717a' }}>
+                    {selectedMarker._type}
                   </span>
-                  <span className="popup-status-tag" style={{ backgroundColor: statusInfo(selectedMarker._status).color }}>
-                    {statusInfo(selectedMarker._status).label}
-                  </span>
-                </div>
-                {onMarkerClick && (
-                  <button className="popup-action-btn" onClick={() => onMarkerClick(selectedMarker)}>
-                    View Full Report
-                    <ChevronRight size={16} />
-                  </button>
                 )}
               </div>
+
+              <div className="popup-divider" />
+
+              {/* Body */}
+              <div className="popup-body">
+                <div className="popup-row">
+                  <MapPin size={13} />
+                  <span>{selectedMarker._address || 'Location not specified'}</span>
+                </div>
+                {selectedMarker.reporter_name && (
+                  <div className="popup-row">
+                    <User size={13} />
+                    <span>Reported by {selectedMarker.reporter_name}</span>
+                  </div>
+                )}
+                {selectedMarker.created_at && (
+                  <div className="popup-row">
+                    <Clock size={13} />
+                    <span>{new Date(selectedMarker.created_at).toLocaleString()}</span>
+                  </div>
+                )}
+                {selectedMarker.description && (
+                  <div className="popup-description">{selectedMarker.description}</div>
+                )}
+              </div>
+
+              {/* CTA */}
+              {onMarkerClick && (
+                <button className="popup-action-btn" onClick={() => onMarkerClick(selectedMarker)}>
+                  View Full Post <ChevronRight size={14} />
+                </button>
+              )}
             </div>
           </Popup>
         )}

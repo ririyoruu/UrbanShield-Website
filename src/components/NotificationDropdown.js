@@ -1,272 +1,180 @@
-import React, { useState, useEffect } from 'react';
-import { 
-  Bell, 
-  X, 
-  Check, 
-  AlertTriangle, 
-  User, 
+import React, { useState, useEffect, useRef, useCallback } from 'react';
+import {
+  Bell,
+  X,
+  AlertTriangle,
   Shield,
   Clock,
-  ExternalLink
+  CheckCircle,
+  ChevronRight,
+  RefreshCw
 } from 'lucide-react';
 import { adminService } from '../config/supabase';
 import './NotificationDropdown.css';
 
-const NotificationDropdown = ({ user, isOpen, onClose, onNavigateToIncidents }) => {
-  const [notifications, setNotifications] = useState([]);
-  const [loading, setLoading] = useState(true);
+const NotificationDropdown = ({ user, reports = [], isOpen, onClose, onNavigateToIncidents }) => {
+  const dropdownRef = useRef(null);
 
+  // ── Close on outside click ──
   useEffect(() => {
-    if (isOpen) {
-      loadNotifications();
-    }
-  }, [isOpen, user]);
-
-  const loadNotifications = async () => {
-    try {
-      setLoading(true);
-      
-      // Get all incidents and create notifications
-      const incidents = await adminService.getAllReports();
-      console.log('Loaded incidents for notifications:', incidents.length);
-      
-      // Helper to get status from is_verified
-      const getStatus = (incident) => {
-        if (incident.is_verified === true) return 'approved';
-        if (incident.is_verified === false) return 'rejected';
-        return 'pending';
-      };
-      
-      // Helper to clean hex strings from location and use fallbacks
-      const cleanLocation = (incident) => {
-        // Get the original location data
-        const originalLoc = incident.location;
-        const cityAddress = `${incident.city || ''} ${incident.address || ''}`.trim();
-        const loc = originalLoc || cityAddress || 'Unknown location';
-        
-        // If location is not a string, use city/address or return unknown
-        if (typeof loc !== 'string') {
-          return cityAddress || 'Unknown location';
-        }
-        
-        // Filter out PostGIS hex strings (geometry data)
-        // These are long alphanumeric strings that start with "0101000020E6100000" or similar patterns
-        // and are typically 40+ characters of hex characters
-        if (loc && (
-          loc.startsWith('0101000020E6100000') ||
-          (loc.length > 40 && /^[0-9A-Fa-f]+$/.test(loc)) ||
-          /^01010000[0-9A-Fa-f]{32,}$/.test(loc)
-        )) {
-          return cityAddress || 'Location not specified';
-        }
-        
-        // Clean any hex strings that might be embedded in the text
-        let cleaned = loc
-          .replace(/\s+in\s+01010000[0-9A-Fa-f]{32,}/gi, '')
-          .replace(/0101000020E6100000[0-9A-Fa-f]{32,}/gi, '')
-          .replace(/01010000[0-9A-Fa-f]{32,}/gi, '')
-          .replace(/\b[0-9A-Fa-f]{40,}\b/gi, '')
-          .replace(/\s+/g, ' ')
-          .trim();
-        
-        // If cleaning removed everything, use city/address fallback
-        if (!cleaned || cleaned.length < 2) {
-          return cityAddress || 'Location not specified';
-        }
-        
-        return cleaned;
-      };
-      
-      // Filter only pending incidents
-      const pendingIncidents = incidents.filter(incident => getStatus(incident) === 'pending');
-      
-      // Create notifications from pending incidents only
-      const incidentNotifications = pendingIncidents
-        .slice(0, 10) // Show up to 10 pending incidents
-        .map(incident => ({
-          id: `incident-${incident.id}`,
-          title: 'Incident Report',
-          message: `${incident.title || incident.category || 'Incident'} in ${cleanLocation(incident)}`,
-          type: 'incident',
-          priority: incident.severity || 'medium',
-          time: incident.created_at,
-          status: getStatus(incident),
-          incidentId: incident.id
-        }));
-
-      // Add system notifications based on incident data
-      const systemNotifications = [];
-      
-      const pendingCount = pendingIncidents.length;
-      if (pendingCount > 0) {
-        systemNotifications.push({
-          id: 'pending-reports',
-          title: 'Pending Reports',
-          message: `${pendingCount} incidents are pending review`,
-          type: 'system',
-          priority: 'high',
-          time: new Date().toISOString(),
-          actionUrl: '/admin/reports'
-        });
+    if (!isOpen) return;
+    const handler = (e) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target)) {
+        onClose();
       }
+    };
+    // slight delay so the button click that opened it doesn't immediately close it
+    const timer = setTimeout(() => document.addEventListener('mousedown', handler), 50);
+    return () => {
+      clearTimeout(timer);
+      document.removeEventListener('mousedown', handler);
+    };
+  }, [isOpen, onClose]);
 
-
-      // Combine all notifications
-      const allNotifications = [...incidentNotifications, ...systemNotifications]
-        .sort((a, b) => new Date(b.time) - new Date(a.time))
-        .slice(0, 10); // Show max 10 notifications
-
-      console.log('Total notifications created:', allNotifications.length);
-      setNotifications(allNotifications);
-    } catch (error) {
-      console.error('Error loading notifications:', error);
-      // Set some mock notifications if there's an error
-      setNotifications([
-        {
-          id: 'error-notification',
-          title: 'System Error',
-          message: 'Unable to load notifications. Please refresh the page.',
-          type: 'system',
-          priority: 'high',
-          time: new Date().toISOString(),
-          actionUrl: '/admin/reports'
-        }
-      ]);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const getNotificationIcon = (type, priority) => {
-    const iconClass = `notification-icon ${priority}`;
-    
-    switch (type) {
-      case 'incident':
-        return <AlertTriangle className={iconClass} size={16} />;
-      case 'system':
-        return <Shield className={iconClass} size={16} />;
-      case 'user':
-        return <User className={iconClass} size={16} />;
-      default:
-        return <Bell className={iconClass} size={16} />;
-    }
-  };
-
-  const getPriorityColor = (priority) => {
-    switch (priority) {
-      case 'high':
-        return '#ef4444';
-      case 'medium':
-        return '#f59e0b';
-      case 'low':
-        return '#22c55e';
-      default:
-        return '#6b7280';
-    }
-  };
+  // ── No separate loading needed, derived from props ──
 
   const formatTimeAgo = (dateString) => {
-    const now = new Date();
-    const date = new Date(dateString);
-    const diffInSeconds = Math.floor((now - date) / 1000);
-
-    if (diffInSeconds < 60) return 'Just now';
-    if (diffInSeconds < 3600) return `${Math.floor(diffInSeconds / 60)}m ago`;
-    if (diffInSeconds < 86400) return `${Math.floor(diffInSeconds / 3600)}h ago`;
-    return `${Math.floor(diffInSeconds / 86400)}d ago`;
+    if (!dateString) return '';
+    const diff = Math.floor((Date.now() - new Date(dateString)) / 1000);
+    if (diff < 60) return 'Just now';
+    if (diff < 3600) return `${Math.floor(diff / 60)}m ago`;
+    if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`;
+    return `${Math.floor(diff / 86400)}d ago`;
   };
 
-  const handleNotificationClick = (notification) => {
-    if (notification.incidentId && onNavigateToIncidents) {
-      // Navigate to incidents tab
-      onNavigateToIncidents();
-    } else if (notification.actionUrl) {
-      // Navigate to the relevant page
-      window.location.hash = notification.actionUrl;
-    }
+  const cleanLocation = (incident) => {
+    const addr = incident.address || '';
+    const loc = incident.location || '';
+    if (addr && addr.trim().length > 2) return addr.trim();
+    if (loc && !/^[0-9A-Fa-f]{10,}/.test(loc.trim()) && loc.trim().length > 2) return loc.trim();
+    return null;
+  };
+
+  // ── Derived Data ──
+  const actionable = reports
+    .filter(r => r.status !== 'resolved')
+    .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
+    .slice(0, 15);
+
+  const notifications = actionable.map(r => {
+    const isPending = !r.status || r.status === 'pending';
+    const location = cleanLocation(r);
+    return {
+      id: r.id,
+      title: r.title || r.category || 'Untitled Post',
+      location,
+      category: r.category || 'Other',
+      status: isPending ? 'pending' : 'in_action',
+      severity: r.severity || 'medium',
+      time: r.created_at,
+      incidentId: r.id,
+    };
+  });
+
+  const handleItemClick = (notif) => {
+    if (onNavigateToIncidents) onNavigateToIncidents();
     onClose();
+  };
+
+  const severityColor = (sev) => {
+    if (sev === 'high') return '#dc2626';
+    if (sev === 'medium') return '#d97706';
+    return '#71717a';
   };
 
   if (!isOpen) return null;
 
+  const pendingCount = notifications.filter(n => n.status === 'pending').length;
+  const inActionCount = notifications.filter(n => n.status === 'in_action').length;
+
   return (
-    <div className="notification-dropdown">
-      <div className="notification-header">
-        <h3>Recent Activity</h3>
-        <button className="close-btn" onClick={onClose}>
-          <X size={16} />
-        </button>
+    <div className="nd-dropdown" ref={dropdownRef}>
+
+      {/* Header */}
+      <div className="nd-header">
+        <div className="nd-header-left">
+          <Bell size={15} />
+          <span>Notifications</span>
+          {notifications.length > 0 && (
+            <span className="nd-count">{notifications.length}</span>
+          )}
+        </div>
+        <div className="nd-header-right">
+          <button className="nd-icon-btn" onClick={onClose} title="Close">
+            <X size={13} />
+          </button>
+        </div>
       </div>
 
-      <div className="notification-list">
-        {loading ? (
-          <div className="loading-notifications">
-            <div className="spinner"></div>
-            <p>Loading notifications...</p>
-          </div>
-        ) : notifications.length === 0 ? (
-          <div className="no-notifications">
-            <Bell size={24} />
-            <p>No recent activity</p>
+      {/* Summary chips */}
+      {notifications.length > 0 && (
+        <div className="nd-summary">
+          {pendingCount > 0 && (
+            <span className="nd-chip pending">
+              <AlertTriangle size={11} /> {pendingCount} Pending
+            </span>
+          )}
+          {inActionCount > 0 && (
+            <span className="nd-chip in_action">
+              <Shield size={11} /> {inActionCount} In Action
+            </span>
+          )}
+        </div>
+      )}
+
+      {/* List */}
+      <div className="nd-list">
+        {notifications.length === 0 ? (
+          <div className="nd-empty">
+            <CheckCircle size={28} style={{ color: '#10b981' }} />
+            <p>All caught up!</p>
+            <span>No pending posts right now</span>
           </div>
         ) : (
-          notifications.map(notification => (
-            <div 
-              key={notification.id} 
-              className="notification-item"
-              onClick={() => handleNotificationClick(notification)}
+          notifications.map(notif => (
+            <div
+              key={notif.id}
+              className="nd-item"
+              onClick={() => handleItemClick(notif)}
             >
-              <div className="notification-icon-wrapper">
-                {getNotificationIcon(notification.type, notification.priority)}
-              </div>
-              
-              <div className="notification-content">
-                <div className="notification-title-row">
-                  <h4>{notification.title}</h4>
-                  <span 
-                    className="priority-badge"
-                    style={{ backgroundColor: getPriorityColor(notification.priority) }}
-                  >
-                    {notification.priority}
+              {/* Left: severity dot */}
+              <div className="nd-dot" style={{ background: severityColor(notif.severity) }} />
+
+              {/* Body */}
+              <div className="nd-item-body">
+                <div className="nd-item-top">
+                  <span className="nd-item-title">{notif.title}</span>
+                  <span className={`nd-status-pill ${notif.status}`}>
+                    {notif.status === 'in_action' ? 'In Action' : 'Pending'}
                   </span>
                 </div>
-                
-                <p className="notification-message">{notification.message}</p>
-                
-                <div className="notification-meta">
-                  <span className="time-ago">
-                    <Clock size={12} />
-                    {formatTimeAgo(notification.time)}
-                  </span>
-                  {notification.status && (
-                    <span className={`status-badge ${notification.status}`}>
-                      {notification.status}
-                    </span>
+                <div className="nd-item-meta">
+                  {notif.category && (
+                    <span className="nd-category">{notif.category}</span>
+                  )}
+                  {notif.location && (
+                    <span className="nd-location">📍 {notif.location}</span>
                   )}
                 </div>
+                <span className="nd-time">
+                  <Clock size={10} /> {formatTimeAgo(notif.time)}
+                </span>
               </div>
 
-              {notification.actionUrl && (
-                <div className="notification-action">
-                  <ExternalLink size={14} />
-                </div>
-              )}
+              {/* Right: chevron */}
+              <ChevronRight size={14} className="nd-chevron" />
             </div>
           ))
         )}
       </div>
 
-      <div className="notification-footer">
-        <button 
-          className="view-all-btn"
-          onClick={() => {
-            if (onNavigateToIncidents) {
-              onNavigateToIncidents();
-            }
-            onClose();
-          }}
+      {/* Footer */}
+      <div className="nd-footer">
+        <button
+          className="nd-footer-btn"
+          onClick={() => { if (onNavigateToIncidents) onNavigateToIncidents(); onClose(); }}
         >
-          View All Incidents
+          View All Posts <ChevronRight size={13} />
         </button>
       </div>
     </div>

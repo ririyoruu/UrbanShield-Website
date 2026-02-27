@@ -14,19 +14,19 @@ export const ThemeProvider = ({ children }) => {
   const [theme, setTheme] = useState(() => {
     // Get theme from localStorage or default to 'dark'
     const savedTheme = localStorage.getItem('theme');
-    return savedTheme || 'dark';
+    return savedTheme || 'light';
   });
 
   useEffect(() => {
     // Apply theme to document
     document.documentElement.setAttribute('data-theme', theme);
-    
+
     // Save theme to localStorage
     localStorage.setItem('theme', theme);
-    
+
     // Update body class for theme-specific styles
     document.body.className = `theme-${theme}`;
-    
+
     // Force a re-render by updating a dummy state
     console.log('Theme changed to:', theme);
   }, [theme]);

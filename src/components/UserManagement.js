@@ -1,20 +1,13 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { 
+import {
   Users,
   RefreshCw,
-  Clock,
   CheckCircle,
   X,
-  UserCheck,
-  Eye,
   Check,
   Search,
-  Menu,
-  BarChart3,
   FileText,
   Crown,
-  MapPin,
-  Building,
   Shield,
   User
 } from 'lucide-react';
@@ -30,7 +23,7 @@ const UserManagement = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [filterRole, setFilterRole] = useState('all');
   const [filterStatus, setFilterStatus] = useState('all');
-  const [viewMode, setViewMode] = useState('list'); // 'default' or 'list'
+  // list-only view (card view removed)
   const [selectedUser, setSelectedUser] = useState(null);
   const [showUserModal, setShowUserModal] = useState(false);
 
@@ -58,7 +51,7 @@ const UserManagement = () => {
       setLoading(true);
       const data = await adminService.getAllUsers();
       console.log('Raw user data:', data);
-      
+
       // Transform the data to match our UI structure
       const transformedUsers = data.map(user => ({
         id: user.id,
@@ -66,8 +59,8 @@ const UserManagement = () => {
         email: user.email,
         phone: user.phone || user.phone_number || 'Not provided',
         user_type: user.user_type || 'general_user',
-        status: user.is_verified === true ? 'approved' : 
-                user.is_verified === false ? 'rejected' : 'pending',
+        status: user.is_verified === true ? 'approved' :
+          user.is_verified === false ? 'rejected' : 'pending',
         is_verified: user.is_verified,
         verification_status: user.verification_status,
         created_at: user.created_at,
@@ -81,7 +74,7 @@ const UserManagement = () => {
         documents: user.verification_documents || user.documents || user.id_documents || [],
         id_documents: user.verification_documents || user.documents || user.id_documents || []
       }));
-      
+
       setUsers(transformedUsers);
     } catch (error) {
       console.error('Error loading users:', error);
@@ -105,15 +98,15 @@ const UserManagement = () => {
     try {
       setSaving(true);
       console.log('Approving user:', userId);
-      
+
       const result = await adminService.updateUserVerification(userId, true, 'verified');
       console.log('Approval result:', result);
-      
+
       // Reload users from database to ensure we have the latest state
       await loadUsers();
-      
+
       showMessage('success', 'User approved successfully');
-      
+
       // Close modal after approval
       if (showUserModal) {
         handleCloseModal();
@@ -130,20 +123,20 @@ const UserManagement = () => {
     try {
       setSaving(true);
       console.log('Rejecting user:', userId);
-      
+
       const result = await adminService.updateUserVerification(userId, false, 'rejected');
       console.log('Rejection result:', result);
-      
+
       // If reason provided, could save it as admin_notes
       if (reason) {
         console.log('Rejection reason:', reason);
       }
-      
+
       // Reload users from database to ensure we have the latest state
       await loadUsers();
-      
+
       showMessage('success', 'User rejected successfully');
-      
+
       // Close modal after rejection
       if (showUserModal) {
         handleCloseModal();
@@ -159,14 +152,9 @@ const UserManagement = () => {
   const handleSuspendUser = async (userId) => {
     try {
       setSaving(true);
-      console.log('Suspending user:', userId);
-      
-      const result = await adminService.updateUserVerification(userId, false, 'suspended');
-      console.log('Suspension result:', result);
-      
-      // Reload users from database to ensure we have the latest state
+      await adminService.updateUserVerification(userId, false, 'suspended');
       await loadUsers();
-      
+      if (showUserModal) handleCloseModal();
       showMessage('success', 'User suspended successfully');
     } catch (error) {
       console.error('Error suspending user:', error);
@@ -176,13 +164,28 @@ const UserManagement = () => {
     }
   };
 
+  const handleRestoreUser = async (userId) => {
+    try {
+      setSaving(true);
+      await adminService.updateUserVerification(userId, true, 'verified');
+      await loadUsers();
+      if (showUserModal) handleCloseModal();
+      showMessage('success', 'User access restored successfully');
+    } catch (error) {
+      console.error('Error restoring user:', error);
+      showMessage('error', `Failed to restore user: ${error.message}`);
+    } finally {
+      setSaving(false);
+    }
+  };
+
   const getUserTypeIcon = (userType) => {
     switch (userType) {
       case 'admin': return <Crown size={20} />;
-      case 'tourist': return <MapPin size={20} />;
-      case 'verified_resident': return <UserCheck size={20} />;
-      case 'business_owner': return <Building size={20} />;
+      case 'government_responder': return <Shield size={20} />;
       case 'government_official': return <Shield size={20} />;
+      case 'resident': return <User size={20} />;
+      case 'verified_resident': return <User size={20} />;
       default: return <User size={20} />;
     }
   };
@@ -190,22 +193,22 @@ const UserManagement = () => {
   const getUserTypeColor = (userType) => {
     switch (userType) {
       case 'admin': return '#dc2626';
-      case 'tourist': return '#3b82f6';
-      case 'verified_resident': return '#10b981';
-      case 'business_owner': return '#3b82f6';
+      case 'government_responder': return '#8b5cf6';
       case 'government_official': return '#8b5cf6';
-      default: return '#6b7280';
+      case 'resident': return '#10b981';
+      case 'verified_resident': return '#10b981';
+      default: return '#3b82f6';
     }
   };
 
   const getUserTypeDisplayName = (userType) => {
     switch (userType) {
       case 'admin': return 'Admin';
-      case 'tourist': return 'Tourist';
-      case 'verified_resident': return 'Verified Resident';
-      case 'business_owner': return 'Business Owner';
-      case 'government_official': return 'Government Official';
-      default: return userType;
+      case 'government_responder': return 'Gov / Responder';
+      case 'government_official': return 'Gov / Responder';
+      case 'resident': return 'Resident';
+      case 'verified_resident': return 'Resident';
+      default: return 'Resident';
     }
   };
 
@@ -221,7 +224,7 @@ const UserManagement = () => {
     if (user.user_type === 'admin' || user.user_type === 'superadmin') {
       return { status: 'auto-approved', color: '#10b981', text: 'Auto-Approved' };
     }
-    
+
     // Check only verification_status field
     if (user.verification_status === 'verified') {
       return { status: 'approved', color: '#10b981', text: 'Verified' };
@@ -242,11 +245,14 @@ const UserManagement = () => {
   const filteredUsers = useMemo(() => {
     return users.filter(user => {
       const matchesSearch = user.full_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                           user.email.toLowerCase().includes(searchTerm.toLowerCase());
-      const matchesRole = filterRole === 'all' || user.user_type === filterRole;
+        user.email.toLowerCase().includes(searchTerm.toLowerCase());
+      const matchesRole = filterRole === 'all'
+        || user.user_type === filterRole
+        || (filterRole === 'government_responder' && user.user_type === 'government_official')
+        || (filterRole === 'resident' && user.user_type === 'verified_resident');
       const approvalStatus = getApprovalStatus(user);
       const matchesStatus = filterStatus === 'all' || approvalStatus.status === filterStatus;
-      
+
       return matchesSearch && matchesRole && matchesStatus;
     });
   }, [users, searchTerm, filterRole, filterStatus]);
@@ -281,38 +287,19 @@ const UserManagement = () => {
             className="search-input"
           />
         </div>
-        
+
         <div className="filter-controls">
-          <div className="view-toggle">
-            <button 
-              className={`view-toggle-btn ${viewMode === 'list' ? 'active' : ''}`}
-              onClick={() => setViewMode('list')}
-              title="List View"
-            >
-              <Menu size={16} />
-            </button>
-            <button 
-              className={`view-toggle-btn ${viewMode === 'default' ? 'active' : ''}`}
-              onClick={() => setViewMode('default')}
-              title="Card View"
-            >
-              <BarChart3 size={16} />
-            </button>
-          </div>
-          
           <select
             value={filterRole}
             onChange={(e) => setFilterRole(e.target.value)}
             className="filter-select"
           >
             <option value="all">All Roles</option>
-            <option value="admin">Admins</option>
-            <option value="tourist">Tourists</option>
-            <option value="verified_resident">Verified Residents</option>
-            <option value="business_owner">Business Owners</option>
-            <option value="government_official">Government Officials</option>
+            <option value="admin">Admin</option>
+            <option value="government_responder">Gov / Responders</option>
+            <option value="resident">Residents</option>
           </select>
-          
+
           <select
             value={filterStatus}
             onChange={(e) => setFilterStatus(e.target.value)}
@@ -341,198 +328,61 @@ const UserManagement = () => {
           <p>No users match your current filters</p>
         </div>
       ) : (
-        viewMode === 'list' ? (
-          <div className="users-list">
-            <div className="list-header">
-              <div className="list-column">User</div>
-              <div className="list-column">Type & Status</div>
-              <div className="list-column">Contact</div>
-              <div className="list-column">Actions</div>
-            </div>
-            {filteredUsers.map(user => (
-              <div 
-                key={user.id} 
-                className="user-list-item"
-                onClick={() => handleViewUser(user)}
-              >
-                <div className="list-cell">
-                  <div className="user-info">
-                    <div className="user-avatar-small" style={{ backgroundColor: getUserTypeColor(user.user_type) + '20' }}>
-                      {getUserTypeIcon(user.user_type)}
-                    </div>
-                    <div className="user-details">
-                      <div className="user-name">
-                        {user.full_name}
-                        {((user.verification_documents && user.verification_documents.length > 0) || 
-                          (user.documents && user.documents.length > 0) || 
-                          (user.id_documents && user.id_documents.length > 0)) && (
-                          <span className="has-documents-indicator" title="Has verification documents">
-                            <FileText size={14} />
-                          </span>
+        <div className="users-list">
+          <div className="list-header">
+            <div className="list-column">User</div>
+            <div className="list-column">Role & Status</div>
+            <div className="list-column">Contact</div>
+            <div className="list-column">Actions</div>
+          </div>
+          {filteredUsers.map(user => (
+            <div key={user.id} className="user-list-item" onClick={() => handleViewUser(user)}>
+              <div className="list-cell">
+                <div className="user-info">
+                  <div className="user-avatar-small" style={{ backgroundColor: getUserTypeColor(user.user_type) + '20' }}>
+                    {getUserTypeIcon(user.user_type)}
+                  </div>
+                  <div className="user-details">
+                    <div className="user-name">
+                      {user.full_name}
+                      {((user.verification_documents && user.verification_documents.length > 0) ||
+                        (user.documents && user.documents.length > 0) ||
+                        (user.id_documents && user.id_documents.length > 0)) && (
+                          <span className="has-documents-indicator" title="Has verification documents"><FileText size={13} /></span>
                         )}
-                      </div>
-                      <div className="user-email">{user.email}</div>
-                      <div className="user-joined">Joined: {formatDate(user.created_at)}</div>
                     </div>
-                  </div>
-                </div>
-                <div className="list-cell">
-                  <div className="user-badges">
-                    <span 
-                      className="user-type-badge"
-                      style={{ color: getUserTypeColor(user.user_type) }}
-                    >
-                      {getUserTypeIcon(user.user_type)}
-                      {getUserTypeDisplayName(user.user_type)}
-                    </span>
-                    <span 
-                      className="status-badge"
-                      style={{ backgroundColor: getApprovalStatus(user).color + '20', color: getApprovalStatus(user).color }}
-                    >
-                      {getApprovalStatus(user).text}
-                    </span>
-                  </div>
-                </div>
-                <div className="list-cell">
-                  <div className="contact-info">
-                    <div className="user-phone">{user.phone || 'No phone'}</div>
-                  </div>
-                </div>
-                <div className="list-cell">
-                  <div className="user-actions" onClick={(e) => e.stopPropagation()}>
-                    {getApprovalStatus(user).status === 'pending' && requiresApproval(user.user_type) && (
-                      <>
-                        <button 
-                          className="btn-approve"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleApproveUser(user.id);
-                          }}
-                          disabled={saving}
-                          title="Approve"
-                        >
-                          <Check size={14} />
-                        </button>
-                        <button 
-                          className="btn-reject"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleRejectUser(user.id);
-                          }}
-                          disabled={saving}
-                          title="Reject"
-                        >
-                          <X size={14} />
-                        </button>
-                      </>
-                    )}
+                    <div className="user-email">{user.email}</div>
+                    <div className="user-joined">Joined {formatDate(user.created_at)}</div>
                   </div>
                 </div>
               </div>
-            ))}
-          </div>
-        ) : (
-          <div className="user-grid">
-            {filteredUsers.map(user => (
-              <div 
-                key={user.id} 
-                className="user-card"
-                onClick={() => handleViewUser(user)}
-              >
-                <div className="user-header">
-                  <div className="user-avatar" style={{ backgroundColor: getUserTypeColor(user.user_type) + '20' }}>
+              <div className="list-cell">
+                <div className="user-badges">
+                  <span className="user-type-badge" style={{ color: getUserTypeColor(user.user_type), background: getUserTypeColor(user.user_type) + '15', border: `1px solid ${getUserTypeColor(user.user_type)}30` }}>
                     {getUserTypeIcon(user.user_type)}
-                  </div>
-                  <div className="user-info">
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                      <h3>{user.full_name}</h3>
-                      {((user.verification_documents && user.verification_documents.length > 0) || 
-                        (user.documents && user.documents.length > 0) || 
-                        (user.id_documents && user.id_documents.length > 0)) && (
-                        <span className="has-documents-indicator" title="Has verification documents">
-                          <FileText size={16} />
-                        </span>
-                      )}
-                    </div>
-                    <p>{user.email}</p>
-                    <span 
-                      className="status-badge"
-                      style={{ backgroundColor: getApprovalStatus(user).color + '20', color: getApprovalStatus(user).color }}
-                    >
-                      {getApprovalStatus(user).text}
-                    </span>
-                  </div>
+                    {getUserTypeDisplayName(user.user_type)}
+                  </span>
+                  <span className="status-badge" style={{ backgroundColor: getApprovalStatus(user).color + '15', color: getApprovalStatus(user).color, border: `1px solid ${getApprovalStatus(user).color}30` }}>
+                    {getApprovalStatus(user).text}
+                  </span>
                 </div>
-                
-                <div className="user-details">
-                  <div className="detail-item">
-                    <span className="detail-label">Type:</span>
-                    <span 
-                      className="detail-value user-type"
-                      style={{ color: getUserTypeColor(user.user_type) }}
-                    >
-                      {getUserTypeIcon(user.user_type)}
-                      {getUserTypeDisplayName(user.user_type)}
-                    </span>
-                  </div>
-                  <div className="detail-item">
-                    <span className="detail-label">Phone:</span>
-                    <span className="detail-value">{user.phone}</span>
-                  </div>
-                  <div className="detail-item">
-                    <span className="detail-label">Address:</span>
-                    <span className="detail-value">{user.address}</span>
-                  </div>
-                  {user.business_name && (
-                    <div className="detail-item">
-                      <span className="detail-label">Business:</span>
-                      <span className="detail-value">{user.business_name}</span>
-                    </div>
-                  )}
-                  {user.department && (
-                    <div className="detail-item">
-                      <span className="detail-label">Department:</span>
-                      <span className="detail-value">{user.department}</span>
-                    </div>
-                  )}
-                  <div className="detail-item">
-                    <span className="detail-label">Joined:</span>
-                    <span className="detail-value">{formatDate(user.created_at)}</span>
-                  </div>
-                </div>
-                
+              </div>
+              <div className="list-cell">
+                <div className="user-phone">{user.phone || '—'}</div>
+              </div>
+              <div className="list-cell">
                 <div className="user-actions" onClick={(e) => e.stopPropagation()}>
                   {getApprovalStatus(user).status === 'pending' && requiresApproval(user.user_type) && (
                     <>
-                      <button 
-                        className="btn-approve"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleApproveUser(user.id);
-                        }}
-                        disabled={saving}
-                      >
-                        <Check size={16} />
-                        Approve
-                      </button>
-                      <button 
-                        className="btn-reject"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleRejectUser(user.id);
-                        }}
-                        disabled={saving}
-                      >
-                        <X size={16} />
-                        Reject
-                      </button>
+                      <button className="btn-approve" onClick={(e) => { e.stopPropagation(); handleApproveUser(user.id); }} disabled={saving} title="Approve"><Check size={13} /></button>
+                      <button className="btn-reject" onClick={(e) => { e.stopPropagation(); handleRejectUser(user.id); }} disabled={saving} title="Reject"><X size={13} /></button>
                     </>
                   )}
                 </div>
               </div>
-            ))}
-          </div>
-        )
+            </div>
+          ))}
+        </div>
       )}
 
       {/* User Detail Modal */}
@@ -542,6 +392,8 @@ const UserManagement = () => {
         onClose={handleCloseModal}
         onApprove={handleApproveUser}
         onReject={handleRejectUser}
+        onSuspend={handleSuspendUser}
+        onRestore={handleRestoreUser}
         loading={saving}
       />
     </div>
