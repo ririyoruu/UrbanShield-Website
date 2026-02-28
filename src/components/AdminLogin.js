@@ -160,14 +160,14 @@ const AdminLogin = ({ onLogin, onSignup }) => {
                 {/* Logo */}
                 <div className="al-brand">
                     <img src="/logourb.png" alt="UrbanShield" className="al-brand-logo" />
-                    <div>
+                    <div className="al-brand-text">
                         <p className="al-brand-name">UrbanShield</p>
                         <p className="al-brand-sub">Admin Portal</p>
                     </div>
                 </div>
 
                 {/* Headline */}
-                <div className="al-headline">
+                <div className="al-headline al-hide-on-mobile">
                     <h1>Manage incidents.<br />Protect communities.</h1>
                     <p>
                         A centralized command center for monitoring, analyzing, and responding to
@@ -176,7 +176,7 @@ const AdminLogin = ({ onLogin, onSignup }) => {
                 </div>
 
                 {/* Live stats */}
-                <div className="al-stats">
+                <div className="al-stats al-hide-on-mobile">
                     <div className="al-stat">
                         <div className="al-stat-icon" style={{ background: 'rgba(239,68,68,.15)' }}>
                             <BarChart3 size={18} style={{ color: '#f87171' }} />
@@ -216,7 +216,7 @@ const AdminLogin = ({ onLogin, onSignup }) => {
                 </div>
 
                 {/* Download App Section */}
-                <div className="al-download-section">
+                <div className="al-download-section al-hide-on-mobile">
                     <div className="al-download-info">
                         <div className="al-download-icon">
                             <Smartphone size={24} style={{ color: '#6366f1' }} />
@@ -238,7 +238,7 @@ const AdminLogin = ({ onLogin, onSignup }) => {
                 </div>
 
                 {/* Footer */}
-                <p className="al-left-footer">© {new Date().getFullYear()} UrbanShield · Admin Control Panel</p>
+                <p className="al-left-footer al-hide-on-mobile">© {new Date().getFullYear()} UrbanShield · Admin Control Panel</p>
             </div>
         </div>
     );

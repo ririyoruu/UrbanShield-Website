@@ -959,47 +959,6 @@
     .al-left {
         width: 100%;
         min-height: auto;
-        padding: 2.5rem 2rem 2rem;
-    }
-
-    .al-left-inner {
-        gap: 24px;
-    }
-
-    .al-headline h1 {
-        font-size: 1.5rem;
-    }
-
-    .al-stats {
-        grid-template-columns: repeat(4, 1fr);
-        gap: 8px;
-    }
-
-    .al-stat {
-        flex-direction: column;
-        align-items: flex-start;
-        gap: 8px;
-        padding: 12px;
-    }
-
-    .al-right {
-        padding: 2.5rem 2rem;
-        min-height: auto;
-    }
-}
-
-.al-show-on-mobile {
-    display: none !important;
-}
-
-@media (max-width: 600px) {
-    .al-root {
-        flex-direction: column;
-    }
-
-    .al-left {
-        width: 100%;
-        min-height: auto;
         padding: 2.5rem 1.5rem 0rem;
     }
 
@@ -1042,6 +1001,7 @@
         padding: 1.5rem 1.25rem 3rem;
         align-items: flex-start;
         width: 100%;
+        min-height: auto;
     }
 
     .al-field-row-grid {
