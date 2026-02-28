@@ -7,6 +7,7 @@ import {
 import { adminService } from '../config/supabase';
 import { authService } from '../services/authService';
 import EmailDomainSuggestions from './EmailDomainSuggestions';
+import TermsAndConditions from './TermsAndConditions';
 import './AdminLogin.css';
 
 /* ─────────── View constants ─────────── */
@@ -24,8 +25,9 @@ const AdminLogin = ({ onLogin, onSignup }) => {
 
     /* ── Signup state ── */
     const [signupData, setSignupData] = useState({
-        name: '', email: '', password: '', confirmPassword: '', invitationCode: '', phone: ''
+        name: '', email: '', password: '', confirmPassword: '', invitationCode: '', phone: '', termsAccepted: false
     });
+    const [showTerms, setShowTerms] = useState(false);
     const [showSignupPassword, setShowSignupPassword] = useState(false);
     const [signupLoading, setSignupLoading] = useState(false);
     const [signupError, setSignupError] = useState('');
@@ -61,6 +63,7 @@ const AdminLogin = ({ onLogin, onSignup }) => {
     const handleSignup = async (e) => {
         e.preventDefault();
         setSignupError(''); setSignupSuccess('');
+        if (!signupData.termsAccepted) return setSignupError('You must accept the Terms and Conditions');
         if (signupData.password !== signupData.confirmPassword) return setSignupError('Passwords do not match');
         if (signupData.password.length < 6) return setSignupError('Password must be at least 6 characters');
         if (!signupData.invitationCode.trim()) return setSignupError('Invitation code is required');
@@ -105,8 +108,53 @@ const AdminLogin = ({ onLogin, onSignup }) => {
     ────────────────────────────────────────── */
     const LeftPanel = () => (
         <div className="al-left">
-            {/* Subtle background pattern */}
-            <div className="al-left-pattern" />
+            {/* ── Background Radar & Map Widget ── */}
+            <div className="al-left-bg-widget">
+                <div className="al-bg-radar-wrap">
+                    {/* Concentric radar rings */}
+                    <div className="al-bg-radar-ring al-bg-ring-1" />
+                    <div className="al-bg-radar-ring al-bg-ring-2" />
+                    <div className="al-bg-radar-ring al-bg-ring-3" />
+                    <div className="al-bg-radar-ring al-bg-ring-4" />
+                    <div className="al-bg-radar-line al-bg-line-h" />
+                    <div className="al-bg-radar-line al-bg-line-v" />
+
+                    {/* Rotating sweep */}
+                    <div className="al-bg-radar-sweep" />
+
+                    {/* SVG Bohol outline overlaying the radar */}
+                    <svg viewBox="0 0 200 200" className="al-bg-map-svg">
+                        <path d="
+                            M 100,20 C 130,10 160,20 170,40 C 180,60 170,100 160,110
+                            C 150,120 160,140 140,160 C 120,180 90,190 70,180
+                            C 40,170 30,150 20,120 C 10,90 20,60 30,40
+                            C 40,20 70,30 100,20 Z
+                        " />
+                    </svg>
+
+                    {/* Radar Pins */}
+                    {/* Tagbilaran */}
+                    <g className="al-bg-pin al-bg-pin-1" style={{ top: '60%', left: '30%' }}>
+                        <div className="al-pin-pulse" />
+                        <div className="al-pin-dot" />
+                    </g>
+                    {/* Jagna */}
+                    <g className="al-bg-pin al-bg-pin-2" style={{ top: '75%', left: '70%' }}>
+                        <div className="al-pin-pulse" />
+                        <div className="al-pin-dot" />
+                    </g>
+                    {/* Ubay */}
+                    <g className="al-bg-pin al-bg-pin-3" style={{ top: '25%', left: '75%' }}>
+                        <div className="al-pin-pulse" />
+                        <div className="al-pin-dot" />
+                    </g>
+                    {/* Tubigon */}
+                    <g className="al-bg-pin al-bg-pin-4" style={{ top: '30%', left: '25%' }}>
+                        <div className="al-pin-pulse" />
+                        <div className="al-pin-dot" />
+                    </g>
+                </div>
+            </div>
 
             <div className="al-left-inner">
                 {/* Logo */}
@@ -328,6 +376,19 @@ const AdminLogin = ({ onLogin, onSignup }) => {
                                     <span>This is a private system. All accounts are granted administrative access for incident management.</span>
                                 </div>
 
+                                <div className="al-terms-checkbox">
+                                    <input
+                                        type="checkbox"
+                                        id="al-terms"
+                                        required
+                                        checked={signupData.termsAccepted}
+                                        onChange={e => setSignupData({ ...signupData, termsAccepted: e.target.checked })}
+                                    />
+                                    <label htmlFor="al-terms">
+                                        I have read and agree to the <button type="button" className="al-text-btn al-terms-btn" onClick={() => setShowTerms(true)}>Terms & Conditions</button>
+                                    </label>
+                                </div>
+
                                 <button type="submit" className="al-btn-primary" disabled={signupLoading}>
                                     {signupLoading ? <span className="al-spinner" /> : 'Create Account'}
                                 </button>
@@ -417,6 +478,32 @@ const AdminLogin = ({ onLogin, onSignup }) => {
 
                 </div>
             </div>
+
+            {/* ── TERMS MODAL ── */}
+            {showTerms && (
+                <div className="al-modal-overlay">
+                    <div className="al-modal-content">
+                        <div className="al-modal-header">
+                            <div className="al-modal-title">
+                                <Shield size={18} className="al-modal-icon" />
+                                <h3>Terms & Conditions</h3>
+                            </div>
+                            <button className="al-modal-close" onClick={() => setShowTerms(false)}>
+                                <X size={18} />
+                            </button>
+                        </div>
+                        <div className="al-modal-body">
+                            <TermsAndConditions />
+                        </div>
+                        <div className="al-modal-footer">
+                            <button className="al-btn-secondary" onClick={() => setShowTerms(false)}>Cancel</button>
+                            <button className="al-btn-primary" onClick={() => { setSignupData({ ...signupData, termsAccepted: true }); setShowTerms(false); }}>
+                                I Agree
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 };
