@@ -222,7 +222,7 @@ const AdminLogin = ({ onLogin, onSignup }) => {
                             <Smartphone size={24} style={{ color: '#6366f1' }} />
                         </div>
                         <div>
-                            <p className="al-download-title">Citizen App</p>
+                            <p className="al-download-title">UrbanShield App</p>
                             <p className="al-download-desc">For reporters and users</p>
                             <a href="https://expo.dev/accounts/ririyoru/projects/urbanshield/builds/cccee896-9c1a-456c-b22d-cd5ca4027e9d" target="_blank" rel="noopener noreferrer" className="al-download-btn">
                                 <Download size={14} /> Download APK
@@ -230,7 +230,7 @@ const AdminLogin = ({ onLogin, onSignup }) => {
                         </div>
                     </div>
                     <div className="al-download-qr">
-                        <div className="al-qr-placeholder" title="Citizen App QR Code">
+                        <div className="al-qr-placeholder" title="UrbanShield App QR Code">
                             <img src="/qr.png" alt="App QR Code" />
                         </div>
                         <p>Scan to Install</p>
@@ -252,20 +252,6 @@ const AdminLogin = ({ onLogin, onSignup }) => {
 
             <div className="al-right">
                 <div className="al-form-wrap">
-                    {/* ── MOBILE DOWNLOAD BANNER (Visible only on mobile) ── */}
-                    <div className="al-mobile-download">
-                        <div className="al-mobile-dl-icon">
-                            <Smartphone size={20} style={{ color: '#4f46e5' }} />
-                        </div>
-                        <div className="al-mobile-dl-text">
-                            <h4>Citizen App</h4>
-                            <p>Get the mobile app</p>
-                        </div>
-                        <a href="https://expo.dev/accounts/ririyoru/projects/urbanshield/builds/cccee896-9c1a-456c-b22d-cd5ca4027e9d" target="_blank" rel="noopener noreferrer" className="al-btn-primary al-mobile-dl-btn">
-                            Download
-                        </a>
-                    </div>
-
                     {/* ── LOGIN ── */}
                     {view === VIEW.LOGIN && (
                         <>
@@ -511,6 +497,28 @@ const AdminLogin = ({ onLogin, onSignup }) => {
                         </>
                     )}
 
+                </div>
+
+                {/* ── MOBILE SCANNER SECTION (Visible only on mobile, placed below form) ── */}
+                <div className="al-mobile-scan al-show-on-mobile">
+                    <div className="al-download-info">
+                        <div className="al-download-icon">
+                            <Smartphone size={24} style={{ color: '#6366f1' }} />
+                        </div>
+                        <div>
+                            <p className="al-download-title" style={{ color: '#09090b' }}>UrbanShield App</p>
+                            <p className="al-download-desc">For reporters & users</p>
+                            <a href="https://expo.dev/accounts/ririyoru/projects/urbanshield/builds/cccee896-9c1a-456c-b22d-cd5ca4027e9d" target="_blank" rel="noopener noreferrer" className="al-download-btn">
+                                <Download size={14} /> Download APK
+                            </a>
+                        </div>
+                    </div>
+                    <div className="al-download-qr">
+                        <div className="al-qr-placeholder" style={{ border: '1px solid #e4e4e7' }} title="UrbanShield App QR Code">
+                            <img src="/qr.png" alt="App QR Code" />
+                        </div>
+                        <p style={{ color: '#52525b' }}>Scan to Install</p>
+                    </div>
                 </div>
             </div>
 

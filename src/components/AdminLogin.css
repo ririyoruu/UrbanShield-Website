@@ -988,70 +988,102 @@
     }
 }
 
-.al-mobile-download {
-    display: none;
+.al-show-on-mobile {
+    display: none !important;
 }
 
 @media (max-width: 600px) {
-    .al-left {
-        display: none;
+    .al-root {
+        flex-direction: column;
     }
 
+    .al-left {
+        width: 100%;
+        min-height: auto;
+        padding: 2.5rem 1.5rem 0rem;
+    }
+
+    .al-left-inner {
+        gap: 0;
+    }
+
+    /* Hide non-logo elements on mobile */
+    .al-left-bg-widget,
+    .al-headline,
+    .al-stats,
+    .al-left-footer,
+    .al-hide-on-mobile {
+        display: none !important;
+    }
+
+    /* Center and resize logo on mobile */
+    .al-brand {
+        flex-direction: column;
+        align-items: center;
+        gap: 12px;
+        width: 100%;
+    }
+
+    .al-brand-logo {
+        width: 56px;
+        height: 56px;
+    }
+
+    .al-brand-name {
+        font-size: 20px;
+    }
+
+    .al-brand-sub {
+        font-size: 11px;
+    }
+
+    /* Form container */
     .al-right {
-        padding: 2rem 1.25rem;
+        padding: 1.5rem 1.25rem 3rem;
         align-items: flex-start;
-        padding-top: 3rem;
+        width: 100%;
     }
 
     .al-field-row-grid {
         grid-template-columns: 1fr;
     }
 
-    .al-mobile-download {
-        display: flex;
-        align-items: center;
-        gap: 12px;
-        background: rgba(79, 70, 229, 0.05);
-        border: 1px solid rgba(79, 70, 229, 0.15);
-        border-radius: 10px;
-        padding: 12px 16px;
-        margin-bottom: 24px;
-        width: 100%;
+    /* Show mobile blocks */
+    .al-show-on-mobile {
+        display: flex !important;
     }
 
-    .al-mobile-dl-icon {
-        width: 38px;
-        height: 38px;
-        background: rgba(79, 70, 229, 0.1);
-        border-radius: 8px;
+    .al-mobile-scan {
+        margin-top: 24px;
+        margin-bottom: 20px;
+        width: 100%;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 16px;
+        background: rgba(79, 70, 229, 0.04);
+        border: 1px solid rgba(79, 70, 229, 0.15);
+        border-radius: 12px;
+        padding: 20px 16px;
+        text-align: center;
+    }
+
+    .al-mobile-scan .al-download-info {
+        flex-direction: column;
+        gap: 10px;
+        align-items: center;
+    }
+
+    .al-mobile-scan .al-download-qr {
+        border-left: none;
+        padding-left: 0;
+        border-top: 1px dashed rgba(0, 0, 0, 0.1);
+        padding-top: 16px;
+        width: 100%;
         display: flex;
         align-items: center;
         justify-content: center;
-        flex-shrink: 0;
-    }
-
-    .al-mobile-dl-text {
-        flex: 1;
-    }
-
-    .al-mobile-dl-text h4 {
-        font-size: 13px;
-        font-weight: 700;
-        color: #09090b;
-        margin-bottom: 2px;
-    }
-
-    .al-mobile-dl-text p {
-        font-size: 11px;
-        color: #71717a;
-        margin: 0;
-    }
-
-    .al-mobile-dl-btn {
-        width: auto;
-        padding: 8px 12px;
-        margin-top: 0;
-        font-size: 12px;
-        border-radius: 6px;
+        flex-direction: column;
+        gap: 8px;
     }
 }
