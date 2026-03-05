@@ -16,6 +16,7 @@ const MapComponent = ({
     zoom: 12
   });
   const [selectedMarker, setSelectedMarker] = useState(null);
+  const [hoveredMarker, setHoveredMarker] = useState(null);
   const [mapStyle, setMapStyle] = useState(MAPBOX_CONFIG.DEFAULT_STYLE);
   const [pins, setPins] = useState([]);
 
@@ -186,11 +187,24 @@ const MapComponent = ({
   };
 
   const onClickMarker = useCallback((pin) => {
-    setSelectedMarker(pin);
-  }, []);
+    // Open post detail modal instead of showing popup
+    if (onMarkerClick) {
+      onMarkerClick(pin);
+    } else {
+      setSelectedMarker(pin);
+    }
+  }, [onMarkerClick]);
 
   const closePopup = useCallback(() => {
     setSelectedMarker(null);
+  }, []);
+
+  const onMarkerHover = useCallback((pin) => {
+    setHoveredMarker(pin);
+  }, []);
+
+  const onMarkerLeave = useCallback(() => {
+    setHoveredMarker(null);
   }, []);
 
   return (
@@ -266,9 +280,11 @@ const MapComponent = ({
               e.originalEvent.stopPropagation();
               onClickMarker(pin);
             }}
+            onMouseEnter={() => onMarkerHover(pin)}
+            onMouseLeave={onMarkerLeave}
           >
             <div
-              className={`custom-marker ${pin._severity} ${pin._status} ${pin._geocoded ? 'geocoded' : ''} ${selectedMarker?.id === pin.id ? 'selected' : ''}`}
+              className={`custom-marker ${pin._severity} ${pin._status} ${pin._geocoded ? 'geocoded' : ''} ${selectedMarker?.id === pin.id ? 'selected' : ''} ${hoveredMarker?.id === pin.id ? 'hovered' : ''}`}
               style={{ backgroundColor: getMarkerColor(pin._severity, pin._status) }}
               title={`${pin.title || pin._type} - ${pin._status}`}
             >
@@ -276,6 +292,73 @@ const MapComponent = ({
             </div>
           </Marker>
         ))}
+
+        {/* Hover Preview Modal */}
+        {hoveredMarker && !selectedMarker && (
+          <div 
+            className="hover-preview-modal"
+            style={{
+              position: 'absolute',
+              top: '20px',
+              left: '20px',
+              right: '20px',
+              bottom: '20px',
+              pointerEvents: 'none',
+              zIndex: 1000,
+              display: 'flex',
+              alignItems: 'flex-start',
+              justifyContent: 'flex-start'
+            }}
+          >
+            <div className="hover-preview-modal-content">
+              <div className="hover-preview-modal-header">
+                <div className="hover-preview-modal-title-section">
+                  <h3>{hoveredMarker.title || 'Incident Report'}</h3>
+                  <span className="hover-preview-modal-time">{timeAgo(hoveredMarker.created_at)}</span>
+                </div>
+                <div className="hover-preview-modal-tags">
+                  <span className="hover-preview-modal-tag" style={{ background: getMarkerColor(hoveredMarker._severity, hoveredMarker._status) }}>
+                    {hoveredMarker._severity || 'unknown'}
+                  </span>
+                  <span className="hover-preview-modal-tag" style={{ background: statusInfo(hoveredMarker._status).color }}>
+                    {statusInfo(hoveredMarker._status).label}
+                  </span>
+                </div>
+              </div>
+              
+              <div className="hover-preview-modal-body">
+                <div className="hover-preview-modal-description">
+                  {hoveredMarker.description && hoveredMarker.description.length > 150 
+                    ? hoveredMarker.description.substring(0, 150) + '...' 
+                    : hoveredMarker.description || 'No description available'}
+                </div>
+                
+                <div className="hover-preview-meta-grid">
+                  <div className="hover-preview-meta-item">
+                    <MapPin size={14} />
+                    <span>{hoveredMarker._address || 'Location not specified'}</span>
+                  </div>
+                  {hoveredMarker.reporter_name && (
+                    <div className="hover-preview-meta-item">
+                      <User size={14} />
+                      <span>Reported by {hoveredMarker.reporter_name}</span>
+                    </div>
+                  )}
+                  <div className="hover-preview-meta-item">
+                    <AlertTriangle size={14} />
+                    <span>{hoveredMarker._type || 'General'}</span>
+                  </div>
+                </div>
+              </div>
+              
+              <div className="hover-preview-modal-footer">
+                <div className="hover-preview-hint">
+                  <span>📍 Click pin for full details</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Popup */}
         {selectedMarker && (

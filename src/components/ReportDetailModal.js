@@ -17,10 +17,59 @@ import {
   Info,
   ExternalLink
 } from 'lucide-react';
+import { supabase } from '../config/supabase';
 import './ReportDetailModal.css';
 
 const ReportDetailModal = ({ report, isOpen, onClose, onApprove, onReject, loading }) => {
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
+  const [imageUrls, setImageUrls] = useState([]);
+  const [isImageLoading, setIsImageLoading] = useState(true);
+  const [showFullImage, setShowFullImage] = useState(false);
+
+  // Get authenticated image URLs for Supabase storage
+  const getAuthenticatedImageUrl = async (imagePath) => {
+    try {
+      if (imagePath.includes('supabase.co/storage/v1/')) {
+        // Extract path from Supabase URL
+        const urlParts = imagePath.split('/');
+        const publicIndex = urlParts.indexOf('public');
+        if (publicIndex !== -1) {
+          const path = urlParts.slice(publicIndex + 1).join('/');
+          const { data, error } = await supabase.storage
+            .from('incident-media')
+            .createSignedUrl(path, 3600); // 1 hour expiry
+          
+          if (error) {
+            console.warn('Failed to create signed URL:', error);
+            return imagePath; // Fallback to original URL
+          }
+          return data.signedUrl;
+        }
+      }
+      return imagePath;
+    } catch (error) {
+      console.warn('Error getting authenticated image URL:', error);
+      return imagePath;
+    }
+  };
+
+  // Load authenticated URLs when images change
+  useEffect(() => {
+    if (isOpen && report?.images) {
+      setIsImageLoading(true);
+      const loadUrls = async () => {
+        let images = Array.isArray(report.images) ? report.images : [report.images];
+        
+        // Filter out empty URLs but don't modify the URLs since they're already correct
+        const validUrls = images.filter(img => img && img.trim() !== '');
+        
+        setImageUrls(validUrls);
+        setIsImageLoading(false);
+      };
+      
+      loadUrls();
+    }
+  }, [isOpen, report?.images]);
 
   useEffect(() => {
     if (isOpen && report) {
@@ -34,12 +83,7 @@ const ReportDetailModal = ({ report, isOpen, onClose, onApprove, onReject, loadi
 
   if (!isOpen || !report) return null;
 
-  // Normalize images
-  let images = [];
-  if (report.images) images = Array.isArray(report.images) ? report.images : [report.images];
-  else if (report.photo_urls) images = Array.isArray(report.photo_urls) ? report.photo_urls : [report.photo_urls];
-  images = images.filter(img => img && img.trim() !== '');
-  const hasImages = images.length > 0;
+  const hasImages = imageUrls.length > 0;
 
   const canVerify = report.status !== 'resolved' && report.is_verified !== true && report.is_verified !== false;
 
@@ -112,27 +156,58 @@ const ReportDetailModal = ({ report, isOpen, onClose, onApprove, onReject, loadi
           {hasImages ? (
             <div className="post-image-block">
               <div className="post-image-main">
-                <img
-                  src={images[currentImageIndex]}
-                  alt={`Photo ${currentImageIndex + 1}`}
-                  className="post-image"
-                  onError={(e) => { e.target.src = 'https://placehold.co/600x400?text=No+Image'; }}
-                />
-                {images.length > 1 && (
+                {isImageLoading ? (
+                  <div style={{ 
+                    display: 'flex', 
+                    alignItems: 'center', 
+                    justifyContent: 'center', 
+                    height: '200px',
+                    color: '#a1a1aa',
+                    fontSize: '14px'
+                  }}>
+                    Loading image...
+                  </div>
+                ) : (
                   <>
-                    <button className="post-img-nav prev" onClick={() => setCurrentImageIndex(i => (i > 0 ? i - 1 : images.length - 1))}>
-                      <ChevronLeft size={18} />
-                    </button>
-                    <button className="post-img-nav next" onClick={() => setCurrentImageIndex(i => (i < images.length - 1 ? i + 1 : 0))}>
-                      <ChevronRight size={18} />
-                    </button>
-                    <span className="post-img-counter">{currentImageIndex + 1} / {images.length}</span>
+                    <img
+                      src={imageUrls[currentImageIndex]}
+                      alt={`Photo ${currentImageIndex + 1}`}
+                      className="post-image"
+                      style={{ 
+                        cursor: 'pointer',
+                        minHeight: '200px',
+                        width: '100%',
+                        height: 'auto',
+                        objectFit: 'cover'
+                      }}
+                      onClick={() => setShowFullImage(true)}
+                      onError={(e) => { 
+                        console.warn('Image failed to load:', imageUrls[currentImageIndex]);
+                        e.target.src = 'https://placehold.co/600x400?text=Image+Not+Available'; 
+                        setIsImageLoading(false);
+                      }}
+                      onLoad={() => {
+                        console.log('Image loaded successfully:', imageUrls[currentImageIndex]);
+                        setIsImageLoading(false);
+                      }}
+                    />
+                    {imageUrls.length > 1 && (
+                      <>
+                        <button className="post-img-nav prev" onClick={() => setCurrentImageIndex(i => (i > 0 ? i - 1 : imageUrls.length - 1))}>
+                          <ChevronLeft size={18} />
+                        </button>
+                        <button className="post-img-nav next" onClick={() => setCurrentImageIndex(i => (i < imageUrls.length - 1 ? i + 1 : 0))}>
+                          <ChevronRight size={18} />
+                        </button>
+                        <span className="post-img-counter">{currentImageIndex + 1} / {imageUrls.length}</span>
+                      </>
+                    )}
                   </>
                 )}
               </div>
-              {images.length > 1 && (
+              {imageUrls.length > 1 && (
                 <div className="post-thumbnails">
-                  {images.map((img, idx) => (
+                  {imageUrls.map((img, idx) => (
                     <img
                       key={idx}
                       src={img}
@@ -219,11 +294,137 @@ const ReportDetailModal = ({ report, isOpen, onClose, onApprove, onReject, loadi
               onClick={() => onApprove(report.id)}
               disabled={loading}
             >
-              <CheckCircle size={16} /> Approve & Dispatch
+              <CheckCircle size={16} /> Verify & Dispatch
             </button>
           </div>
         )}
       </div>
+
+      {/* Full Screen Image Viewer */}
+      {showFullImage && (
+        <div 
+          className="fullscreen-image-viewer"
+          onClick={() => setShowFullImage(false)}
+          style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor: 'rgba(0, 0, 0, 0.95)',
+            zIndex: 9999,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            cursor: 'pointer'
+          }}
+        >
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              setShowFullImage(false);
+            }}
+            style={{
+              position: 'absolute',
+              top: '20px',
+              right: '20px',
+              backgroundColor: 'rgba(255, 255, 255, 0.9)',
+              border: 'none',
+              borderRadius: '50%',
+              width: '40px',
+              height: '40px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              cursor: 'pointer',
+              zIndex: 10000
+            }}
+          >
+            <X size={20} />
+          </button>
+          
+          <img
+            src={imageUrls[currentImageIndex]}
+            alt={`Photo ${currentImageIndex + 1}`}
+            style={{
+              maxWidth: '90vw',
+              maxHeight: '90vh',
+              objectFit: 'contain',
+              cursor: 'default'
+            }}
+            onClick={(e) => e.stopPropagation()}
+          />
+          
+          {imageUrls.length > 1 && (
+            <>
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setCurrentImageIndex(i => (i > 0 ? i - 1 : imageUrls.length - 1));
+                }}
+                style={{
+                  position: 'absolute',
+                  left: '20px',
+                  top: '50%',
+                  transform: 'translateY(-50%)',
+                  backgroundColor: 'rgba(255, 255, 255, 0.9)',
+                  border: 'none',
+                  borderRadius: '50%',
+                  width: '40px',
+                  height: '40px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  cursor: 'pointer'
+                }}
+              >
+                <ChevronLeft size={20} />
+              </button>
+              
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setCurrentImageIndex(i => (i < imageUrls.length - 1 ? i + 1 : 0));
+                }}
+                style={{
+                  position: 'absolute',
+                  right: '20px',
+                  top: '50%',
+                  transform: 'translateY(-50%)',
+                  backgroundColor: 'rgba(255, 255, 255, 0.9)',
+                  border: 'none',
+                  borderRadius: '50%',
+                  width: '40px',
+                  height: '40px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  cursor: 'pointer'
+                }}
+              >
+                <ChevronRight size={20} />
+              </button>
+              
+              <div
+                style={{
+                  position: 'absolute',
+                  bottom: '20px',
+                  left: '50%',
+                  transform: 'translateX(-50%)',
+                  backgroundColor: 'rgba(0, 0, 0, 0.7)',
+                  color: 'white',
+                  padding: '8px 16px',
+                  borderRadius: '20px',
+                  fontSize: '14px',
+                  fontWeight: '600'
+                }}
+              >
+                {currentImageIndex + 1} / {imageUrls.length}
+              </div>
+            </>
+          )}
+        </div>
+      )}
     </>
   );
 };

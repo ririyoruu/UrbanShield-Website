@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Megaphone,
   Plus,
@@ -11,8 +11,10 @@ import {
   AlertTriangle,
   Bell,
   CheckCircle,
-  Calendar
+  Calendar,
+  Loader2
 } from 'lucide-react';
+import { adminService } from '../config/supabase';
 import './AnnouncementsManagement.css';
 
 const PRIORITY_CONFIG = {
@@ -42,24 +44,66 @@ const AnnouncementsManagement = () => {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [editing, setEditing] = useState(null);
   const [formData, setFormData] = useState(emptyForm);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
 
-  const openCreate = () => { setEditing(null); setFormData(emptyForm); setDrawerOpen(true); };
-  const openEdit = (a) => { setEditing(a.id); setFormData({ ...a }); setDrawerOpen(true); };
-  const closeDrawer = () => { setDrawerOpen(false); setEditing(null); };
+  // Load announcements from database on component mount
+  useEffect(() => {
+    loadAnnouncements();
+  }, []);
 
-  const handleSubmit = (e) => {
-    e.preventDefault();
-    if (editing) {
-      setAnnouncements(prev => prev.map(a => a.id === editing ? { ...a, ...formData } : a));
-    } else {
-      setAnnouncements(prev => [{ id: Date.now(), ...formData, created_at: new Date().toISOString() }, ...prev]);
+  const loadAnnouncements = async () => {
+    try {
+      setLoading(true);
+      const data = await adminService.getAllAnnouncements();
+      setAnnouncements(data);
+      setError('');
+    } catch (error) {
+      console.error('Failed to load announcements:', error);
+      setError('Failed to load announcements');
+    } finally {
+      setLoading(false);
     }
-    closeDrawer();
   };
 
-  const handleDelete = (id) => {
+  const openCreate = () => { setEditing(null); setFormData(emptyForm); setDrawerOpen(true); setError(''); };
+  const openEdit = (a) => { setEditing(a.id); setFormData({ ...a }); setDrawerOpen(true); setError(''); };
+  const closeDrawer = () => { setDrawerOpen(false); setEditing(null); setError(''); };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setLoading(true);
+    setError('');
+
+    try {
+      if (editing) {
+        await adminService.updateAnnouncement(editing, formData);
+        setAnnouncements(prev => prev.map(a => a.id === editing ? { ...a, ...formData } : a));
+      } else {
+        const newAnnouncement = await adminService.createAnnouncement(formData);
+        setAnnouncements(prev => [newAnnouncement, ...prev]);
+      }
+      closeDrawer();
+    } catch (error) {
+      console.error('Failed to save announcement:', error);
+      setError(editing ? 'Failed to update announcement' : 'Failed to create announcement');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleDelete = async (id) => {
     if (window.confirm('Delete this announcement?')) {
-      setAnnouncements(prev => prev.filter(a => a.id !== id));
+      try {
+        setLoading(true);
+        await adminService.deleteAnnouncement(id);
+        setAnnouncements(prev => prev.filter(a => a.id !== id));
+      } catch (error) {
+        console.error('Failed to delete announcement:', error);
+        setError('Failed to delete announcement');
+      } finally {
+        setLoading(false);
+      }
     }
   };
 
@@ -83,7 +127,22 @@ const AnnouncementsManagement = () => {
       </div>
 
       {/* ── List ── */}
-      {announcements.length === 0 ? (
+      {loading && announcements.length === 0 ? (
+        <div className="ann-loading">
+          <div className="ann-loading-spinner"><Loader2 size={24} /></div>
+          <h3>Loading announcements...</h3>
+          <p>Please wait while we fetch the announcements.</p>
+        </div>
+      ) : error && announcements.length === 0 ? (
+        <div className="ann-error">
+          <div className="ann-error-icon"><AlertTriangle size={28} /></div>
+          <h3>Error loading announcements</h3>
+          <p>{error}</p>
+          <button className="ann-btn-create" onClick={loadAnnouncements}>
+            <Loader2 size={14} /> Try Again
+          </button>
+        </div>
+      ) : announcements.length === 0 ? (
         <div className="ann-empty">
           <div className="ann-empty-icon"><Megaphone size={28} /></div>
           <h3>No announcements yet</h3>
@@ -110,11 +169,11 @@ const AnnouncementsManagement = () => {
                       </span>
                     </div>
                     <div className="ann-card-actions">
-                      <button className="ann-icon-btn" onClick={() => openEdit(ann)} title="Edit">
+                      <button className="ann-icon-btn" onClick={() => openEdit(ann)} title="Edit" disabled={loading}>
                         <Edit size={14} />
                       </button>
-                      <button className="ann-icon-btn danger" onClick={() => handleDelete(ann.id)} title="Delete">
-                        <Trash2 size={14} />
+                      <button className="ann-icon-btn danger" onClick={() => handleDelete(ann.id)} title="Delete" disabled={loading}>
+                        {loading ? <Loader2 size={14} /> : <Trash2 size={14} />}
                       </button>
                     </div>
                   </div>
@@ -126,7 +185,7 @@ const AnnouncementsManagement = () => {
                       <span className="ann-footer-item"><Clock size={11} /> {formatDate(ann.created_at)}</span>
                     )}
                     {ann.expiration_date && (
-                      <span className="ann-footer-item warn"><Calendar size={11} /> Expires {ann.expiration_date}</span>
+                      <span className="ann-footer-item warn"><Calendar size={11} /> Expires {formatDate(ann.expiration_date)}</span>
                     )}
                   </div>
                 </div>
@@ -153,6 +212,14 @@ const AnnouncementsManagement = () => {
             {/* Drawer Form */}
             <form className="ann-drawer-body" onSubmit={handleSubmit}>
 
+              {/* Error Display */}
+              {error && (
+                <div className="ann-form-error">
+                  <AlertTriangle size={14} />
+                  <span>{error}</span>
+                </div>
+              )}
+
               <div className="ann-field">
                 <label>Title <span>*</span></label>
                 <input
@@ -161,6 +228,7 @@ const AnnouncementsManagement = () => {
                   value={formData.title}
                   onChange={e => setFormData({ ...formData, title: e.target.value })}
                   required
+                  disabled={loading}
                 />
               </div>
 
@@ -171,6 +239,7 @@ const AnnouncementsManagement = () => {
                   placeholder="Brief summary shown in the list"
                   value={formData.description}
                   onChange={e => setFormData({ ...formData, description: e.target.value })}
+                  disabled={loading}
                 />
               </div>
 
@@ -182,13 +251,14 @@ const AnnouncementsManagement = () => {
                   value={formData.content}
                   onChange={e => setFormData({ ...formData, content: e.target.value })}
                   required
+                  disabled={loading}
                 />
               </div>
 
               <div className="ann-field-row">
                 <div className="ann-field">
                   <label>Priority</label>
-                  <select value={formData.priority} onChange={e => setFormData({ ...formData, priority: e.target.value })}>
+                  <select value={formData.priority} onChange={e => setFormData({ ...formData, priority: e.target.value })} disabled={loading}>
                     <option value="normal">Normal</option>
                     <option value="high">High</option>
                     <option value="urgent">Urgent</option>
@@ -196,7 +266,7 @@ const AnnouncementsManagement = () => {
                 </div>
                 <div className="ann-field">
                   <label>Target Audience</label>
-                  <select value={formData.target_audience} onChange={e => setFormData({ ...formData, target_audience: e.target.value })}>
+                  <select value={formData.target_audience} onChange={e => setFormData({ ...formData, target_audience: e.target.value })} disabled={loading}>
                     <option value="all">All Users</option>
                     <option value="verified">Verified Only</option>
                     <option value="resident">Residents</option>
@@ -211,6 +281,7 @@ const AnnouncementsManagement = () => {
                   type="date"
                   value={formData.expiration_date}
                   onChange={e => setFormData({ ...formData, expiration_date: e.target.value })}
+                  disabled={loading}
                 />
               </div>
 
@@ -227,9 +298,20 @@ const AnnouncementsManagement = () => {
               )}
 
               <div className="ann-drawer-footer">
-                <button type="button" className="ann-btn-cancel" onClick={closeDrawer}>Cancel</button>
-                <button type="submit" className="ann-btn-submit">
-                  <CheckCircle size={15} /> {editing ? 'Update' : 'Publish'} Announcement
+                <button type="button" className="ann-btn-cancel" onClick={closeDrawer} disabled={loading}>
+                  Cancel
+                </button>
+                <button type="submit" className="ann-btn-submit" disabled={loading}>
+                  {loading ? (
+                    <>
+                      <Loader2 size={15} className="ann-spinner" />
+                      {editing ? 'Updating...' : 'Publishing...'}
+                    </>
+                  ) : (
+                    <>
+                      <CheckCircle size={15} /> {editing ? 'Update' : 'Publish'} Announcement
+                    </>
+                  )}
                 </button>
               </div>
             </form>

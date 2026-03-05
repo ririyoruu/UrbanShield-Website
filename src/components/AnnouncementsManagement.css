@@ -687,6 +687,105 @@
   background: #e4e4e7;
 }
 
+[data-theme="dark"] .ann-btn-submit:disabled:hover {
+  transform: none;
+  box-shadow: none;
+}
+
+/* Loading state */
+.ann-loading {
+  text-align: center;
+  padding: 48px 24px;
+  color: #71717a;
+}
+
+.ann-loading-spinner {
+  margin: 0 auto 16px;
+  width: 64px;
+  height: 64px;
+  background: #f4f4f5;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #3b82f6;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+.ann-loading h3 {
+  margin: 0 0 8px;
+  color: #09090b;
+  font-size: 18px;
+  font-weight: 600;
+}
+
+.ann-loading p {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+/* Error state */
+.ann-error {
+  text-align: center;
+  padding: 48px 24px;
+  color: #71717a;
+}
+
+.ann-error-icon {
+  margin: 0 auto 16px;
+  width: 64px;
+  height: 64px;
+  background: #fef2f2;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #dc2626;
+}
+
+.ann-error h3 {
+  margin: 0 0 8px;
+  color: #09090b;
+  font-size: 18px;
+  font-weight: 600;
+}
+
+.ann-error p {
+  margin: 0 0 20px;
+  font-size: 14px;
+  line-height: 1.5;
+  color: #dc2626;
+}
+
+/* Form error */
+.ann-form-error {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px;
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  border-radius: 8px;
+  color: #dc2626;
+  font-size: 13px;
+  margin-bottom: 16px;
+}
+
+.ann-form-error svg {
+  flex-shrink: 0;
+}
+
+/* Spinner in button */
+.ann-spinner {
+  animation: spin 1s linear infinite;
+}
+
 /* ── Responsive ── */
 @media (max-width: 600px) {
   .ann-field-row {

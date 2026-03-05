@@ -93,7 +93,7 @@ export const adminService = {
       
       // Determine offset based on WKB header
       let offset = -1;
-      if (clean.startsWith('0101000020E6100000')) offset = 36;      // geography SRID 4326
+      if (clean.startsWith('0101000020E6100000')) offset = 18;      // geography SRID 4326 (fixed offset)
       else if (clean.startsWith('0101000000')) offset = 10;          // geometry
       if (offset < 0 || clean.length < offset + 32) return null;
       
@@ -124,6 +124,86 @@ export const adminService = {
       console.error('PostGIS parse error:', e);
     }
     return null;
+  },
+
+  // Announcements CRUD operations
+  async getAllAnnouncements() {
+    try {
+      const { data, error } = await supabase
+        .from('announcements')
+        .select('*')
+        .order('created_at', { ascending: false });
+      
+      if (error) throw error;
+      return data || [];
+    } catch (error) {
+      console.error('❌ Error fetching announcements:', error);
+      throw error;
+    }
+  },
+
+  async createAnnouncement(announcement) {
+    try {
+      const { data, error } = await supabase
+        .from('announcements')
+        .insert([{
+          title: announcement.title,
+          description: announcement.description,
+          content: announcement.content,
+          target_audience: announcement.target_audience,
+          priority: announcement.priority,
+          expiration_date: announcement.expiration_date || null,
+          created_at: new Date().toISOString()
+        }])
+        .select()
+        .single();
+      
+      if (error) throw error;
+      return data;
+    } catch (error) {
+      console.error('❌ Error creating announcement:', error);
+      throw error;
+    }
+  },
+
+  async updateAnnouncement(id, announcement) {
+    try {
+      const { data, error } = await supabase
+        .from('announcements')
+        .update({
+          title: announcement.title,
+          description: announcement.description,
+          content: announcement.content,
+          target_audience: announcement.target_audience,
+          priority: announcement.priority,
+          expiration_date: announcement.expiration_date || null,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', id)
+        .select()
+        .single();
+      
+      if (error) throw error;
+      return data;
+    } catch (error) {
+      console.error('❌ Error updating announcement:', error);
+      throw error;
+    }
+  },
+
+  async deleteAnnouncement(id) {
+    try {
+      const { error } = await supabase
+        .from('announcements')
+        .delete()
+        .eq('id', id);
+      
+      if (error) throw error;
+      return true;
+    } catch (error) {
+      console.error('❌ Error deleting announcement:', error);
+      throw error;
+    }
   },
 
   async getReportsByStatus(status) {
@@ -744,14 +824,15 @@ export const adminService = {
       }
       
       // Determine verification_status based on isVerified if not explicitly provided
-      // Database accepts: 'pending', 'verified', 'null'
+      // Database accepts: 'pending', 'verified', 'rejected', 'suspended'
       let status = verificationStatus;
       if (!status) {
         status = isVerified ? 'verified' : 'pending';
       }
       
-      // Update only verification_status (is_verified column doesn't exist)
+      // Update both is_verified (boolean) and verification_status (text)
       const updateData = { 
+        is_verified: isVerified,
         verification_status: status,
         updated_at: new Date().toISOString()
       };
