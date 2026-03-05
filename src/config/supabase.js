@@ -148,12 +148,14 @@ export const adminService = {
         .from('announcements')
         .insert([{
           title: announcement.title,
-          description: announcement.description,
           content: announcement.content,
-          target_audience: announcement.target_audience,
-          priority: announcement.priority,
-          expiration_date: announcement.expiration_date || null,
-          created_at: new Date().toISOString()
+          author_id: '25df1a57-852e-4c02-8e24-f62789ff70da', // Default admin ID
+          author_name: 'System Admin',
+          author_type: 'admin',
+          is_pinned: false,
+          priority: announcement.priority || 'normal',
+          target_audience: announcement.target_audience || 'all',
+          expires_at: announcement.expiration_date || null
         }])
         .select()
         .single();
@@ -172,12 +174,10 @@ export const adminService = {
         .from('announcements')
         .update({
           title: announcement.title,
-          description: announcement.description,
           content: announcement.content,
-          target_audience: announcement.target_audience,
           priority: announcement.priority,
-          expiration_date: announcement.expiration_date || null,
-          updated_at: new Date().toISOString()
+          target_audience: announcement.target_audience,
+          expires_at: announcement.expiration_date || null
         })
         .eq('id', id)
         .select()
@@ -848,17 +848,10 @@ export const adminService = {
       
       if (error) throw error;
       
-      console.log('✅ User verification updated successfully:', data);
       return data;
     } catch (error) {
       console.error('❌ Error updating user verification:', error);
       throw error;
-      console.error('Error updating user verification:', error);
-      // Re-throw with more context
-      if (error.message) {
-        throw error;
-      }
-      throw new Error(`Failed to update user verification: ${error.message || 'Unknown error'}`);
     }
   },
 

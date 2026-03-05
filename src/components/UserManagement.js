@@ -127,17 +127,11 @@ const UserManagement = () => {
       const result = await adminService.updateUserVerification(userId, false, 'rejected');
       console.log('Rejection result:', result);
 
-      // If reason provided, could save it as admin_notes
-      if (reason) {
-        console.log('Rejection reason:', reason);
-      }
-
       // Reload users from database to ensure we have the latest state
       await loadUsers();
 
       showMessage('success', 'User rejected successfully');
 
-      // Close modal after rejection
       if (showUserModal) {
         handleCloseModal();
       }
@@ -152,7 +146,11 @@ const UserManagement = () => {
   const handleSuspendUser = async (userId) => {
     try {
       setSaving(true);
-      await adminService.updateUserVerification(userId, false, 'suspended');
+      console.log('Suspending user:', userId);
+
+      const result = await adminService.updateUserVerification(userId, false, 'suspended');
+      console.log('Suspension result:', result);
+
       await loadUsers();
       if (showUserModal) handleCloseModal();
       showMessage('success', 'User suspended successfully');

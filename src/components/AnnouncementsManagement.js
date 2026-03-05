@@ -18,6 +18,7 @@ import { adminService } from '../config/supabase';
 import './AnnouncementsManagement.css';
 
 const PRIORITY_CONFIG = {
+  low: { label: 'Low', color: '#64748b', bg: '#f8fafc', border: '#e2e8f0' },
   normal: { label: 'Normal', color: '#71717a', bg: '#f4f4f5', border: '#e4e4e7' },
   high: { label: 'High', color: '#d97706', bg: '#fffbeb', border: '#fde68a' },
   urgent: { label: 'Urgent', color: '#dc2626', bg: '#fef2f2', border: '#fecaca' },
@@ -25,9 +26,9 @@ const PRIORITY_CONFIG = {
 
 const AUDIENCE_LABELS = {
   all: 'All Users',
-  verified: 'Verified Only',
-  resident: 'Residents',
-  government: 'Gov / Responders',
+  residents: 'Residents',
+  government: 'Government / Responders',
+  admin: 'Admin Only',
 };
 
 const emptyForm = {
@@ -184,8 +185,8 @@ const AnnouncementsManagement = () => {
                     {ann.created_at && (
                       <span className="ann-footer-item"><Clock size={11} /> {formatDate(ann.created_at)}</span>
                     )}
-                    {ann.expiration_date && (
-                      <span className="ann-footer-item warn"><Calendar size={11} /> Expires {formatDate(ann.expiration_date)}</span>
+                    {ann.expires_at && (
+                      <span className="ann-footer-item warn"><Calendar size={11} /> Expires {formatDate(ann.expires_at)}</span>
                     )}
                   </div>
                 </div>
@@ -259,6 +260,7 @@ const AnnouncementsManagement = () => {
                 <div className="ann-field">
                   <label>Priority</label>
                   <select value={formData.priority} onChange={e => setFormData({ ...formData, priority: e.target.value })} disabled={loading}>
+                    <option value="low">Low</option>
                     <option value="normal">Normal</option>
                     <option value="high">High</option>
                     <option value="urgent">Urgent</option>
@@ -268,9 +270,9 @@ const AnnouncementsManagement = () => {
                   <label>Target Audience</label>
                   <select value={formData.target_audience} onChange={e => setFormData({ ...formData, target_audience: e.target.value })} disabled={loading}>
                     <option value="all">All Users</option>
-                    <option value="verified">Verified Only</option>
-                    <option value="resident">Residents</option>
-                    <option value="government">Gov / Responders</option>
+                    <option value="residents">Residents</option>
+                    <option value="government">Government / Responders</option>
+                    <option value="admin">Admin Only</option>
                   </select>
                 </div>
               </div>

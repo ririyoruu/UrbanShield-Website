@@ -44,7 +44,6 @@ import VerificationManagement from './VerificationManagement';
 import IncidentModeration from './IncidentModeration';
 import UserReportsManagement from './UserReportsManagement';
 import AnnouncementsManagement from './AnnouncementsManagement';
-import AuditLog from './AuditLog';
 import NotificationDropdown from './NotificationDropdown';
 import Settings from './Settings';
 import './AdminDashboard.css';
@@ -950,17 +949,9 @@ const AdminDashboard = ({ user, onLogout }) => {
                   <Mail size={16} />
                   <span>Invitations</span>
                 </button>
-                <button
-                  className={`sub-tab ${settingsSubTab === 'audit' ? 'active' : ''}`}
-                  onClick={() => setSettingsSubTab('audit')}
-                >
-                  <FileText size={16} />
-                  <span>Audit Log</span>
-                </button>
               </div>
               {settingsSubTab === 'settings' && <Settings user={user} onAvatarChange={(url, name) => { if (url) setAdminAvatarUrl(url); if (name) setAdminName(name); }} />}
               {settingsSubTab === 'invitations' && <InvitationManager user={user} />}
-              {settingsSubTab === 'audit' && <AuditLog />}
             </div>
           )}
         </div>
