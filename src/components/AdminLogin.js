@@ -222,7 +222,7 @@ const AdminLogin = ({ onLogin, onSignup }) => {
                             <Smartphone size={24} style={{ color: '#6366f1' }} />
                         </div>
                         <div>
-                            <p className="al-download-title">Citizen App</p>
+                            <p className="al-download-title">UrbanShield</p>
                             <p className="al-download-desc">For reporters and users</p>
                             <a href="https://expo.dev/accounts/ririyoru/projects/urbanshield/builds/cccee896-9c1a-456c-b22d-cd5ca4027e9d" target="_blank" rel="noopener noreferrer" className="al-download-btn">
                                 <Download size={14} /> Download App
@@ -258,7 +258,7 @@ const AdminLogin = ({ onLogin, onSignup }) => {
                             <Smartphone size={20} style={{ color: '#4f46e5' }} />
                         </div>
                         <div className="al-mobile-dl-text">
-                            <h4>Citizen App</h4>
+                            <h4>UrbanShield</h4>
                             <p>Get the mobile app</p>
                         </div>
                         <a href="https://expo.dev/accounts/ririyoru/projects/urbanshield/builds/cccee896-9c1a-456c-b22d-cd5ca4027e9d" target="_blank" rel="noopener noreferrer" className="al-btn-primary al-mobile-dl-btn">

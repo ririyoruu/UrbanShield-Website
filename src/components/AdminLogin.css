@@ -124,8 +124,8 @@
     transform: translate(-50%, -50%);
     background: conic-gradient(from 0deg,
             transparent 0deg,
-            rgba(59, 130, 246, 0.1) 20deg,
-            rgba(59, 130, 246, 0.6) 40deg,
+            rgba(59, 130, 246, 0.2) 20deg,
+            rgba(59, 130, 246, 0.8) 40deg,
             transparent 41deg);
     animation: bgRadarSweep 4.5s linear infinite;
 }
@@ -923,14 +923,14 @@
 }
 
 .al-qr-placeholder {
-    width: 60px;
-    height: 60px;
-    background: #ffffff;
+    width: 80px;
+    height: 80px;
+    background: transparent;
     border-radius: 8px;
     display: flex;
     align-items: center;
     justify-content: center;
-    padding: 4px;
+    padding: 0;
 }
 
 .al-qr-placeholder img {

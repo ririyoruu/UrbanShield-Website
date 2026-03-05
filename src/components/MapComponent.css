@@ -27,7 +27,7 @@
 /* Style switcher pill */
 .map-style-switcher {
   display: flex;
-  background: rgba(255, 255, 255, 0.92);
+  background: rgba(255, 255, 255, 0.96);
   backdrop-filter: blur(12px);
   border-radius: 10px;
   padding: 3px;
@@ -62,7 +62,7 @@
 
 /* Legend card */
 .map-legend {
-  background: rgba(255, 255, 255, 0.92);
+  background: rgba(255, 255, 255, 0.96);
   backdrop-filter: blur(12px);
   border-radius: 10px;
   padding: 10px 12px;
@@ -361,7 +361,7 @@
   right: 16px;
   display: flex;
   gap: 0;
-  background: rgba(255, 255, 255, 0.92);
+  background: rgba(255, 255, 255, 0.96);
   backdrop-filter: blur(12px);
   padding: 8px 12px;
   border-radius: 10px;
@@ -406,7 +406,7 @@
   transform: translate(-50%, -50%);
   text-align: center;
   color: #a1a1aa;
-  background: rgba(255, 255, 255, .88);
+  background: rgba(255, 255, 255, 0.94);
   backdrop-filter: blur(10px);
   padding: 32px 40px;
   border-radius: 16px;
