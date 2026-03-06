@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import {
     Eye, EyeOff, Mail, Lock, ArrowLeft, Shield,
     AlertTriangle, Activity, Users, BarChart3, TrendingUp,
-    CheckCircle, X, Key, User, Phone, Smartphone, Download, QrCode
+    CheckCircle, X, Key, User, Phone, Smartphone, Download
 } from 'lucide-react';
 import { adminService } from '../config/supabase';
 import { authService } from '../services/authService';
@@ -224,14 +224,14 @@ const AdminLogin = ({ onLogin, onSignup }) => {
                         <div>
                             <p className="al-download-title">UrbanShield</p>
                             <p className="al-download-desc">For reporters and users</p>
-                            <a href="https://expo.dev/accounts/ririyoru/projects/urbanshield/builds/cccee896-9c1a-456c-b22d-cd5ca4027e9d" target="_blank" rel="noopener noreferrer" className="al-download-btn">
+                            <a href="https://www.mediafire.com/file/uiha6nltoyeyij1/UrbanShield.apk/file" target="_blank" rel="noopener noreferrer" className="al-download-btn">
                                 <Download size={14} /> Download App
                             </a>
                         </div>
                     </div>
                     <div className="al-download-qr">
-                        <div className="al-qr-placeholder" title="Scan to download">
-                            <img src="/qr.png" alt="QR Code" />
+                        <div className="al-qr-placeholder" title="Scan QR code to download UrbanShield APK">
+                            <img src="/qr.png" alt="QR Code for UrbanShield APK Download" />
                         </div>
                         <p>Scan to Install</p>
                     </div>
@@ -261,7 +261,7 @@ const AdminLogin = ({ onLogin, onSignup }) => {
                             <h4>UrbanShield</h4>
                             <p>Get the mobile app</p>
                         </div>
-                        <a href="https://expo.dev/accounts/ririyoru/projects/urbanshield/builds/cccee896-9c1a-456c-b22d-cd5ca4027e9d" target="_blank" rel="noopener noreferrer" className="al-btn-primary al-mobile-dl-btn">
+                        <a href="https://www.mediafire.com/file/uiha6nltoyeyij1/UrbanShield.apk/file" target="_blank" rel="noopener noreferrer" className="al-btn-primary al-mobile-dl-btn">
                             Download
                         </a>
                     </div>
