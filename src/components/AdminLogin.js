@@ -1,8 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import {
     Eye, EyeOff, Mail, Lock, ArrowLeft, Shield,
-    AlertTriangle, Activity, Users, BarChart3, TrendingUp,
-    CheckCircle, X, Key, User, Phone, Smartphone, Download
+    AlertTriangle, CheckCircle, X, Key, User, Phone, Smartphone, Download
 } from 'lucide-react';
 import { adminService } from '../config/supabase';
 import { authService } from '../services/authService';
@@ -108,137 +107,96 @@ const AdminLogin = ({ onLogin, onSignup }) => {
     ────────────────────────────────────────── */
     const LeftPanel = () => (
         <div className="al-left">
-            {/* ── Background Radar & Map Widget ── */}
-            <div className="al-left-bg-widget">
-                <div className="al-bg-radar-wrap">
-                    {/* Concentric radar rings */}
-                    <div className="al-bg-radar-ring al-bg-ring-1" />
-                    <div className="al-bg-radar-ring al-bg-ring-2" />
-                    <div className="al-bg-radar-ring al-bg-ring-3" />
-                    <div className="al-bg-radar-ring al-bg-ring-4" />
-                    <div className="al-bg-radar-line al-bg-line-h" />
-                    <div className="al-bg-radar-line al-bg-line-v" />
+            {/* ── Animated background ── */}
+            <div className="al-bg">
+                <div className="al-bg-orb al-bg-orb-1" />
+                <div className="al-bg-orb al-bg-orb-2" />
+                <div className="al-bg-grid" />
 
-                    {/* Rotating sweep */}
-                    <div className="al-bg-radar-sweep" />
-
-                    {/* SVG Bohol outline overlaying the radar */}
-                    <svg viewBox="0 0 200 200" className="al-bg-map-svg">
-                        <path d="
-                            M 100,20 C 130,10 160,20 170,40 C 180,60 170,100 160,110
-                            C 150,120 160,140 140,160 C 120,180 90,190 70,180
-                            C 40,170 30,150 20,120 C 10,90 20,60 30,40
-                            C 40,20 70,30 100,20 Z
-                        " />
-                    </svg>
-
-                    {/* Radar Pins */}
-                    {/* Tagbilaran */}
-                    <g className="al-bg-pin al-bg-pin-1" style={{ top: '60%', left: '30%' }}>
-                        <div className="al-pin-pulse" />
-                        <div className="al-pin-dot" />
-                    </g>
-                    {/* Jagna */}
-                    <g className="al-bg-pin al-bg-pin-2" style={{ top: '75%', left: '70%' }}>
-                        <div className="al-pin-pulse" />
-                        <div className="al-pin-dot" />
-                    </g>
-                    {/* Ubay */}
-                    <g className="al-bg-pin al-bg-pin-3" style={{ top: '25%', left: '75%' }}>
-                        <div className="al-pin-pulse" />
-                        <div className="al-pin-dot" />
-                    </g>
-                    {/* Tubigon */}
-                    <g className="al-bg-pin al-bg-pin-4" style={{ top: '30%', left: '25%' }}>
-                        <div className="al-pin-pulse" />
-                        <div className="al-pin-dot" />
-                    </g>
+                {/* Radar only */}
+                <div className="al-radar-wrap">
+                    <div className="al-radar-ring al-radar-ring-1" />
+                    <div className="al-radar-ring al-radar-ring-2" />
+                    <div className="al-radar-ring al-radar-ring-3" />
+                    <div className="al-radar-sweep" />
+                    <div className="al-radar-pin al-radar-pin-1"><div className="al-pin-pulse" /><div className="al-pin-dot" /></div>
+                    <div className="al-radar-pin al-radar-pin-2"><div className="al-pin-pulse" /><div className="al-pin-dot" /></div>
+                    <div className="al-radar-pin al-radar-pin-3"><div className="al-pin-pulse" /><div className="al-pin-dot" /></div>
+                    <div className="al-radar-pin al-radar-pin-4"><div className="al-pin-pulse" /><div className="al-pin-dot" /></div>
                 </div>
+
+                {[...Array(8)].map((_, i) => (
+                    <div key={i} className={`al-particle al-particle-${i + 1}`} />
+                ))}
             </div>
 
             <div className="al-left-inner">
-                {/* Logo */}
-                <div className="al-brand">
-                    <img src="/logourb.png" alt="UrbanShield" className="al-brand-logo" />
+                {/* Brand */}
+                <div className="al-brand al-anim-1">
+                    <div className="al-brand-icon">
+                        <img src="/logourb.png" alt="UrbanShield" className="al-brand-logo" />
+                    </div>
                     <div>
                         <p className="al-brand-name">UrbanShield</p>
-                        <p className="al-brand-sub">Admin Portal</p>
+                        <p className="al-brand-sub">Admin Control Panel</p>
                     </div>
                 </div>
 
                 {/* Headline */}
-                <div className="al-headline">
-                    <h1>Manage incidents.<br />Protect communities.</h1>
-                    <p>
-                        A centralized command center for monitoring, analyzing, and responding to
-                        community incidents in real-time.
-                    </p>
+                <div className="al-headline al-anim-2">
+                    <h1>
+                        Protect your<br />
+                        <span className="al-headline-accent">community</span><br />
+                        in real-time.
+                    </h1>
+                    <p>Monitor, analyze, and respond to incidents across Bohol — all from one centralized dashboard.</p>
                 </div>
 
                 {/* Live stats */}
-                <div className="al-stats">
+                <div className="al-stats al-anim-3">
                     <div className="al-stat">
-                        <div className="al-stat-icon" style={{ background: 'rgba(239,68,68,.15)' }}>
-                            <BarChart3 size={18} style={{ color: '#f87171' }} />
-                        </div>
-                        <div>
-                            <p className="al-stat-value">{stats.totalReports}</p>
-                            <p className="al-stat-label">Total Posts</p>
-                        </div>
+                        <p className="al-stat-value">{stats.totalReports}</p>
+                        <p className="al-stat-label">Total Posts</p>
+                        <div className="al-stat-bar" style={{ '--bar-color': '#f87171' }} />
                     </div>
                     <div className="al-stat">
-                        <div className="al-stat-icon" style={{ background: 'rgba(245,158,11,.15)' }}>
-                            <Activity size={18} style={{ color: '#fbbf24' }} />
-                        </div>
-                        <div>
-                            <p className="al-stat-value">{stats.pendingReports}</p>
-                            <p className="al-stat-label">Pending Review</p>
-                        </div>
+                        <p className="al-stat-value">{stats.pendingReports}</p>
+                        <p className="al-stat-label">Pending</p>
+                        <div className="al-stat-bar" style={{ '--bar-color': '#fbbf24' }} />
                     </div>
                     <div className="al-stat">
-                        <div className="al-stat-icon" style={{ background: 'rgba(16,185,129,.15)' }}>
-                            <TrendingUp size={18} style={{ color: '#34d399' }} />
-                        </div>
-                        <div>
-                            <p className="al-stat-value">{stats.resolvedToday}</p>
-                            <p className="al-stat-label">Resolved Today</p>
-                        </div>
+                        <p className="al-stat-value">{stats.resolvedToday}</p>
+                        <p className="al-stat-label">Resolved</p>
+                        <div className="al-stat-bar" style={{ '--bar-color': '#34d399' }} />
                     </div>
                     <div className="al-stat">
-                        <div className="al-stat-icon" style={{ background: 'rgba(99,102,241,.15)' }}>
-                            <Users size={18} style={{ color: '#818cf8' }} />
-                        </div>
-                        <div>
-                            <p className="al-stat-value">{stats.totalUsers}</p>
-                            <p className="al-stat-label">Active Users</p>
-                        </div>
+                        <p className="al-stat-value">{stats.totalUsers}</p>
+                        <p className="al-stat-label">Users</p>
+                        <div className="al-stat-bar" style={{ '--bar-color': '#818cf8' }} />
                     </div>
                 </div>
 
-                {/* Download App Section */}
-                <div className="al-download-section">
-                    <div className="al-download-info">
-                        <div className="al-download-icon">
-                            <Smartphone size={24} style={{ color: '#6366f1' }} />
-                        </div>
+                {/* Download */}
+                <div className="al-download-section al-anim-4">
+                    <div className="al-download-left">
+                        <div className="al-download-icon"><Smartphone size={18} /></div>
                         <div>
-                            <p className="al-download-title">UrbanShield</p>
-                            <p className="al-download-desc">For reporters and users</p>
-                            <a href="https://www.mediafire.com/file/uiha6nltoyeyij1/UrbanShield.apk/file" target="_blank" rel="noopener noreferrer" className="al-download-btn">
-                                <Download size={14} /> Download App
-                            </a>
+                            <p className="al-download-title">Get the mobile app</p>
+                            <p className="al-download-desc">For residents & reporters</p>
                         </div>
                     </div>
-                    <div className="al-download-qr">
-                        <div className="al-qr-placeholder" title="Scan QR code to download UrbanShield APK">
-                            <img src="/qr.png" alt="QR Code for UrbanShield APK Download" />
+                    <div className="al-download-right">
+                        <div className="al-qr-wrap">
+                            <img src="/qr.png" alt="Scan to download" />
                         </div>
-                        <p>Scan to Install</p>
+                        <a href="https://www.mediafire.com/file/5154nvzzn7b5y7t/UrbanShield.apk/file" target="_blank" rel="noopener noreferrer" className="al-download-btn">
+                            <Download size={13} /> Download APK
+                        </a>
                     </div>
                 </div>
 
                 {/* Footer */}
-                <p className="al-left-footer">© {new Date().getFullYear()} UrbanShield · Admin Control Panel</p>
+                <p className="al-left-footer al-anim-5">© {new Date().getFullYear()} UrbanShield · Bohol</p>
             </div>
         </div>
     );
@@ -261,7 +219,7 @@ const AdminLogin = ({ onLogin, onSignup }) => {
                             <h4>UrbanShield</h4>
                             <p>Get the mobile app</p>
                         </div>
-                        <a href="https://www.mediafire.com/file/uiha6nltoyeyij1/UrbanShield.apk/file" target="_blank" rel="noopener noreferrer" className="al-btn-primary al-mobile-dl-btn">
+                        <a href="https://www.mediafire.com/file/5154nvzzn7b5y7t/UrbanShield.apk/file" target="_blank" rel="noopener noreferrer" className="al-btn-primary al-mobile-dl-btn">
                             Download
                         </a>
                     </div>
