@@ -12,6 +12,106 @@ import './AdminLogin.css';
 /* ─────────── View constants ─────────── */
 const VIEW = { LOGIN: 'login', SIGNUP: 'signup', FORGOT: 'forgot', RESET_CODE: 'reset_code' };
 
+/* ──────────────────────────────────────────
+   LEFT PANEL — defined OUTSIDE AdminLogin
+   so it never remounts on re-renders
+────────────────────────────────────────── */
+const LeftPanel = ({ stats }) => (
+    <div className="al-left">
+        {/* ── Animated background ── */}
+        <div className="al-bg">
+            <div className="al-bg-orb al-bg-orb-1" />
+            <div className="al-bg-orb al-bg-orb-2" />
+            <div className="al-bg-grid" />
+
+            {/* Radar only */}
+            <div className="al-radar-wrap">
+                <div className="al-radar-ring al-radar-ring-1" />
+                <div className="al-radar-ring al-radar-ring-2" />
+                <div className="al-radar-ring al-radar-ring-3" />
+                <div className="al-radar-sweep" />
+                <div className="al-radar-pin al-radar-pin-1"><div className="al-pin-pulse" /><div className="al-pin-dot" /></div>
+                <div className="al-radar-pin al-radar-pin-2"><div className="al-pin-pulse" /><div className="al-pin-dot" /></div>
+                <div className="al-radar-pin al-radar-pin-3"><div className="al-pin-pulse" /><div className="al-pin-dot" /></div>
+                <div className="al-radar-pin al-radar-pin-4"><div className="al-pin-pulse" /><div className="al-pin-dot" /></div>
+            </div>
+
+            {[...Array(8)].map((_, i) => (
+                <div key={i} className={`al-particle al-particle-${i + 1}`} />
+            ))}
+        </div>
+
+        <div className="al-left-inner">
+            {/* Brand */}
+            <div className="al-brand al-anim-1">
+                <div className="al-brand-icon">
+                    <img src="/logourb.png" alt="UrbanShield" className="al-brand-logo" />
+                </div>
+                <div>
+                    <p className="al-brand-name">UrbanShield</p>
+                    <p className="al-brand-sub">Admin Control Panel</p>
+                </div>
+            </div>
+
+            {/* Headline */}
+            <div className="al-headline al-anim-2">
+                <h1>
+                    Protect your<br />
+                    <span className="al-headline-accent">community</span><br />
+                    in real-time.
+                </h1>
+                <p>Monitor, analyze, and respond to incidents across Bohol — all from one centralized dashboard.</p>
+            </div>
+
+            {/* Live stats */}
+            <div className="al-stats al-anim-3">
+                <div className="al-stat">
+                    <p className="al-stat-value">{stats.totalReports}</p>
+                    <p className="al-stat-label">Total Posts</p>
+                    <div className="al-stat-bar" style={{ '--bar-color': '#f87171' }} />
+                </div>
+                <div className="al-stat">
+                    <p className="al-stat-value">{stats.pendingReports}</p>
+                    <p className="al-stat-label">Pending</p>
+                    <div className="al-stat-bar" style={{ '--bar-color': '#fbbf24' }} />
+                </div>
+                <div className="al-stat">
+                    <p className="al-stat-value">{stats.resolvedToday}</p>
+                    <p className="al-stat-label">Resolved</p>
+                    <div className="al-stat-bar" style={{ '--bar-color': '#34d399' }} />
+                </div>
+                <div className="al-stat">
+                    <p className="al-stat-value">{stats.totalUsers}</p>
+                    <p className="al-stat-label">Users</p>
+                    <div className="al-stat-bar" style={{ '--bar-color': '#818cf8' }} />
+                </div>
+            </div>
+
+            {/* Download */}
+            <div className="al-download-section al-anim-4">
+                <div className="al-download-left">
+                    <div className="al-download-icon"><Smartphone size={18} /></div>
+                    <div>
+                        <p className="al-download-title">Get the mobile app</p>
+                        <p className="al-download-desc">For residents & reporters</p>
+                    </div>
+                </div>
+                <div className="al-download-right">
+                    <div className="al-qr-wrap">
+                        <img src="/qr.png" alt="Scan to download" />
+                    </div>
+                    <a href="https://www.mediafire.com/file/5154nvzzn7b5y7t/UrbanShield.apk/file" target="_blank" rel="noopener noreferrer" className="al-download-btn">
+                        <Download size={13} /> Download APK
+                    </a>
+                </div>
+            </div>
+
+            {/* Footer */}
+            <p className="al-left-footer al-anim-5">© {new Date().getFullYear()} UrbanShield · Bohol</p>
+        </div>
+    </div>
+);
+
 const AdminLogin = ({ onLogin, onSignup }) => {
     const [view, setView] = useState(VIEW.LOGIN);
     const [stats, setStats] = useState({ totalReports: 0, pendingReports: 0, totalUsers: 0, resolvedToday: 0 });
@@ -44,10 +144,30 @@ const AdminLogin = ({ onLogin, onSignup }) => {
 
     /* ── Load live stats ── */
     useEffect(() => {
-        adminService.getDashboardStats().then(s => {
-            if (s) setStats({ totalReports: s.totalReports || 0, pendingReports: s.pendingReports || 0, totalUsers: s.totalUsers || 0, resolvedToday: s.resolvedToday || 0 });
-        }).catch(() => { });
-    }, []);
+        let isMounted = true;
+        
+        const fetchStats = async () => {
+            try {
+                const s = await adminService.getDashboardStats();
+                if (isMounted && s) {
+                    setStats({ 
+                        totalReports: s.totalReports || 0, 
+                        pendingReports: s.pendingReports || 0, 
+                        totalUsers: s.totalUsers || 0, 
+                        resolvedToday: s.resolvedToday || 0 
+                    });
+                }
+            } catch (error) {
+                console.error('Failed to load stats:', error);
+            }
+        };
+        
+        fetchStats();
+        
+        return () => {
+            isMounted = false;
+        };
+    }, []); // Empty dependency array - run only once on mount
 
     /* ────── Login ────── */
     const handleLogin = async (e) => {
@@ -103,110 +223,11 @@ const AdminLogin = ({ onLogin, onSignup }) => {
     };
 
     /* ──────────────────────────────────────────
-       LEFT PANEL — shared for all views
-    ────────────────────────────────────────── */
-    const LeftPanel = () => (
-        <div className="al-left">
-            {/* ── Animated background ── */}
-            <div className="al-bg">
-                <div className="al-bg-orb al-bg-orb-1" />
-                <div className="al-bg-orb al-bg-orb-2" />
-                <div className="al-bg-grid" />
-
-                {/* Radar only */}
-                <div className="al-radar-wrap">
-                    <div className="al-radar-ring al-radar-ring-1" />
-                    <div className="al-radar-ring al-radar-ring-2" />
-                    <div className="al-radar-ring al-radar-ring-3" />
-                    <div className="al-radar-sweep" />
-                    <div className="al-radar-pin al-radar-pin-1"><div className="al-pin-pulse" /><div className="al-pin-dot" /></div>
-                    <div className="al-radar-pin al-radar-pin-2"><div className="al-pin-pulse" /><div className="al-pin-dot" /></div>
-                    <div className="al-radar-pin al-radar-pin-3"><div className="al-pin-pulse" /><div className="al-pin-dot" /></div>
-                    <div className="al-radar-pin al-radar-pin-4"><div className="al-pin-pulse" /><div className="al-pin-dot" /></div>
-                </div>
-
-                {[...Array(8)].map((_, i) => (
-                    <div key={i} className={`al-particle al-particle-${i + 1}`} />
-                ))}
-            </div>
-
-            <div className="al-left-inner">
-                {/* Brand */}
-                <div className="al-brand al-anim-1">
-                    <div className="al-brand-icon">
-                        <img src="/logourb.png" alt="UrbanShield" className="al-brand-logo" />
-                    </div>
-                    <div>
-                        <p className="al-brand-name">UrbanShield</p>
-                        <p className="al-brand-sub">Admin Control Panel</p>
-                    </div>
-                </div>
-
-                {/* Headline */}
-                <div className="al-headline al-anim-2">
-                    <h1>
-                        Protect your<br />
-                        <span className="al-headline-accent">community</span><br />
-                        in real-time.
-                    </h1>
-                    <p>Monitor, analyze, and respond to incidents across Bohol — all from one centralized dashboard.</p>
-                </div>
-
-                {/* Live stats */}
-                <div className="al-stats al-anim-3">
-                    <div className="al-stat">
-                        <p className="al-stat-value">{stats.totalReports}</p>
-                        <p className="al-stat-label">Total Posts</p>
-                        <div className="al-stat-bar" style={{ '--bar-color': '#f87171' }} />
-                    </div>
-                    <div className="al-stat">
-                        <p className="al-stat-value">{stats.pendingReports}</p>
-                        <p className="al-stat-label">Pending</p>
-                        <div className="al-stat-bar" style={{ '--bar-color': '#fbbf24' }} />
-                    </div>
-                    <div className="al-stat">
-                        <p className="al-stat-value">{stats.resolvedToday}</p>
-                        <p className="al-stat-label">Resolved</p>
-                        <div className="al-stat-bar" style={{ '--bar-color': '#34d399' }} />
-                    </div>
-                    <div className="al-stat">
-                        <p className="al-stat-value">{stats.totalUsers}</p>
-                        <p className="al-stat-label">Users</p>
-                        <div className="al-stat-bar" style={{ '--bar-color': '#818cf8' }} />
-                    </div>
-                </div>
-
-                {/* Download */}
-                <div className="al-download-section al-anim-4">
-                    <div className="al-download-left">
-                        <div className="al-download-icon"><Smartphone size={18} /></div>
-                        <div>
-                            <p className="al-download-title">Get the mobile app</p>
-                            <p className="al-download-desc">For residents & reporters</p>
-                        </div>
-                    </div>
-                    <div className="al-download-right">
-                        <div className="al-qr-wrap">
-                            <img src="/qr.png" alt="Scan to download" />
-                        </div>
-                        <a href="https://www.mediafire.com/file/5154nvzzn7b5y7t/UrbanShield.apk/file" target="_blank" rel="noopener noreferrer" className="al-download-btn">
-                            <Download size={13} /> Download APK
-                        </a>
-                    </div>
-                </div>
-
-                {/* Footer */}
-                <p className="al-left-footer al-anim-5">© {new Date().getFullYear()} UrbanShield · Bohol</p>
-            </div>
-        </div>
-    );
-
-    /* ──────────────────────────────────────────
        RIGHT PANEL — changes with view
     ────────────────────────────────────────── */
     return (
         <div className="al-root">
-            <LeftPanel />
+            <LeftPanel stats={stats} />
 
             <div className="al-right">
                 <div className="al-form-wrap">
