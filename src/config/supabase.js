@@ -770,7 +770,7 @@ export const adminService = {
   // Real-time subscriptions
   subscribeToReports(callback) {
     return supabase
-      .channel('incidents')
+      .channel('incidents-updates')
       .on('postgres_changes', 
         { 
           event: '*', 
@@ -778,19 +778,108 @@ export const adminService = {
           table: 'incidents' 
         }, 
         (payload) => {
-          console.log('Supabase real-time payload:', payload);
+          console.log('🔄 Real-time incident update:', {
+            event: payload.eventType,
+            table: payload.table,
+            id: payload.new?.id || payload.old?.id,
+            timestamp: new Date().toISOString()
+          });
+          
           // Transform Supabase payload to our expected format
           const transformedPayload = {
             eventType: payload.eventType,
             new: payload.new,
             old: payload.old,
             table: payload.table,
-            schema: payload.schema
+            schema: payload.schema,
+            timestamp: new Date().toISOString()
           };
           callback(transformedPayload);
         }
       )
-      .subscribe();
+      .subscribe((status) => {
+        if (status === 'SUBSCRIBED') {
+          console.log('✅ Real-time subscription active for incidents');
+        } else if (status === 'CHANNEL_ERROR') {
+          console.error('❌ Real-time subscription error');
+          callback({ eventType: 'CONNECTION_ERROR', error: 'Connection failed' });
+        } else if (status === 'TIMED_OUT') {
+          console.error('❌ Real-time subscription timed out');
+          callback({ eventType: 'CONNECTION_ERROR', error: 'Connection timed out' });
+        }
+      });
+  },
+
+  // Subscribe to user reports for content moderation
+  subscribeToUserReports(callback) {
+    return supabase
+      .channel('user-reports')
+      .on('postgres_changes', 
+        { 
+          event: '*', 
+          schema: 'public', 
+          table: 'reports' 
+        }, 
+        (payload) => {
+          console.log('🔄 Real-time user report update:', {
+            event: payload.eventType,
+            table: payload.table,
+            id: payload.new?.id || payload.old?.id,
+            timestamp: new Date().toISOString()
+          });
+          
+          const transformedPayload = {
+            eventType: payload.eventType,
+            new: payload.new,
+            old: payload.old,
+            table: payload.table,
+            schema: payload.schema,
+            timestamp: new Date().toISOString()
+          };
+          callback(transformedPayload);
+        }
+      )
+      .subscribe((status) => {
+        if (status === 'SUBSCRIBED') {
+          console.log('✅ Real-time subscription active for user reports');
+        }
+      });
+  },
+
+  // Subscribe to profiles for user management
+  subscribeToProfiles(callback) {
+    return supabase
+      .channel('profile-updates')
+      .on('postgres_changes', 
+        { 
+          event: '*', 
+          schema: 'public', 
+          table: 'profiles' 
+        }, 
+        (payload) => {
+          console.log('🔄 Real-time profile update:', {
+            event: payload.eventType,
+            table: payload.table,
+            id: payload.new?.id || payload.old?.id,
+            timestamp: new Date().toISOString()
+          });
+          
+          const transformedPayload = {
+            eventType: payload.eventType,
+            new: payload.new,
+            old: payload.old,
+            table: payload.table,
+            schema: payload.schema,
+            timestamp: new Date().toISOString()
+          };
+          callback(transformedPayload);
+        }
+      )
+      .subscribe((status) => {
+        if (status === 'SUBSCRIBED') {
+          console.log('✅ Real-time subscription active for profiles');
+        }
+      });
   },
 
   // User Management Functions

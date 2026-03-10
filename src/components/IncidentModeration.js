@@ -39,6 +39,7 @@ const IncidentModeration = ({ initialSearch = '' }) => {
   const [resolveProofPreview, setResolveProofPreview] = useState('');
   // Duplicates
   const [duplicateGroups, setDuplicateGroups] = useState({});
+  const [refreshKey, setRefreshKey] = useState(0);
   const proofInputRef = useRef(null);
 
   useEffect(() => {
@@ -279,6 +280,9 @@ const IncidentModeration = ({ initialSearch = '' }) => {
       }));
 
       setIncidents(withDupes);
+      
+      // Force React re-render by incrementing refresh key
+      setRefreshKey(prev => prev + 1);
 
       // Resolve locations in background
       formattedIncidents.forEach(async (incident) => {
@@ -330,10 +334,17 @@ const IncidentModeration = ({ initialSearch = '' }) => {
   const handleStartAction = async (incidentId) => {
     try {
       setSaving(true);
-      await adminService.startAction(incidentId);
+      console.log('🚀 Starting action for incident:', incidentId);
+      const result = await adminService.startAction(incidentId);
+      console.log('✅ Action started successfully:', result);
+      
+      // Force refresh incidents data with a small delay to ensure DB update
+      await new Promise(resolve => setTimeout(resolve, 500));
       await loadIncidents();
+      console.log('🔄 Incidents data refreshed');
     } catch (error) {
-      console.error('Error starting action:', error);
+      console.error('❌ Error starting action:', error);
+      setError('Failed to start action');
     } finally {
       setSaving(false);
     }
@@ -379,15 +390,29 @@ const IncidentModeration = ({ initialSearch = '' }) => {
           proofUrl = resolveProofPreview;
         }
       }
-      await adminService.resolveIncident(resolveTarget.id, {
-        updateText: resolveText || null,
-        proofUrl: proofUrl
-      });
+      await adminService.resolveIncident(resolveTarget.id, { updateText: resolveText, proofUrl: proofUrl });
+      await loadIncidents();
       setShowResolveModal(false);
       setResolveTarget(null);
+      setResolveText('');
+      setResolveProofFile(null);
+      setResolveProofPreview('');
+    } catch (err) {
+      console.error('Error resolving incident:', err);
+      setError('Failed to resolve incident');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleRevertStatus = async (incidentId, newStatus) => {
+    try {
+      setSaving(true);
+      await adminService.updateReportStatus(incidentId, newStatus, `Status reverted from resolved to ${newStatus}`);
       await loadIncidents();
-    } catch (error) {
-      console.error('Error resolving incident:', error);
+    } catch (err) {
+      console.error('Error reverting incident status:', err);
+      setError('Failed to revert incident status');
     } finally {
       setSaving(false);
     }
@@ -426,6 +451,7 @@ const IncidentModeration = ({ initialSearch = '' }) => {
   };
 
   return (
+    <>
     <div className="incident-moderation">
       {/* Stats Row */}
       <div className="mod-stats-row">
@@ -494,12 +520,13 @@ const IncidentModeration = ({ initialSearch = '' }) => {
             <p>Try changing your filter settings. ({incidents.length} total posts)</p>
           </div>
         ) : (
-          filteredIncidents.map(incident => {
-            const status = getStatus(incident);
-            const hasImages = (incident.images?.length || 0) > 0;
-            const displayLocation = incident.resolvedLocation || incident.location;
-            return (
-              <div key={incident.id} className={`post-card ${status}`} onClick={() => handleViewIncident(incident)}>
+          <div key={refreshKey}>
+            {filteredIncidents.map(incident => {
+              const status = getStatus(incident);
+              const hasImages = (incident.images?.length || 0) > 0;
+              const displayLocation = incident.resolvedLocation || incident.location;
+              return (
+                <div key={incident.id} className={`post-card ${status}`} onClick={() => handleViewIncident(incident)}>
                 {/* Duplicate banner */}
                 {status === 'duplicate' && (
                   <div className="duplicate-banner">
@@ -566,13 +593,26 @@ const IncidentModeration = ({ initialSearch = '' }) => {
                       Remove Duplicate
                     </button>
                   )}
-                  {status === 'resolved' && incident.admin_notes && (
-                    <span className="resolved-note"><FileText size={12} /> {incident.admin_notes}</span>
+                  {status === 'resolved' && (
+                    <>
+                      <button className="btn-revert-pending" onClick={() => handleRevertStatus(incident.id, 'pending')} disabled={saving}>
+                        <Clock size={14} />
+                        Revert to Pending
+                      </button>
+                      <button className="btn-revert-action" onClick={() => handleRevertStatus(incident.id, 'in_action')} disabled={saving}>
+                        <Play size={14} />
+                        Back to Action
+                      </button>
+                      {incident.admin_notes && (
+                        <span className="resolved-note"><FileText size={12} /> {incident.admin_notes}</span>
+                      )}
+                    </>
                   )}
                 </div>
               </div>
             );
-          })
+            })}
+          </div>
         )}
       </div>
 
@@ -633,6 +673,7 @@ const IncidentModeration = ({ initialSearch = '' }) => {
         loading={saving}
       />
     </div>
+    </>
   );
 };
 

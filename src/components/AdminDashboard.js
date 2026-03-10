@@ -75,9 +75,12 @@ const AdminDashboard = ({ user, onLogout }) => {
     { title: 'Total Users', value: '0', change: null, icon: <Users />, color: '#3b82f6' }
   ]);
   const [realtimeSubscription, setRealtimeSubscription] = useState(null);
+  const [userReportsSubscription, setUserReportsSubscription] = useState(null);
+  const [profilesSubscription, setProfilesSubscription] = useState(null);
   const [notificationCount, setNotificationCount] = useState(0);
   const [showNotifications, setShowNotifications] = useState(false);
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(window.innerWidth <= 768);
+  const [realtimeStatus, setRealtimeStatus] = useState('connecting'); // 'connecting', 'connected', 'error'
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(true);
   const [newReportsAvailable, setNewReportsAvailable] = useState(false);
   const [reportsViewMode, setReportsViewMode] = useState('default'); // 'default' or 'list'
   const [selectedReport, setSelectedReport] = useState(null);
@@ -127,10 +130,20 @@ const AdminDashboard = ({ user, onLogout }) => {
     setupRealtimeSubscription();
     loadNotificationCount();
 
-    // Cleanup subscription on unmount
+    // Cleanup all subscriptions on unmount
     return () => {
+      console.log('🧹 Cleaning up real-time subscriptions...');
       if (realtimeSubscription) {
         realtimeSubscription.unsubscribe();
+        console.log('✅ Incidents subscription cleaned up');
+      }
+      if (userReportsSubscription) {
+        userReportsSubscription.unsubscribe();
+        console.log('✅ User reports subscription cleaned up');
+      }
+      if (profilesSubscription) {
+        profilesSubscription.unsubscribe();
+        console.log('✅ Profiles subscription cleaned up');
       }
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -383,13 +396,20 @@ const AdminDashboard = ({ user, onLogout }) => {
     }
   };
 
-  // Setup real-time subscription
+  // Setup real-time subscriptions
   const setupRealtimeSubscription = () => {
-    const subscription = adminService.subscribeToReports((payload) => {
-      console.log('Real-time update received:', payload);
+    // Subscribe to incidents table
+    const incidentsSubscription = adminService.subscribeToReports((payload) => {
+      console.log('🔄 Real-time incident update received:', payload);
+
+      if (payload.eventType === 'CONNECTION_ERROR') {
+        console.error('❌ Real-time connection error:', payload.error);
+        setRealtimeStatus('error');
+        return;
+      }
 
       if (payload.eventType === 'INSERT') {
-        console.log('New incident reported - refreshing data...');
+        console.log('📝 New incident reported - refreshing all data...');
         loadReports();
         loadStats();
         loadAnalytics();
@@ -405,14 +425,21 @@ const AdminDashboard = ({ user, onLogout }) => {
           setNewReportsAvailable(false);
         }, 5000);
       } else if (payload.eventType === 'UPDATE') {
-        console.log('Incident updated - refreshing data...');
+        console.log('✏️ Incident updated - refreshing data...');
         loadReports();
         loadStats();
         loadAnalytics();
         loadResponseTimeAnalytics();
         loadNotificationCount();
+        
+        // If status changed to resolved, show notification
+        if (payload.old?.status !== payload.new?.status && payload.new?.status === 'resolved') {
+          if (activeTab !== 'reports') {
+            setNotificationCount(prev => prev + 1);
+          }
+        }
       } else if (payload.eventType === 'DELETE') {
-        console.log('Incident deleted - refreshing data...');
+        console.log('🗑️ Incident deleted - refreshing data...');
         loadReports();
         loadStats();
         loadAnalytics();
@@ -421,8 +448,45 @@ const AdminDashboard = ({ user, onLogout }) => {
       }
     });
 
-    setRealtimeSubscription(subscription);
-    console.log('Real-time subscription established for incidents');
+    // Subscribe to user reports table
+    const userReportsSubscription = adminService.subscribeToUserReports((payload) => {
+      console.log('🔄 Real-time user report update received:', payload);
+
+      if (payload.eventType === 'INSERT') {
+        console.log('📝 New user report submitted - refreshing...');
+        loadReports(); // Refresh reports data
+        loadNotificationCount();
+        setNotificationCount(prev => prev + 1);
+      } else if (payload.eventType === 'UPDATE') {
+        console.log('✏️ User report updated - refreshing...');
+        loadReports(); // Refresh reports data
+        loadNotificationCount();
+      }
+    });
+
+    // Subscribe to profiles table (for user management)
+    const profilesSubscription = adminService.subscribeToProfiles((payload) => {
+      console.log('🔄 Real-time profile update received:', payload);
+
+      if (payload.eventType === 'INSERT') {
+        console.log('👤 New user registered - refreshing stats...');
+        loadStats();
+        loadNotificationCount();
+      } else if (payload.eventType === 'UPDATE') {
+        console.log('✏️ User profile updated - refreshing...');
+        loadStats();
+      } else if (payload.eventType === 'DELETE') {
+        console.log('🗑️ User deleted - refreshing...');
+        loadStats();
+        loadNotificationCount();
+      }
+    });
+
+    setRealtimeSubscription(incidentsSubscription);
+    setUserReportsSubscription(userReportsSubscription);
+    setProfilesSubscription(profilesSubscription);
+    setRealtimeStatus('connected');
+    console.log('✅ Real-time subscriptions established for all tables');
   };
 
   const handleLogout = () => {
@@ -647,7 +711,7 @@ const AdminDashboard = ({ user, onLogout }) => {
               <Menu size={20} />
             </button>
             <h1 className="page-title">
-              {activeTab === 'map' && 'Live Post Map'}
+              {activeTab === 'map' && <span style={{ fontSize: '1.3em', fontWeight: 'bold' }}>🗺️ Live Post Map</span>}
               {activeTab === 'overview' && 'Dashboard'}
               {activeTab === 'incidents' && 'Post Management'}
               {activeTab === 'reports' && 'Posts Management'}
@@ -655,6 +719,14 @@ const AdminDashboard = ({ user, onLogout }) => {
               {activeTab === 'announcements' && 'Announcements'}
               {activeTab === 'profile' && 'Settings'}
             </h1>
+            {activeTab === 'map' && (
+              <div className="map-instructions" style={{ marginTop: '8px', fontSize: '0.9em', opacity: 0.8 }}>
+                <span className="instruction-item">🔵 Click markers for details</span>
+                <span className="instruction-item">🔴 Pending posts</span>
+                <span className="instruction-item">🟢 Resolved posts</span>
+                <span style={{ marginLeft: '15px', fontSize: '0.85em' }}>📍 Click on any post marker to view full details and take immediate action</span>
+              </div>
+            )}
           </div>
           <div className="header-right">
             <div className="search-container">
@@ -686,6 +758,9 @@ const AdminDashboard = ({ user, onLogout }) => {
                   <span className="notification-badge">{notificationCount}</span>
                 )}
               </button>
+              <div className={`realtime-indicator ${realtimeStatus}`} title={`Real-time: ${realtimeStatus}`}>
+                <div className="realtime-dot"></div>
+              </div>
               <NotificationDropdown
                 user={user}
                 reports={reports}
@@ -704,49 +779,12 @@ const AdminDashboard = ({ user, onLogout }) => {
         <div className="content">
           {activeTab === 'map' && (
             <div className="map-content">
-              <div className="map-header">
-                <h3>🗺️ Live Post Map</h3>
-                <p>📍 Click on any post marker to view full details and take immediate action</p>
-                <div className="map-instructions">
-                  <span className="instruction-item">🔵 Click markers for details</span>
-                  <span className="instruction-item">🔴 Pending posts</span>
-                  <span className="instruction-item">🟢 Resolved posts</span>
-                </div>
-              </div>
               <div className="map-wrapper card">
                 <MapComponent
                   incidents={reports}
                   userType="admin"
                   onMarkerClick={(incident) => handleViewReport(incident)}
                 />
-              </div>
-              <div className="map-insights">
-                <div className="insight-card card">
-                  <h4>Map Insights</h4>
-                  <div className="insights-grid">
-                    <div className="insight-item">
-                      <Activity size={20} />
-                      <div>
-                        <span className="insight-label">Hotspots Detected</span>
-                        <span className="insight-value">3 areas</span>
-                      </div>
-                    </div>
-                    <div className="insight-item">
-                      <TrendingUp size={20} />
-                      <div>
-                        <span className="insight-label">Trend Analysis</span>
-                        <span className="insight-value">↑ 15% this week</span>
-                      </div>
-                    </div>
-                    <div className="insight-item">
-                      <Filter size={20} />
-                      <div>
-                        <span className="insight-label">Active Filters</span>
-                        <span className="insight-value">All types</span>
-                      </div>
-                    </div>
-                  </div>
-                </div>
               </div>
             </div>
           )}
