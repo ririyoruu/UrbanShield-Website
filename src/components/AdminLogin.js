@@ -100,7 +100,7 @@ const LeftPanel = ({ stats }) => (
                     <div className="al-qr-wrap">
                         <img src="/qr.png" alt="Scan to download" />
                     </div>
-                    <a href="https://www.mediafire.com/file/5154nvzzn7b5y7t/UrbanShield.apk/file" target="_blank" rel="noopener noreferrer" className="al-download-btn">
+                    <a href="https://www.mediafire.com/file/jlzydwcutixrpfu/UrbanShield.apk/file" target="_blank" rel="noopener noreferrer" className="al-download-btn">
                         <Download size={13} /> Download APK
                     </a>
                 </div>
@@ -145,6 +145,7 @@ const AdminLogin = ({ onLogin, onSignup }) => {
     /* ── Load live stats ── */
     useEffect(() => {
         let isMounted = true;
+        let subscription = null;
         
         const fetchStats = async () => {
             try {
@@ -162,10 +163,35 @@ const AdminLogin = ({ onLogin, onSignup }) => {
             }
         };
         
+        // Initial fetch
         fetchStats();
+        
+        // Setup real-time subscription for stats updates
+        subscription = adminService.subscribeToReports((payload) => {
+            console.log('🔄 Landing page: Real-time incident update received:', payload);
+            if (isMounted) {
+                fetchStats(); // Refresh stats when incidents change
+            }
+        });
+        
+        // Also subscribe to user profile changes for user count updates
+        const userSubscription = adminService.subscribeToProfiles((payload) => {
+            console.log('🔄 Landing page: Real-time user profile update received:', payload);
+            if (isMounted) {
+                fetchStats(); // Refresh stats when users change
+            }
+        });
         
         return () => {
             isMounted = false;
+            if (subscription) {
+                subscription.unsubscribe();
+                console.log('✅ Landing page: Real-time subscription cleaned up');
+            }
+            if (userSubscription) {
+                userSubscription.unsubscribe();
+                console.log('✅ Landing page: User subscription cleaned up');
+            }
         };
     }, []); // Empty dependency array - run only once on mount
 
@@ -240,7 +266,7 @@ const AdminLogin = ({ onLogin, onSignup }) => {
                             <h4>UrbanShield</h4>
                             <p>Get the mobile app</p>
                         </div>
-                        <a href="https://www.mediafire.com/file/5154nvzzn7b5y7t/UrbanShield.apk/file" target="_blank" rel="noopener noreferrer" className="al-btn-primary al-mobile-dl-btn">
+                        <a href="https://www.mediafire.com/file/jlzydwcutixrpfu/UrbanShield.apk/file" target="_blank" rel="noopener noreferrer" className="al-btn-primary al-mobile-dl-btn">
                             Download
                         </a>
                     </div>

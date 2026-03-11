@@ -1,33 +1,21 @@
 import React, { useState, useEffect } from 'react';
 import { useTheme } from '../contexts/ThemeContext';
 import {
-  Shield,
   LogOut,
-  BarChart3,
   AlertTriangle,
   MapPin,
   Users,
   Clock,
   CheckCircle,
-  XCircle,
   Eye,
-  Filter,
   Search,
   Bell,
-  TrendingUp,
-  Activity,
-  RefreshCw,
-  Trash2,
-  Key,
   Menu,
   X,
   User,
-  ImageIcon,
   UserCheck,
   FileText,
-  MessageSquare,
   Megaphone,
-  Database,
   Settings as SettingsIcon,
   Mail,
   Moon,
@@ -624,15 +612,7 @@ const AdminDashboard = ({ user, onLogout }) => {
     }
   };
 
-  const getPriorityColor = (priority) => {
-    switch (priority) {
-      case 'high': return '#ef4444';
-      case 'medium': return '#f59e0b';
-      case 'low': return '#10b981';
-      default: return '#6b7280';
-    }
-  };
-
+  
   const toggleSidebar = () => {
     setSidebarCollapsed(!sidebarCollapsed);
   };

@@ -184,7 +184,7 @@ const IncidentModeration = ({ initialSearch = '' }) => {
       }
     } catch (err) { }
     return null;
-  }, [locationCache]);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const resolveLocation = useCallback(async (incident) => {
     console.log('🔍 Resolving location for incident:', incident.id);
