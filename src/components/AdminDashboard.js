@@ -58,7 +58,7 @@ const AdminDashboard = ({ user, onLogout }) => {
   });
   const [stats, setStats] = useState([
     { title: 'Total Posts', value: '0', change: null, icon: <AlertTriangle />, color: '#dc2626' },
-    { title: 'Pending Review', value: '0', change: null, icon: <Clock />, color: '#f59e0b' },
+    { title: 'Unconfirmed', value: '0', change: null, icon: <Clock />, color: '#f59e0b' },
     { title: 'Resolved Today', value: '0', change: null, icon: <CheckCircle />, color: '#10b981' },
     { title: 'Total Users', value: '0', change: null, icon: <Users />, color: '#3b82f6' }
   ]);
@@ -333,7 +333,7 @@ const AdminDashboard = ({ user, onLogout }) => {
           color: '#dc2626'
         },
         {
-          title: 'Pending Review',
+          title: 'Unconfirmed',
           value: (dashboardStats.pendingReports || 0).toString(),
           change: null,
           icon: <Clock />,
@@ -360,7 +360,7 @@ const AdminDashboard = ({ user, onLogout }) => {
       console.error('Error loading stats:', err);
       setStats([
         { title: 'Total Posts', value: '0', change: null, icon: <AlertTriangle />, color: '#dc2626' },
-        { title: 'Pending Review', value: '0', change: null, icon: <Clock />, color: '#f59e0b' },
+        { title: 'Unconfirmed', value: '0', change: null, icon: <Clock />, color: '#f59e0b' },
         { title: 'Resolved Today', value: '0', change: null, icon: <CheckCircle />, color: '#10b981' },
         { title: 'Active Users', value: '0', change: null, icon: <Users />, color: '#3b82f6' }
       ]);
@@ -419,7 +419,7 @@ const AdminDashboard = ({ user, onLogout }) => {
         loadAnalytics();
         loadResponseTimeAnalytics();
         loadNotificationCount();
-        
+
         // If status changed to resolved, show notification
         if (payload.old?.status !== payload.new?.status && payload.new?.status === 'resolved') {
           if (activeTab !== 'reports') {
@@ -527,6 +527,10 @@ const AdminDashboard = ({ user, onLogout }) => {
       await adminService.setIncidentVerified(reportId, true);
       await loadReports();
       await loadStats();
+
+      // Update selected report in modal immediately
+      setSelectedReport(prev => (prev && prev.id === reportId ? { ...prev, is_verified: true, status: 'resolved' } : prev));
+
       setError(null);
       if (showReportModal) {
         handleCloseModal();
@@ -549,6 +553,10 @@ const AdminDashboard = ({ user, onLogout }) => {
       }
       await loadReports();
       await loadStats();
+
+      // Update selected report in modal immediately
+      setSelectedReport(prev => (prev && prev.id === reportId ? { ...prev, is_verified: false, status: 'rejected' } : prev));
+
       setError(null);
       if (showReportModal) {
         handleCloseModal();
@@ -578,6 +586,11 @@ const AdminDashboard = ({ user, onLogout }) => {
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleIncidentStatusChange = async () => {
+    await loadReports();
+    await loadStats();
   };
 
   const handleResetAllToPending = async () => {
@@ -612,7 +625,7 @@ const AdminDashboard = ({ user, onLogout }) => {
     }
   };
 
-  
+
   const toggleSidebar = () => {
     setSidebarCollapsed(!sidebarCollapsed);
   };
@@ -691,22 +704,14 @@ const AdminDashboard = ({ user, onLogout }) => {
               <Menu size={20} />
             </button>
             <h1 className="page-title">
-              {activeTab === 'map' && <span style={{ fontSize: '1.3em', fontWeight: 'bold' }}>🗺️ Live Post Map</span>}
-              {activeTab === 'overview' && 'Dashboard'}
-              {activeTab === 'incidents' && 'Post Management'}
-              {activeTab === 'reports' && 'Posts Management'}
-              {activeTab === 'users' && 'User Management'}
-              {activeTab === 'announcements' && 'Announcements'}
-              {activeTab === 'profile' && 'Settings'}
+              {activeTab === 'map' && <span style={{ fontSize: '2em', fontWeight: 'bold' }}>🗺️ Live Post Map</span>}
+              {activeTab === 'overview' && <span style={{ fontSize: '2em', fontWeight: 'bold' }}>Dashboard</span>}
+              {activeTab === 'incidents' && <span style={{ fontSize: '2em', fontWeight: 'bold' }}>Post Management</span>}
+              {activeTab === 'reports' && <span style={{ fontSize: '2em', fontWeight: 'bold' }}>Posts Management</span>}
+              {activeTab === 'users' && <span style={{ fontSize: '2em', fontWeight: 'bold' }}>User Management</span>}
+              {activeTab === 'announcements' && <span style={{ fontSize: '2em', fontWeight: 'bold' }}>Announcements</span>}
+              {activeTab === 'profile' && <span style={{ fontSize: '2em', fontWeight: 'bold' }}>Settings</span>}
             </h1>
-            {activeTab === 'map' && (
-              <div className="map-instructions" style={{ marginTop: '8px', fontSize: '0.9em', opacity: 0.8 }}>
-                <span className="instruction-item">🔵 Click markers for details</span>
-                <span className="instruction-item">🔴 Pending posts</span>
-                <span className="instruction-item">🟢 Resolved posts</span>
-                <span style={{ marginLeft: '15px', fontSize: '0.85em' }}>📍 Click on any post marker to view full details and take immediate action</span>
-              </div>
-            )}
           </div>
           <div className="header-right">
             <div className="search-container">
@@ -758,15 +763,12 @@ const AdminDashboard = ({ user, onLogout }) => {
         {/* Content Area */}
         <div className="content">
           {activeTab === 'map' && (
-            <div className="map-content">
-              <div className="map-wrapper card">
-                <MapComponent
-                  incidents={reports}
-                  userType="admin"
-                  onMarkerClick={(incident) => handleViewReport(incident)}
-                />
-              </div>
-            </div>
+            <MapComponent
+              incidents={reports}
+              userType="admin"
+              onMarkerClick={(incident) => handleViewReport(incident)}
+              isDark={isDark}
+            />
           )}
 
           {activeTab === 'overview' && (
@@ -783,7 +785,7 @@ const AdminDashboard = ({ user, onLogout }) => {
                 </div>
                 <div className="stat-box">
                   <div className="stat-box-header">
-                    <span className="stat-box-label">Pending Review</span>
+                    <span className="stat-box-label">Unconfirmed</span>
                     <Clock size={16} className="stat-box-icon" style={{ color: '#f59e0b' }} />
                   </div>
                   <span className="stat-box-value">{stats[1]?.value || '0'}</span>
@@ -807,7 +809,7 @@ const AdminDashboard = ({ user, onLogout }) => {
                 </div>
                 <div className="stat-box stat-box-clickable" onClick={() => setActiveTab('incidents')}>
                   <div className="stat-box-header">
-                    <span className="stat-box-label">Pending Posts</span>
+                    <span className="stat-box-label">Unconfirmed Posts</span>
                     <Eye size={16} className="stat-box-icon" style={{ color: '#ef4444' }} />
                   </div>
                   <span className="stat-box-value">{reports.filter(r => r.is_verified === null || r.is_verified === undefined).length}</span>
@@ -891,8 +893,8 @@ const AdminDashboard = ({ user, onLogout }) => {
                       : report.status === 'in_action' ? 'in_action'
                         : 'pending';
                     const statusLabel = postStatus === 'resolved' ? 'Resolved'
-                      : postStatus === 'in_action' ? 'In Action'
-                        : 'Pending';
+                      : postStatus === 'in_action' ? 'In Progress'
+                        : 'Unconfirmed';
                     return (
                       <div
                         key={report.id}
@@ -917,7 +919,11 @@ const AdminDashboard = ({ user, onLogout }) => {
           )}
 
           {activeTab === 'incidents' && (
-            <IncidentModeration key={activeTab} initialSearch={searchTerm} />
+            <IncidentModeration
+              key={activeTab}
+              initialSearch={searchTerm}
+              onStatusChange={handleIncidentStatusChange}
+            />
           )}
 
           {activeTab === 'users' && (

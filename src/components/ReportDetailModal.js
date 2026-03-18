@@ -15,77 +15,66 @@ import {
   Calendar,
   Shield,
   Info,
-  ExternalLink
+  ExternalLink,
+  Search,
+  Copy,
+  RotateCcw,
+  Trash2,
+  Activity,
+  Paperclip,
+  MessageSquare
 } from 'lucide-react';
 import { supabase } from '../config/supabase';
 import './ReportDetailModal.css';
 
-const ReportDetailModal = ({ report, isOpen, onClose, onApprove, onReject, loading }) => {
+const ReportDetailModal = ({
+  report,
+  isOpen,
+  onClose,
+  onApprove,
+  onReject,
+  onStartAction,
+  onMarkResolved,
+  onMarkDuplicate,
+  onRevertPending,
+  onDeleteReport,
+  onSaveNote,
+  loading,
+  isSidePanel = false
+}) => {
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const [imageUrls, setImageUrls] = useState([]);
   const [isImageLoading, setIsImageLoading] = useState(true);
   const [showFullImage, setShowFullImage] = useState(false);
-
-  // Get authenticated image URLs for Supabase storage
-  const getAuthenticatedImageUrl = async (imagePath) => {
-    try {
-      if (imagePath.includes('supabase.co/storage/v1/')) {
-        // Extract path from Supabase URL
-        const urlParts = imagePath.split('/');
-        const publicIndex = urlParts.indexOf('public');
-        if (publicIndex !== -1) {
-          const path = urlParts.slice(publicIndex + 1).join('/');
-          const { data, error } = await supabase.storage
-            .from('incident-media')
-            .createSignedUrl(path, 3600); // 1 hour expiry
-          
-          if (error) {
-            console.warn('Failed to create signed URL:', error);
-            return imagePath; // Fallback to original URL
-          }
-          return data.signedUrl;
-        }
-      }
-      return imagePath;
-    } catch (error) {
-      console.warn('Error getting authenticated image URL:', error);
-      return imagePath;
-    }
-  };
+  const [noteDraft, setNoteDraft] = useState('');
+  const [isStatusUpdating, setIsStatusUpdating] = useState(false);
+  const [isStatusDropdownOpen, setIsStatusDropdownOpen] = useState(false); // Renamed to avoid collisions
 
   // Load authenticated URLs when images change
   useEffect(() => {
     if (isOpen && report?.images) {
       setIsImageLoading(true);
-      const loadUrls = async () => {
-        let images = Array.isArray(report.images) ? report.images : [report.images];
-        
-        // Filter out empty URLs but don't modify the URLs since they're already correct
-        const validUrls = images.filter(img => img && img.trim() !== '');
-        
-        setImageUrls(validUrls);
-        setIsImageLoading(false);
-      };
-      
-      loadUrls();
+      const images = Array.isArray(report.images) ? report.images : [report.images];
+      const validUrls = images.filter(img => img && img.trim() !== '');
+      setImageUrls(validUrls);
+      setIsImageLoading(false);
     }
   }, [isOpen, report?.images]);
 
   useEffect(() => {
     if (isOpen && report) {
       setCurrentImageIndex(0);
-      document.body.style.overflow = 'hidden';
+      if (!isSidePanel) document.body.style.overflow = 'hidden';
+      setNoteDraft(report.admin_notes || '');
     } else {
-      document.body.style.overflow = '';
+      if (!isSidePanel) document.body.style.overflow = '';
     }
-    return () => { document.body.style.overflow = ''; };
-  }, [isOpen, report?.id]);
+    return () => { if (!isSidePanel) document.body.style.overflow = ''; };
+  }, [isOpen, report?.id, report?.admin_notes, isSidePanel]);
 
   if (!isOpen || !report) return null;
 
   const hasImages = imageUrls.length > 0;
-
-  const canVerify = report.status !== 'resolved' && report.is_verified !== true && report.is_verified !== false;
 
   const formatDate = (dateString) => {
     if (!dateString) return 'N/A';
@@ -95,108 +84,115 @@ const ReportDetailModal = ({ report, isOpen, onClose, onApprove, onReject, loadi
     });
   };
 
-  const getStatusConfig = () => {
-    if (report.is_verified === true) return { label: 'Approved', color: '#10b981', bg: 'rgba(16,185,129,.1)', border: 'rgba(16,185,129,.25)', icon: <CheckCircle size={14} /> };
-    if (report.is_verified === false) return { label: 'Rejected', color: '#ef4444', bg: 'rgba(239,68,68,.1)', border: 'rgba(239,68,68,.25)', icon: <XCircle size={14} /> };
-    if (report.status === 'resolved') return { label: 'Resolved', color: '#10b981', bg: 'rgba(16,185,129,.1)', border: 'rgba(16,185,129,.25)', icon: <CheckCircle size={14} /> };
-    if (report.status === 'in_action') return { label: 'In Action', color: '#3b82f6', bg: 'rgba(59,130,246,.1)', border: 'rgba(59,130,246,.25)', icon: <Clock size={14} /> };
-    return { label: 'Pending', color: '#f59e0b', bg: 'rgba(245,158,11,.1)', border: 'rgba(245,158,11,.25)', icon: <AlertTriangle size={14} /> };
+  const formatRelativeTime = (dateString) => {
+    if (!dateString) return 'Unknown time';
+    const date = new Date(dateString);
+    const diffMs = Date.now() - date.getTime();
+    const diffMins = Math.floor(diffMs / 60000);
+    const diffHours = Math.floor(diffMs / 3600000);
+    const diffDays = Math.floor(diffMs / 86400000);
+    if (diffMins < 1) return 'Just now';
+    if (diffMins < 60) return `${diffMins}m ago`;
+    if (diffHours < 24) return `${diffHours}h ago`;
+    if (diffDays < 7) return `${diffDays}d ago`;
+    return date.toLocaleDateString();
   };
 
-  const getSeverityColor = (s) => ({
-    critical: '#dc2626', high: '#ef4444', medium: '#f59e0b', low: '#10b981'
-  })[s?.toLowerCase()] || '#71717a';
+  const getStatusConfig = () => {
+    if (report.status === 'duplicate') return { label: 'Duplicate', color: '#8b5cf6', bg: 'rgba(139,92,246,.1)', border: 'rgba(139,92,246,.25)', icon: <Copy size={14} /> };
+    if (report.status === 'resolved') return { label: 'Resolved', color: '#10b981', bg: 'rgba(16,185,129,.1)', border: 'rgba(16,185,129,.25)', icon: <CheckCircle size={14} /> };
+    if (report.status === 'in_action') return { label: 'In Progress', color: '#3b82f6', bg: 'rgba(59,130,246,.1)', border: 'rgba(59,130,246,.25)', icon: <Clock size={14} /> };
+    return { label: 'Unconfirmed', color: '#f59e0b', bg: 'rgba(245,158,11,.1)', border: 'rgba(245,158,11,.25)', icon: <AlertTriangle size={14} /> };
+  };
 
   const statusConfig = getStatusConfig();
+  const getSeverityColor = (s) => ({
+    critical: '#e11d48', high: '#ef4444', medium: '#f59e0b', low: '#10b981'
+  })[s?.toLowerCase()] || '#71717a';
 
-  return (
-    <>
-      {/* Backdrop */}
-      <div className="post-modal-backdrop" onClick={onClose} />
+  const handleStatusChange = async (nextStatus) => {
+    if (!report?.id || nextStatus === report.status) return;
+    try {
+      setIsStatusUpdating(true);
+      if (nextStatus === 'pending' && onRevertPending) {
+        await onRevertPending(report.id);
+      } else if (nextStatus === 'in_action' && onStartAction) {
+        await onStartAction(report.id);
+      } else if (nextStatus === 'resolved' && onMarkResolved) {
+        onMarkResolved(report);
+      } else if (nextStatus === 'duplicate' && onMarkDuplicate) {
+        onMarkDuplicate(report.id);
+      }
+    } finally {
+      setIsStatusUpdating(false);
+      setIsStatusDropdownOpen(false);
+    }
+  };
 
-      {/* Drawer panel */}
-      <div className="post-modal-panel">
+  const handleSaveNoteClick = () => {
+    if (!onSaveNote || noteDraft.trim() === (report.admin_notes || '').trim()) return;
+    onSaveNote(report.id, noteDraft.trim());
+  };
 
-        {/* ── Panel Header ── */}
-        <div className="post-modal-header">
-          <div className="post-modal-header-left">
-            <span className="post-modal-eyebrow">Post Detail</span>
-            <h2 className="post-modal-title">{report.title || 'Untitled Post'}</h2>
-          </div>
-          <button className="post-modal-close" onClick={onClose}><X size={18} /></button>
-        </div>
+  const activityLog = [];
+  if (report.updated_at) {
+    activityLog.push({ label: `Status updated to ${statusConfig.label}`, time: report.updated_at, color: '#22c55e' });
+  }
+  if (report.assigned_officer) {
+    activityLog.push({ label: `Assigned to ${report.assigned_officer}`, time: report.assigned_at || report.updated_at, color: '#3b82f6' });
+  }
+  activityLog.push({ label: `Report submitted by ${report.reporter || report.reporter_name || 'Citizen'}`, time: report.created_at, color: '#0ea5e9' });
 
-        {/* ── Status + Badges ── */}
-        <div className="post-modal-badges">
-          <span
-            className="post-badge"
-            style={{ color: statusConfig.color, background: statusConfig.bg, border: `1px solid ${statusConfig.border}` }}
-          >
-            {statusConfig.icon} {statusConfig.label}
-          </span>
-          {report.severity && (
+  const renderContent = () => (
+    <div className={`post-modal-card ${isSidePanel ? 'side-panel-mode' : ''}`} onClick={e => e.stopPropagation()}>
+      <div className="post-modal-top">
+        <div className="post-modal-header-inline">
+          <span className="post-modal-header-id">#{report.id || 'INC'}</span>
+          <span className="post-modal-header-dot">·</span>
+          <h2 className="post-modal-header-title">{report.title || 'Untitled Post'}</h2>
+          <div className="post-modal-header-badges">
             <span
-              className="post-badge"
-              style={{ color: '#fff', background: getSeverityColor(report.severity) }}
+              className="post-badge badge-status"
+              style={{ color: statusConfig.color, background: statusConfig.bg }}
             >
-              {report.severity}
+              {statusConfig.label.toUpperCase()}
             </span>
-          )}
-          {report.category && (
-            <span className="post-badge post-badge-gray">
-              <Tag size={11} /> {report.category}
-            </span>
-          )}
+            {report.category && (
+              <span className="post-badge badge-category">
+                {report.category}
+              </span>
+            )}
+          </div>
         </div>
+        <button className="post-modal-close" onClick={onClose}><X size={18} /></button>
+      </div>
 
-        {/* ── Scrollable body ── */}
-        <div className="post-modal-body">
-
-          {/* Image gallery */}
+      <div className="post-modal-main">
+        <div className="post-modal-left">
           {hasImages ? (
             <div className="post-image-block">
               <div className="post-image-main">
                 {isImageLoading ? (
-                  <div style={{ 
-                    display: 'flex', 
-                    alignItems: 'center', 
-                    justifyContent: 'center', 
-                    height: '200px',
-                    color: '#a1a1aa',
-                    fontSize: '14px'
-                  }}>
-                    Loading image...
-                  </div>
+                  <div className="post-image-loading">Loading image...</div>
                 ) : (
                   <>
                     <img
                       src={imageUrls[currentImageIndex]}
                       alt={`Photo ${currentImageIndex + 1}`}
                       className="post-image"
-                      style={{ 
-                        cursor: 'pointer',
-                        minHeight: '200px',
-                        width: '100%',
-                        height: 'auto',
-                        objectFit: 'cover'
-                      }}
                       onClick={() => setShowFullImage(true)}
-                      onError={(e) => { 
-                        console.warn('Image failed to load:', imageUrls[currentImageIndex]);
-                        e.target.src = 'https://placehold.co/600x400?text=Image+Not+Available'; 
+                      onError={(e) => {
+                        e.target.src = 'https://placehold.co/600x400?text=Image+Not+Available';
                         setIsImageLoading(false);
                       }}
-                      onLoad={() => {
-                        console.log('Image loaded successfully:', imageUrls[currentImageIndex]);
-                        setIsImageLoading(false);
-                      }}
+                      onLoad={() => setIsImageLoading(false)}
                     />
                     {imageUrls.length > 1 && (
                       <>
-                        <button className="post-img-nav prev" onClick={() => setCurrentImageIndex(i => (i > 0 ? i - 1 : imageUrls.length - 1))}>
+                        <button className="post-img-nav prev" onClick={(e) => { e.stopPropagation(); setCurrentImageIndex(i => (i > 0 ? i - 1 : imageUrls.length - 1)); }}>
                           <ChevronLeft size={18} />
                         </button>
-                        <button className="post-img-nav next" onClick={() => setCurrentImageIndex(i => (i < imageUrls.length - 1 ? i + 1 : 0))}>
+                        <button className="post-img-nav next" onClick={(e) => { e.stopPropagation(); setCurrentImageIndex(i => (i < imageUrls.length - 1 ? i + 1 : 0)); }}>
                           <ChevronRight size={18} />
                         </button>
                         <span className="post-img-counter">{currentImageIndex + 1} / {imageUrls.length}</span>
@@ -223,94 +219,178 @@ const ReportDetailModal = ({ report, isOpen, onClose, onApprove, onReject, loadi
           ) : (
             <div className="post-no-image">
               <ImageIcon size={32} />
-              <span>No photos attached</span>
+              <span>No media attached</span>
             </div>
           )}
 
-          {/* Meta info grid */}
-          <div className="post-meta-grid">
-            <div className="post-meta-item">
-              <MapPin size={14} className="post-meta-icon" />
-              <div>
-                <span className="post-meta-label">Location</span>
-                <span className="post-meta-value">{report.location || report.address || 'Not specified'}</span>
-                {report.latitude && report.longitude && (
-                  <span className="post-meta-coords">{parseFloat(report.latitude).toFixed(5)}, {parseFloat(report.longitude).toFixed(5)}</span>
-                )}
+          <div className="post-body-content">
+            <h2 className="post-body-title">{report.title || 'Untitled Post'}</h2>
+            {report.severity && (
+              <span
+                className="post-badge badge-severity"
+                style={{ color: getSeverityColor(report.severity), borderColor: getSeverityColor(report.severity) }}
+              >
+                {report.severity} Priority
+              </span>
+            )}
+
+            <div className="post-meta-list">
+              <div className="post-meta-list-item">
+                <MapPin size={16} className="meta-icon" />
+                <span>{report.location || report.address || 'Not specified'}</span>
+              </div>
+              <div className="post-meta-list-item">
+                <User size={16} className="meta-icon" />
+                <span><strong>{report.reporter || report.reporter_name || 'Anonymous'}</strong> <span className="meta-dot">·</span> Citizen</span>
+              </div>
+              <div className="post-meta-list-item">
+                <Clock size={16} className="meta-icon" />
+                <span>Reported {formatRelativeTime(report.created_at)}</span>
+              </div>
+              <div className="post-meta-list-item">
+                <Shield size={16} className="meta-icon" />
+                <span>Assigned to <strong>{report.assigned_officer || 'Unassigned'}</strong></span>
               </div>
             </div>
-            <div className="post-meta-item">
-              <User size={14} className="post-meta-icon" />
-              <div>
-                <span className="post-meta-label">Reported by</span>
-                <span className="post-meta-value">{report.reporter || report.reporter_name || 'Anonymous'}</span>
-              </div>
-            </div>
-            <div className="post-meta-item">
-              <Calendar size={14} className="post-meta-icon" />
-              <div>
-                <span className="post-meta-label">Date & Time</span>
-                <span className="post-meta-value">{formatDate(report.created_at)}</span>
-              </div>
-            </div>
-            <div className="post-meta-item">
-              <Shield size={14} className="post-meta-icon" />
-              <div>
-                <span className="post-meta-label">Post ID</span>
-                <span className="post-meta-value">#{report.id}</span>
-              </div>
+
+            {report.description && (
+              <>
+                <hr className="post-divider" />
+                <p className="post-description-text">{report.description}</p>
+              </>
+            )}
+
+            <hr className="post-divider" />
+            <div className="post-footer-stats">
+              <span className="stat-item"><Paperclip size={14} /> {imageUrls.length} attachments</span>
+              <span className="stat-item"><MessageSquare size={14} /> {activityLog.length} in timeline</span>
             </div>
           </div>
-
-          {/* Description */}
-          {report.description && (
-            <div className="post-section">
-              <h4 className="post-section-label"><FileText size={13} /> Description</h4>
-              <p className="post-description">{report.description}</p>
-            </div>
-          )}
-
-          {/* Admin notes */}
-          {report.admin_notes && (
-            <div className="post-section post-section-notes">
-              <h4 className="post-section-label"><Info size={13} /> Admin Notes</h4>
-              <p className="post-description">{report.admin_notes}</p>
-            </div>
-          )}
         </div>
 
-        {/* ── Action footer ── */}
-        {canVerify && (
-          <div className="post-modal-footer">
+        <aside className="post-modal-aside">
+          <div className="aside-card aside-card-status">
+            <p className="aside-label">STATUS</p>
+            <div className="custom-status-dropdown" onClick={() => !isStatusUpdating && !loading && setIsStatusDropdownOpen(!isStatusDropdownOpen)}>
+              <div className="dropdown-trigger">
+                <span className="status-dot" style={{ backgroundColor: statusConfig.color }}></span>
+                <span className="status-text" style={{ color: statusConfig.color }}>{statusConfig.label.toUpperCase()}</span>
+                <span className="dropdown-icon">{isStatusDropdownOpen ? '∧' : '∨'}</span>
+              </div>
+              {isStatusDropdownOpen && (
+                <div className="dropdown-menu">
+                  {['pending', 'in_action', 'resolved', 'duplicate'].map((s) => {
+                    const config = {
+                      pending: { label: 'Unconfirmed', color: '#f59e0b' },
+                      in_action: { label: 'In Progress', color: '#3b82f6' },
+                      resolved: { label: 'Resolved', color: '#10b981' },
+                      duplicate: { label: 'Duplicate', color: '#8b5cf6' }
+                    }[s];
+                    return (
+                      <div
+                        key={s}
+                        className={`dropdown-item ${report.status === s ? 'active' : ''}`}
+                        onClick={(e) => { e.stopPropagation(); handleStatusChange(s); }}
+                      >
+                        <span className="status-dot" style={{ backgroundColor: config.color }}></span>
+                        <span className="status-text" style={{ color: config.color }}>{config.label.toUpperCase()}</span>
+                        {report.status === s && <CheckCircle size={14} className="check-icon" />}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          </div>
+
+          <div className="aside-card aside-card-primary">
+            <p className="aside-label">PRIMARY ACTIONS</p>
             <button
-              className="post-action-btn reject"
-              onClick={() => onReject(report.id)}
-              disabled={loading}
+              className={`aside-btn ${report.status === 'pending' ? 'dark' : 'gray-solid'}`}
+              onClick={() => onStartAction?.(report.id)}
+              disabled={loading || report.status !== 'pending'}
             >
-              <XCircle size={16} /> Reject Post
+              <Search size={16} /> Start Investigation
             </button>
             <button
-              className="post-action-btn approve"
-              onClick={() => onApprove(report.id)}
-              disabled={loading}
+              className={`aside-btn ${report.status === 'pending' || report.status === 'in_action' ? 'dark' : 'gray-solid'}`}
+              onClick={() => onMarkResolved?.(report)}
+              disabled={loading || report.status === 'resolved' || report.status === 'duplicate'}
             >
-              <CheckCircle size={16} /> Verify & Dispatch
+              <CheckCircle size={16} /> Mark Resolved
             </button>
           </div>
-        )}
-      </div>
 
-      {/* Full Screen Image Viewer */}
+          <div className="aside-card aside-card-secondary">
+            <p className="aside-label">SECONDARY</p>
+            {report.status === 'duplicate' ? (
+              <button className="aside-btn outline purple-outline" onClick={() => onRevertPending?.(report.id)} disabled={loading}>
+                <RotateCcw size={16} /> Remove Duplicate
+              </button>
+            ) : (
+              <button className="aside-btn outline" onClick={() => onMarkDuplicate?.(report.id)} disabled={loading || report.status === 'resolved'}>
+                <Copy size={16} /> Mark Duplicate
+              </button>
+            )}
+            <button 
+              className="aside-btn outline" 
+              onClick={() => onRevertPending?.(report.id)} 
+              disabled={loading || report.status === 'pending' || report.status === 'duplicate'}
+            >
+              <RotateCcw size={16} /> Revert to Unconfirmed
+            </button>
+            <button className="aside-btn outline danger-outline" onClick={() => onDeleteReport?.(report.id)} disabled={loading}>
+              <Trash2 size={16} /> Delete Report
+            </button>
+          </div>
+
+          <div className="aside-card">
+            <p className="aside-label">Internal Note</p>
+            <textarea
+              className="note-textarea"
+              placeholder="Add an internal note..."
+              value={noteDraft}
+              onChange={(e) => setNoteDraft(e.target.value)}
+            />
+            <button className="aside-btn muted" onClick={handleSaveNoteClick} disabled={loading || noteDraft.trim() === (report.admin_notes || '').trim()}>
+              <FileText size={16} /> Save Note
+            </button>
+          </div>
+
+          <div className="aside-card">
+            <p className="aside-label">Activity Timeline</p>
+            <div className="activity-log">
+              {activityLog.map((item, idx) => (
+                <div key={idx} className="activity-item">
+                  <span className="activity-dot" style={{ background: item.color || '#94a3b8' }} />
+                  <div>
+                    <p>{item.label}</p>
+                    <small>{formatRelativeTime(item.time)}</small>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </aside>
+      </div>
+    </div>
+  );
+
+  if (isSidePanel) return renderContent();
+
+  return (
+    <>
+      <div className="post-modal-backdrop" onClick={onClose} />
+      <div className="post-modal-wrapper" onClick={onClose}>
+        {renderContent()}
+      </div>
       {showFullImage && (
         <div 
           className="fullscreen-image-viewer"
           onClick={() => setShowFullImage(false)}
           style={{
             position: 'fixed',
-            top: 0,
-            left: 0,
-            right: 0,
-            bottom: 0,
+            top: 0, left: 0, right: 0, bottom: 0,
             backgroundColor: 'rgba(0, 0, 0, 0.95)',
             zIndex: 9999,
             display: 'flex',
@@ -320,24 +400,15 @@ const ReportDetailModal = ({ report, isOpen, onClose, onApprove, onReject, loadi
           }}
         >
           <button
-            onClick={(e) => {
-              e.stopPropagation();
-              setShowFullImage(false);
-            }}
+            onClick={(e) => { e.stopPropagation(); setShowFullImage(false); }}
             style={{
               position: 'absolute',
-              top: '20px',
-              right: '20px',
+              top: '20px', right: '20px',
               backgroundColor: 'rgba(255, 255, 255, 0.9)',
-              border: 'none',
-              borderRadius: '50%',
-              width: '40px',
-              height: '40px',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              cursor: 'pointer',
-              zIndex: 10000
+              border: 'none', borderRadius: '50%',
+              width: '40px', height: '40px',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              cursor: 'pointer', zIndex: 10000
             }}
           >
             <X size={20} />
@@ -346,77 +417,37 @@ const ReportDetailModal = ({ report, isOpen, onClose, onApprove, onReject, loadi
           <img
             src={imageUrls[currentImageIndex]}
             alt={`Photo ${currentImageIndex + 1}`}
-            style={{
-              maxWidth: '90vw',
-              maxHeight: '90vh',
-              objectFit: 'contain',
-              cursor: 'default'
-            }}
+            style={{ maxWidth: '90vw', maxHeight: '90vh', objectFit: 'contain', cursor: 'default' }}
             onClick={(e) => e.stopPropagation()}
           />
           
           {imageUrls.length > 1 && (
             <>
               <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setCurrentImageIndex(i => (i > 0 ? i - 1 : imageUrls.length - 1));
-                }}
+                onClick={(e) => { e.stopPropagation(); setCurrentImageIndex(i => (i > 0 ? i - 1 : imageUrls.length - 1)); }}
                 style={{
-                  position: 'absolute',
-                  left: '20px',
-                  top: '50%',
-                  transform: 'translateY(-50%)',
-                  backgroundColor: 'rgba(255, 255, 255, 0.9)',
-                  border: 'none',
-                  borderRadius: '50%',
-                  width: '40px',
-                  height: '40px',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  cursor: 'pointer'
+                  position: 'absolute', left: '20px', top: '50%', transform: 'translateY(-50%)',
+                  backgroundColor: 'rgba(255, 255, 255, 0.9)', border: 'none', borderRadius: '50%',
+                  width: '40px', height: '40px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer'
                 }}
               >
                 <ChevronLeft size={20} />
               </button>
-              
               <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setCurrentImageIndex(i => (i < imageUrls.length - 1 ? i + 1 : 0));
-                }}
+                onClick={(e) => { e.stopPropagation(); setCurrentImageIndex(i => (i < imageUrls.length - 1 ? i + 1 : 0)); }}
                 style={{
-                  position: 'absolute',
-                  right: '20px',
-                  top: '50%',
-                  transform: 'translateY(-50%)',
-                  backgroundColor: 'rgba(255, 255, 255, 0.9)',
-                  border: 'none',
-                  borderRadius: '50%',
-                  width: '40px',
-                  height: '40px',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  cursor: 'pointer'
+                  position: 'absolute', right: '20px', top: '50%', transform: 'translateY(-50%)',
+                  backgroundColor: 'rgba(255, 255, 255, 0.9)', border: 'none', borderRadius: '50%',
+                  width: '40px', height: '40px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer'
                 }}
               >
                 <ChevronRight size={20} />
               </button>
-              
               <div
                 style={{
-                  position: 'absolute',
-                  bottom: '20px',
-                  left: '50%',
-                  transform: 'translateX(-50%)',
-                  backgroundColor: 'rgba(0, 0, 0, 0.7)',
-                  color: 'white',
-                  padding: '8px 16px',
-                  borderRadius: '20px',
-                  fontSize: '14px',
-                  fontWeight: '600'
+                  position: 'absolute', bottom: '20px', left: '50%', transform: 'translateX(-50%)',
+                  backgroundColor: 'rgba(0, 0, 0, 0.7)', color: 'white', padding: '8px 16px', borderRadius: '20px',
+                  fontSize: '14px', fontWeight: '600'
                 }}
               >
                 {currentImageIndex + 1} / {imageUrls.length}

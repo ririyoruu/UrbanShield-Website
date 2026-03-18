@@ -1,6 +1,5 @@
 /* ================================================
-   USER MANAGEMENT — shadcn-admin style
-   Light-first, dark via [data-theme="dark"]
+   USER MANAGEMENT — clean table style
    ================================================ */
 
 .user-management {
@@ -22,13 +21,11 @@
   font-weight: 500;
   border: 1px solid transparent;
 }
-
 .message.success {
   background: rgba(16, 185, 129, .08);
   border-color: rgba(16, 185, 129, .25);
   color: #059669;
 }
-
 .message.error {
   background: rgba(239, 68, 68, .08);
   border-color: rgba(239, 68, 68, .25);
@@ -62,25 +59,22 @@
 
 .search-input {
   width: 100%;
-  padding: 8px 12px 8px 32px;
+  padding: 8px 12px 8px 34px;
   background: #ffffff;
   border: 1px solid #e4e4e7;
   border-radius: 8px;
   color: #09090b;
   font-size: 13px;
   font-family: inherit;
+  box-sizing: border-box;
   transition: border-color .15s, box-shadow .15s;
 }
-
 .search-input:focus {
   outline: none;
   border-color: #18181b;
   box-shadow: 0 0 0 2px rgba(24, 24, 27, .08);
 }
-
-.search-input::placeholder {
-  color: #a1a1aa;
-}
+.search-input::placeholder { color: #a1a1aa; }
 
 .filter-controls {
   display: flex;
@@ -100,212 +94,117 @@
   cursor: pointer;
   transition: border-color .15s;
 }
+.filter-select:focus { outline: none; border-color: #18181b; }
+.filter-select option { background: #fff; color: #09090b; }
 
-.filter-select:focus {
-  outline: none;
-  border-color: #18181b;
-}
-
-.filter-select option {
-  background: #fff;
-  color: #09090b;
-}
-
-/* ── Users table ── */
-.users-list {
+/* ── Table ── */
+.users-table-wrap {
   background: #ffffff;
   border: 1px solid #e4e4e7;
   border-radius: 12px;
   overflow: hidden;
 }
 
-.users-list .list-header {
-  display: grid;
-  grid-template-columns: 2fr 1.5fr 1fr 90px;
-  gap: 12px;
-  padding: 10px 16px;
+.users-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.users-table thead tr {
   background: #fafafa;
   border-bottom: 1px solid #e4e4e7;
+}
+
+.users-table thead th {
+  padding: 12px 18px;
   font-size: 11px;
   font-weight: 600;
   color: #71717a;
   text-transform: uppercase;
   letter-spacing: .06em;
+  text-align: left;
+  white-space: nowrap;
 }
 
-.user-list-item {
-  display: grid;
-  grid-template-columns: 2fr 1.5fr 1fr 90px;
-  gap: 12px;
-  padding: 10px 16px;
+.users-table tbody tr {
   border-bottom: 1px solid #f4f4f5;
-  align-items: center;
   cursor: pointer;
-  transition: background .12s;
+  transition: background .1s;
+}
+.users-table tbody tr:last-child { border-bottom: none; }
+.users-table tbody tr:hover { background: #fafafa; }
+
+.users-table td {
+  padding: 12px 18px;
+  vertical-align: middle;
+  font-size: 13px;
+  color: #09090b;
 }
 
-.user-list-item:last-child {
-  border-bottom: none;
-}
-
-.user-list-item:hover {
-  background: #fafafa;
-}
-
-.user-list-item .list-cell {
+/* ── User cell ── */
+.um-user-cell {
   display: flex;
   align-items: center;
-  min-height: 20px;
+  gap: 12px;
 }
 
-/* ── Avatar (icon) ── */
-.user-avatar-small {
-  width: 34px;
-  height: 34px;
+.um-avatar {
+  width: 38px;
+  height: 38px;
   border-radius: 50%;
+  background: #f4f4f5;
+  border: 1px solid #e4e4e7;
   display: flex;
   align-items: center;
   justify-content: center;
-  flex-shrink: 0;
-  font-size: 12px;
-}
-
-.user-avatar-small svg {
-  width: 16px;
-  height: 16px;
-}
-
-/* ── User text info ── */
-.user-info {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-
-.user-details {
-  display: flex;
-  flex-direction: column;
-  gap: 1px;
-}
-
-.user-details .user-name {
   font-size: 13px;
   font-weight: 600;
-  color: #09090b;
-  display: flex;
-  align-items: center;
-  gap: 5px;
-}
-
-.user-details .user-email {
-  font-size: 12px;
   color: #71717a;
+  flex-shrink: 0;
+  letter-spacing: -.5px;
 }
 
-.user-details .user-joined {
-  font-size: 11px;
-  color: #a1a1aa;
+.um-user-name {
+  font-size: 14px;
+  font-weight: 500;
+  color: #09090b;
+  line-height: 1.3;
 }
 
-.has-documents-indicator {
-  display: inline-flex;
-  align-items: center;
-  color: #a1a1aa;
+.um-user-email {
+  font-size: 13px;
+  color: #71717a;
+  line-height: 1.3;
 }
 
-/* ── Badges ── */
-.user-badges {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-
-.user-type-badge {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  font-size: 11px;
-  font-weight: 600;
-  padding: 2px 8px;
-  border-radius: 999px;
-}
-
-.user-type-badge svg {
-  width: 11px;
-  height: 11px;
-}
-
-.status-badge {
-  display: inline-flex;
-  align-items: center;
-  padding: 2px 8px;
-  border-radius: 999px;
-  font-size: 11px;
-  font-weight: 600;
-}
-
-/* ── Contact column ── */
-.user-phone {
+/* ── Role cell ── */
+.um-role {
   font-size: 13px;
   color: #52525b;
 }
 
-/* ── Quick action buttons ── */
-.user-actions {
-  display: flex;
-  gap: 5px;
+/* ── Status cell ── */
+.um-status {
+  display: inline-flex;
   align-items: center;
-  position: relative;
-  z-index: 10;
+  gap: 6px;
+  font-size: 13px;
+  font-weight: 500;
+  white-space: nowrap;
 }
 
-.btn-approve,
-.btn-reject {
-  position: relative;
-  z-index: 11;
-  width: 28px;
-  height: 28px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border: 1px solid transparent;
-  border-radius: 7px;
-  cursor: pointer;
-  transition: background .12s, border-color .12s, transform .1s;
+.um-status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
   flex-shrink: 0;
 }
 
-.btn-approve {
-  background: rgba(16, 185, 129, .1);
-  color: #059669;
-  border-color: rgba(16, 185, 129, .2);
-}
-
-.btn-approve:hover:not(:disabled) {
-  background: #10b981;
-  color: #fff;
-  border-color: #10b981;
-  transform: translateY(-1px);
-}
-
-.btn-reject {
-  background: rgba(239, 68, 68, .08);
-  color: #dc2626;
-  border-color: rgba(239, 68, 68, .2);
-}
-
-.btn-reject:hover:not(:disabled) {
-  background: #ef4444;
-  color: #fff;
-  border-color: #ef4444;
-  transform: translateY(-1px);
-}
-
-.btn-approve:disabled,
-.btn-reject:disabled {
-  opacity: .4;
-  cursor: not-allowed;
-  transform: none;
+/* ── Docs cell ── */
+.um-docs {
+  font-size: 13px;
+  color: #71717a;
+  text-align: left;
 }
 
 /* ── Loading / Empty ── */
@@ -335,157 +234,86 @@
 }
 
 @keyframes spin {
-  from {
-    transform: rotate(0deg);
-  }
-
-  to {
-    transform: rotate(360deg);
-  }
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
 }
-
-.spinning {
-  animation: spin 1s linear infinite;
-}
+.spinning { animation: spin 1s linear infinite; }
 
 /* ── Dark mode ── */
-[data-theme="dark"] .users-list {
+[data-theme="dark"] .users-table-wrap {
   background: #18181b;
   border-color: #27272a;
 }
 
-[data-theme="dark"] .users-list .list-header {
+[data-theme="dark"] .users-table thead tr {
   background: #27272a;
   border-color: #3f3f46;
-  color: #71717a;
 }
 
-[data-theme="dark"] .user-list-item {
+[data-theme="dark"] .users-table thead th { color: #71717a; }
+
+[data-theme="dark"] .users-table tbody tr {
   border-color: #27272a;
 }
 
-[data-theme="dark"] .user-list-item:hover {
+[data-theme="dark"] .users-table tbody tr:hover { background: #27272a; }
+
+[data-theme="dark"] .users-table td { color: #fafafa; }
+
+[data-theme="dark"] .um-avatar {
   background: #27272a;
-}
-
-[data-theme="dark"] .user-details .user-name {
-  color: #fafafa;
-}
-
-[data-theme="dark"] .user-details .user-email {
+  border-color: #3f3f46;
   color: #a1a1aa;
 }
 
-[data-theme="dark"] .user-details .user-joined {
-  color: #71717a;
-}
+[data-theme="dark"] .um-user-name { color: #fafafa; }
+[data-theme="dark"] .um-user-email { color: #71717a; }
+[data-theme="dark"] .um-role { color: #a1a1aa; }
+[data-theme="dark"] .um-docs { color: #71717a; }
 
-[data-theme="dark"] .user-phone {
-  color: #a1a1aa;
-}
-
-[data-theme="dark"] .empty-state h3 {
-  color: #fafafa;
-}
-
+[data-theme="dark"] .empty-state h3 { color: #fafafa; }
 [data-theme="dark"] .loading-state,
-[data-theme="dark"] .empty-state {
-  color: #71717a;
-}
+[data-theme="dark"] .empty-state { color: #71717a; }
 
 [data-theme="dark"] .search-input {
   background: #27272a;
   border-color: #3f3f46;
   color: #fafafa;
 }
-
-[data-theme="dark"] .search-input::placeholder {
-  color: #71717a;
-}
-
-[data-theme="dark"] .search-input:focus {
-  border-color: #fafafa;
-}
-
-[data-theme="dark"] .search-icon {
-  color: #71717a;
-}
+[data-theme="dark"] .search-input::placeholder { color: #71717a; }
+[data-theme="dark"] .search-input:focus { border-color: #fafafa; }
+[data-theme="dark"] .search-icon { color: #71717a; }
 
 [data-theme="dark"] .filter-select {
   background: #27272a;
   border-color: #3f3f46;
   color: #fafafa;
 }
-
 [data-theme="dark"] .filter-select option {
   background: #27272a;
   color: #fafafa;
 }
 
-[data-theme="dark"] .btn-approve {
-  background: rgba(16, 185, 129, .1);
-  color: #10b981;
-  border-color: rgba(16, 185, 129, .2);
-}
-
-[data-theme="dark"] .btn-approve:hover:not(:disabled) {
-  background: #10b981;
-  color: #fff;
-}
-
-[data-theme="dark"] .btn-reject {
-  background: rgba(239, 68, 68, .08);
-  color: #f87171;
-  border-color: rgba(239, 68, 68, .2);
-}
-
-[data-theme="dark"] .btn-reject:hover:not(:disabled) {
-  background: #ef4444;
-  color: #fff;
-}
-
-[data-theme="dark"] .message.success {
-  color: #34d399;
-}
-
-[data-theme="dark"] .message.error {
-  color: #f87171;
-}
+[data-theme="dark"] .message.success { color: #34d399; }
+[data-theme="dark"] .message.error { color: #f87171; }
 
 /* ── Responsive ── */
 @media (max-width: 768px) {
-  .user-filters {
+  .user-filters { flex-direction: column; }
+  .search-container { min-width: unset; width: 100%; }
+  .filter-controls { flex-direction: column; width: 100%; }
+  .filter-select { width: 100%; }
+
+  .users-table thead { display: none; }
+  .users-table tbody tr {
+    display: flex;
     flex-direction: column;
-  }
-
-  .search-container {
-    min-width: unset;
-    width: 100%;
-  }
-
-  .filter-controls {
-    flex-direction: column;
-    width: 100%;
-  }
-
-  .filter-select {
-    width: 100%;
-  }
-
-  .users-list .list-header {
-    display: none;
-  }
-
-  .user-list-item {
-    grid-template-columns: 1fr;
-    gap: 8px;
     border: 1px solid #e4e4e7;
     border-radius: 10px;
     margin: 0 0 8px;
-    padding: 12px;
+    padding: 4px 0;
   }
+  .users-table td { padding: 8px 12px; }
 
-  [data-theme="dark"] .user-list-item {
-    border-color: #27272a;
-  }
+  [data-theme="dark"] .users-table tbody tr { border-color: #27272a; }
 }

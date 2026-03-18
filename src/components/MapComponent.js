@@ -8,8 +8,12 @@ import './MapComponent.css';
 const MapComponent = ({
   incidents = [],
   userType = 'tourist',
-  onMarkerClick
+  onMarkerClick,
+  isDark = false
 }) => {
+  const DARK_STYLE = 'mapbox://styles/mapbox/dark-v11';
+  const LIGHT_STYLE = 'mapbox://styles/mapbox/light-v11';
+  const STREET_STYLE = 'mapbox://styles/mapbox/streets-v12';
   const [viewState, setViewState] = useState({
     longitude: 124.05, // Tubigon, Bohol
     latitude: 10.05,
@@ -19,6 +23,21 @@ const MapComponent = ({
   const [hoveredMarker, setHoveredMarker] = useState(null);
   const [mapStyle, setMapStyle] = useState(MAPBOX_CONFIG.DEFAULT_STYLE);
   const [pins, setPins] = useState([]);
+
+  // Sync map style with site theme
+  useEffect(() => {
+    setMapStyle((prev) => {
+      const isThemeStyle = prev === DARK_STYLE || prev === STREET_STYLE;
+      const themeStyle = isDark ? DARK_STYLE : STREET_STYLE;
+      if (isThemeStyle && prev !== themeStyle) {
+        return themeStyle;
+      }
+      if (!isThemeStyle && !prev) {
+        return themeStyle;
+      }
+      return prev;
+    });
+  }, [isDark]);
 
   // Geocode address to coordinates using Nominatim (OpenStreetMap)
   const geocodeAddress = async (address) => {
@@ -69,8 +88,9 @@ const MapComponent = ({
   // Process incidents into pins
   useEffect(() => {
     const processIncidents = async () => {
+      const activeIncidents = incidents.filter(incident => incident.status !== 'resolved');
       // First, handle incidents with existing coordinates
-      const pinsWithCoords = incidents
+      const pinsWithCoords = activeIncidents
         .map(incident => {
           const coords = extractCoordinates(incident);
           if (coords) {
@@ -89,7 +109,7 @@ const MapComponent = ({
         .filter(Boolean);
 
       // Then, geocode incidents with addresses but no coordinates
-      const incidentsToGeocode = incidents.filter(
+      const incidentsToGeocode = activeIncidents.filter(
         incident => !incident.latitude && !incident.longitude && incident.address
       );
 
@@ -166,8 +186,8 @@ const MapComponent = ({
 
   const statusInfo = (status) => {
     const statusMap = {
-      pending: { label: 'Pending', color: '#f59e0b' },
-      in_action: { label: 'In Action', color: '#3b82f6' },
+      pending: { label: 'Unconfirmed', color: '#f59e0b' },
+      in_action: { label: 'In Progress', color: '#3b82f6' },
       resolved: { label: 'Resolved', color: '#10b981' },
       duplicate: { label: 'Duplicate', color: '#8b5cf6' }
     };
@@ -228,8 +248,8 @@ const MapComponent = ({
             <Sun size={14} />
           </button>
           <button
-            className={`style-icon-btn ${mapStyle === 'mapbox://styles/mapbox/streets-v12' ? 'active' : ''}`}
-            onClick={() => setMapStyle('mapbox://styles/mapbox/streets-v12')}
+            className={`style-icon-btn ${mapStyle === STREET_STYLE ? 'active' : ''}`}
+            onClick={() => setMapStyle(STREET_STYLE)}
             title="Street"
           >
             <MapIcon size={14} />
@@ -446,13 +466,13 @@ const MapComponent = ({
           <span className="stat-value">{pins.length}</span>
         </div>
         <div className="stat-item">
-          <span className="stat-label">Pending</span>
+          <span className="stat-label">Unconfirmed</span>
           <span className="stat-value" style={{ color: '#f59e0b' }}>
             {pins.filter(p => p._status === 'pending').length}
           </span>
         </div>
         <div className="stat-item">
-          <span className="stat-label">In Action</span>
+          <span className="stat-label">In Progress</span>
           <span className="stat-value" style={{ color: '#3b82f6' }}>
             {pins.filter(p => p._status === 'in_action').length}
           </span>

@@ -13,13 +13,19 @@ import {
   FileText,
   Upload,
   X,
-  Copy
+  Copy,
+  Mountain,
+  Flame,
+  Droplet,
+  ShieldAlert,
+  Activity,
+  MessageSquare
 } from 'lucide-react';
 import { adminService, supabase } from '../config/supabase';
 import ReportDetailModal from './ReportDetailModal';
 import './IncidentModeration.css';
 
-const IncidentModeration = ({ initialSearch = '' }) => {
+const IncidentModeration = ({ initialSearch = '', onStatusChange }) => {
   const [incidents, setIncidents] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
@@ -65,22 +71,80 @@ const IncidentModeration = ({ initialSearch = '' }) => {
     }
   };
 
+  const handleSaveNote = async (incidentId, note) => {
+    try {
+      setSaving(true);
+      const incident = incidents.find(i => i.id === incidentId);
+      const currentStatus = incident?.status || 'pending';
+      await adminService.updateReportStatus(incidentId, currentStatus, note);
+      await loadIncidents();
+      setSelectedIncident(prev => (prev && prev.id === incidentId ? { ...prev, admin_notes: note } : prev));
+    } catch (error) {
+      console.error('Error saving note:', error);
+      setError('Failed to save note');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleMarkDuplicate = async (incidentId) => {
+    // Only confirm if not triggered from inside the modal (modal has its own UX)
+    const fromModal = selectedIncident && selectedIncident.id === incidentId && showModal;
+    if (!fromModal && !window.confirm('Mark this post as a duplicate?')) return;
+    try {
+      setSaving(true);
+      // Immediately update modal state so UI reflects change right away
+      setSelectedIncident(prev => (prev && prev.id === incidentId ? { ...prev, status: 'duplicate', isDuplicate: true } : prev));
+      // Also update incidents list state immediately
+      setIncidents(prev => prev.map(i => i.id === incidentId ? { ...i, status: 'duplicate', isDuplicate: true } : i));
+      await adminService.updateReportStatus(incidentId, 'duplicate', 'Marked as duplicate');
+      // Refresh to ensure data is in sync
+      await loadIncidents();
+    } catch (error) {
+      console.error('Error marking duplicate:', error);
+      setError('Failed to mark duplicate');
+      // Revert optimistic update on error
+      await loadIncidents();
+    } finally {
+      setSaving(false);
+    }
+  };
+
   // Status: pending → in_action → resolved (or duplicate)
   const getStatus = (incident) => {
-    if (incident.isDuplicate) return 'duplicate';
+    if (incident.status === 'duplicate' || incident.isDuplicate) return 'duplicate';
     if (incident.status === 'resolved') return 'resolved';
     if (incident.status === 'in_action') return 'in_action';
     return 'pending';
   };
 
-  const getStatusLabel = (status) => {
+  const getStatusConfig = (status) => {
     switch (status) {
-      case 'resolved': return 'Resolved';
-      case 'in_action': return 'In Action';
-      case 'pending': return 'Pending';
-      case 'duplicate': return 'Duplicate';
-      default: return status;
+      case 'resolved':
+        return { label: 'Resolved', color: '#10b981', bg: 'rgba(16,185,129,.15)' };
+      case 'in_action':
+        return { label: 'In Progress', color: '#2563eb', bg: 'rgba(37,99,235,.12)' };
+      case 'pending':
+        return { label: 'Unconfirmed', color: '#d97706', bg: 'rgba(217,119,6,.14)' };
+      case 'duplicate':
+        return { label: 'Duplicate', color: '#a855f7', bg: 'rgba(168,85,247,.15)' };
+      default:
+        return { label: status, color: '#6b7280', bg: 'rgba(107,114,128,.15)' };
     }
+  };
+
+  const categoryMap = {
+    earthquake: { label: 'Earthquake', color: '#7c3aed', icon: <Mountain size={20} /> },
+    fire: { label: 'Fire', color: '#f97316', icon: <Flame size={20} /> },
+    flood: { label: 'Flood', color: '#0ea5e9', icon: <Droplet size={20} /> },
+    accident: { label: 'Accident', color: '#ef4444', icon: <ShieldAlert size={20} /> },
+    rescue: { label: 'Rescue', color: '#2563eb', icon: <Activity size={20} /> }
+  };
+
+  const getCategoryConfig = (category) => {
+    if (!category) return { label: 'General', color: '#a855f7', icon: <AlertTriangle size={20} /> };
+    const key = category.toLowerCase();
+    return categoryMap[key] || { label: category, color: '#a855f7', icon: <AlertTriangle size={20} /> };
   };
 
   // ─── Duplicate Detection ───
@@ -275,7 +339,7 @@ const IncidentModeration = ({ initialSearch = '' }) => {
       setDuplicateGroups(dupes);
       const withDupes = formattedIncidents.map(i => ({
         ...i,
-        isDuplicate: !!dupes[i.id],
+        isDuplicate: i.status === 'duplicate' || !!dupes[i.id],
         duplicateOf: dupes[i.id] || null
       }));
 
@@ -335,16 +399,19 @@ const IncidentModeration = ({ initialSearch = '' }) => {
     try {
       setSaving(true);
       console.log('🚀 Starting action for incident:', incidentId);
+      // Optimistic update: reflect change in modal and list immediately
+      setSelectedIncident(prev => (prev && prev.id === incidentId ? { ...prev, status: 'in_action' } : prev));
+      setIncidents(prev => prev.map(i => i.id === incidentId ? { ...i, status: 'in_action' } : i));
       const result = await adminService.startAction(incidentId);
       console.log('✅ Action started successfully:', result);
-      
-      // Force refresh incidents data with a small delay to ensure DB update
       await new Promise(resolve => setTimeout(resolve, 500));
       await loadIncidents();
       console.log('🔄 Incidents data refreshed');
     } catch (error) {
       console.error('❌ Error starting action:', error);
       setError('Failed to start action');
+      // Revert optimistic update on error
+      await loadIncidents();
     } finally {
       setSaving(false);
     }
@@ -390,6 +457,10 @@ const IncidentModeration = ({ initialSearch = '' }) => {
           proofUrl = resolveProofPreview;
         }
       }
+      // Optimistic update: reflect resolved immediately in modal
+      setSelectedIncident(prev => (prev && prev.id === resolveTarget.id ? { ...prev, status: 'resolved' } : prev));
+      setIncidents(prev => prev.map(i => i.id === resolveTarget.id ? { ...i, status: 'resolved' } : i));
+      onStatusChange?.(resolveTarget.id, 'resolved');
       await adminService.resolveIncident(resolveTarget.id, { updateText: resolveText, proofUrl: proofUrl });
       await loadIncidents();
       setShowResolveModal(false);
@@ -400,6 +471,7 @@ const IncidentModeration = ({ initialSearch = '' }) => {
     } catch (err) {
       console.error('Error resolving incident:', err);
       setError('Failed to resolve incident');
+      await loadIncidents();
     } finally {
       setSaving(false);
     }
@@ -408,11 +480,18 @@ const IncidentModeration = ({ initialSearch = '' }) => {
   const handleRevertStatus = async (incidentId, newStatus) => {
     try {
       setSaving(true);
-      await adminService.updateReportStatus(incidentId, newStatus, `Status reverted from resolved to ${newStatus}`);
+      // Immediately update modal state so UI reflects change right away
+      setSelectedIncident(prev => (prev && prev.id === incidentId ? { ...prev, status: newStatus, isDuplicate: newStatus === 'duplicate' } : prev));
+      // Also update incidents list immediately
+      setIncidents(prev => prev.map(i => i.id === incidentId ? { ...i, status: newStatus, isDuplicate: newStatus === 'duplicate' } : i));
+      await adminService.updateReportStatus(incidentId, newStatus, `Status reverted to ${newStatus}`);
+      onStatusChange?.(incidentId, newStatus);
       await loadIncidents();
     } catch (err) {
       console.error('Error reverting incident status:', err);
       setError('Failed to revert incident status');
+      // Revert optimistic update on error
+      await loadIncidents();
     } finally {
       setSaving(false);
     }
@@ -461,11 +540,11 @@ const IncidentModeration = ({ initialSearch = '' }) => {
         </div>
         <div className={`mod-stat-chip pending ${filterStatus === 'pending' ? 'active' : ''}`} onClick={() => setFilterStatus('pending')}>
           <span className="mod-stat-num">{stats.pending}</span>
-          <span className="mod-stat-label">Pending</span>
+          <span className="mod-stat-label">Unconfirmed</span>
         </div>
         <div className={`mod-stat-chip in_action ${filterStatus === 'in_action' ? 'active' : ''}`} onClick={() => setFilterStatus('in_action')}>
           <span className="mod-stat-num">{stats.in_action}</span>
-          <span className="mod-stat-label">In Action</span>
+          <span className="mod-stat-label">In Progress</span>
         </div>
         <div className={`mod-stat-chip resolved ${filterStatus === 'resolved' ? 'active' : ''}`} onClick={() => setFilterStatus('resolved')}>
           <span className="mod-stat-num">{stats.resolved}</span>
@@ -520,97 +599,124 @@ const IncidentModeration = ({ initialSearch = '' }) => {
             <p>Try changing your filter settings. ({incidents.length} total posts)</p>
           </div>
         ) : (
-          <div key={refreshKey}>
+          <div key={refreshKey} className="mod-card-stack">
             {filteredIncidents.map(incident => {
               const status = getStatus(incident);
-              const hasImages = (incident.images?.length || 0) > 0;
-              const displayLocation = incident.resolvedLocation || incident.location;
+              const statusConfig = getStatusConfig(status);
+              const categoryConfig = getCategoryConfig(incident.category);
+              const displayLocation = incident.resolvedLocation || incident.location || 'No location provided';
+              const attachmentsCount = incident.images?.length || incident.photo_urls?.length || 0;
+              const duplicateSource = incident.duplicateOf ? incidents.find(i => i.id === incident.duplicateOf) : null;
               return (
-                <div key={incident.id} className={`post-card ${status}`} onClick={() => handleViewIncident(incident)}>
-                {/* Duplicate banner */}
-                {status === 'duplicate' && (
-                  <div className="duplicate-banner">
-                    <Copy size={14} />
-                    <span>Duplicate post detected</span>
-                  </div>
-                )}
-                {/* Post header: thumbnail + info */}
-                <div className="post-card-top">
-                  {hasImages && (
-                    <div className="post-thumb">
-                      <img src={incident.images[0]} alt="" />
-                    </div>
-                  )}
-                  <div className="post-info">
-                    <h4 className="post-title">{incident.title || 'Untitled Post'}</h4>
-                    <div className="mod-card-meta">
-                      <span className="mod-card-meta-item"><MapPin size={13} />{displayLocation}</span>
-                      <span className="mod-card-meta-item"><User size={13} />{incident.reporter}</span>
-                      <span className="mod-card-meta-item"><Clock size={13} />{formatTimestamp(incident.timestamp)}</span>
-                    </div>
-                  </div>
-                  <div className="post-badges">
-                    <span className="category-badge">{incident.category || 'Other'}</span>
-                    <span className={`status-chip ${status}`}>{getStatusLabel(status)}</span>
-                  </div>
-                </div>
-
-                {incident.description && (
-                  <p className="post-description">{incident.description.length > 120 ? incident.description.substring(0, 120) + '...' : incident.description}</p>
-                )}
-
-                {/* Actions based on status */}
-                <div className="post-actions" onClick={(e) => e.stopPropagation()}>
-                  {status === 'pending' && (
-                    <>
-                      <button className="btn-start-action" onClick={() => handleStartAction(incident.id)} disabled={saving}>
-                        <Play size={14} />
-                        Start Action
-                      </button>
-                      <button className="btn-resolve" onClick={() => openResolveModal(incident)} disabled={saving}>
-                        <CheckCircle size={14} />
-                        Mark as Resolved
-                      </button>
-                      <button className="btn-delete-sm" onClick={() => handleDelete(incident.id)} disabled={saving}>
-                        <Trash2 size={14} />
-                      </button>
-                    </>
-                  )}
-                  {status === 'in_action' && (
-                    <>
-                      <button className="btn-resolve" onClick={() => openResolveModal(incident)} disabled={saving}>
-                        <CheckCircle size={14} />
-                        Mark as Resolved
-                      </button>
-                      <button className="btn-delete-sm" onClick={() => handleDelete(incident.id)} disabled={saving}>
-                        <Trash2 size={14} />
-                      </button>
-                    </>
-                  )}
+                <article key={incident.id} className={`mod-card ${status} ${incident.isDuplicate ? 'is-duplicate' : ''}`} onClick={() => handleViewIncident(incident)}>
                   {status === 'duplicate' && (
-                    <button className="btn-remove-dupe" onClick={() => handleDeleteDuplicate(incident.id)} disabled={saving}>
-                      <Trash2 size={14} />
-                      Remove Duplicate
-                    </button>
+                    <div className="mod-card-duplicate-banner">
+                      <Copy size={14} /> Duplicate post detected
+                    </div>
                   )}
-                  {status === 'resolved' && (
-                    <>
-                      <button className="btn-revert-pending" onClick={() => handleRevertStatus(incident.id, 'pending')} disabled={saving}>
-                        <Clock size={14} />
-                        Revert to Pending
-                      </button>
-                      <button className="btn-revert-action" onClick={() => handleRevertStatus(incident.id, 'in_action')} disabled={saving}>
-                        <Play size={14} />
-                        Back to Action
-                      </button>
-                      {incident.admin_notes && (
-                        <span className="resolved-note"><FileText size={12} /> {incident.admin_notes}</span>
+
+                  <div className="mod-card-body">
+                    <div
+                      className="mod-card-icon"
+                      style={{ color: categoryConfig.color, borderColor: `${categoryConfig.color}26` }}
+                    >
+                      {categoryConfig.icon}
+                    </div>
+
+                    <div className="mod-card-content">
+                      <div className="mod-card-header">
+                        <div>
+                          <h4 className="mod-card-title">{incident.title || 'Untitled Post'}</h4>
+                          <div className="mod-card-meta">
+                            <span className="mod-card-meta-item"><MapPin size={14} /> {displayLocation}</span>
+                            <span className="mod-card-meta-item"><User size={14} /> {incident.reporter || 'Unknown Reporter'}</span>
+                            <span className="mod-card-meta-item"><Clock size={14} /> {formatTimestamp(incident.timestamp || incident.created_at)}</span>
+                          </div>
+                        </div>
+                        <div className="mod-card-badges">
+                          <span className="mod-badge" style={{ color: categoryConfig.color, background: `${categoryConfig.color}1a` }}>
+                            {categoryConfig.label}
+                          </span>
+                          <span className="mod-badge" style={{ color: statusConfig.color, background: statusConfig.bg }}>
+                            {statusConfig.label}
+                          </span>
+                        </div>
+                      </div>
+
+                      {incident.description && (
+                        <p className="mod-card-description">
+                          {incident.description.length > 140 ? `${incident.description.substring(0, 140)}…` : incident.description}
+                        </p>
                       )}
-                    </>
-                  )}
-                </div>
-              </div>
-            );
+
+                      {status === 'duplicate' && duplicateSource && (
+                        <div className="mod-card-duplicate-info" onClick={(e) => e.stopPropagation()}>
+                          <AlertTriangle size={14} /> Possible duplicate of
+                          <button type="button" className="link-btn" onClick={() => handleViewIncident(duplicateSource)}>
+                            #{duplicateSource.id}
+                          </button>
+                        </div>
+                      )}
+
+                      <div className="mod-card-actions" onClick={(e) => e.stopPropagation()}>
+                        {status === 'pending' && (
+                          <>
+                            <button className="mod-btn ghost" onClick={() => handleStartAction(incident.id)} disabled={saving}>
+                              <Search size={14} /> Start Investigation
+                            </button>
+                            <button className="mod-btn success" onClick={() => openResolveModal(incident)} disabled={saving}>
+                              <CheckCircle size={14} /> Mark as Resolved
+                            </button>
+                            <button className="mod-btn outline" onClick={() => handleRevertStatus(incident.id, 'duplicate')} disabled={saving}>
+                              <Copy size={14} /> Mark Duplicate
+                            </button>
+                          </>
+                        )}
+
+                        {status === 'in_action' && (
+                          <>
+                            <button className="mod-btn success" onClick={() => openResolveModal(incident)} disabled={saving}>
+                              <CheckCircle size={14} /> Mark as Resolved
+                            </button>
+                            <button className="mod-btn outline" onClick={() => handleRevertStatus(incident.id, 'pending')} disabled={saving}>
+                              <Clock size={14} /> Revert
+                            </button>
+                            <button className="mod-btn outline" onClick={() => handleRevertStatus(incident.id, 'duplicate')} disabled={saving}>
+                              <Copy size={14} /> Mark Duplicate
+                            </button>
+                          </>
+                        )}
+
+                        {status === 'resolved' && (
+                          <>
+                            <button className="mod-btn outline" onClick={() => handleRevertStatus(incident.id, 'in_action')} disabled={saving}>
+                              <Play size={14} /> Revert to In Progress
+                            </button>
+                            <button className="mod-btn outline" onClick={() => handleRevertStatus(incident.id, 'pending')} disabled={saving}>
+                              <Clock size={14} /> Revert to Unconfirmed
+                            </button>
+                          </>
+                        )}
+
+                        {status === 'duplicate' && (
+                          <button className="mod-btn outline" onClick={() => handleDeleteDuplicate(incident.id)} disabled={saving}>
+                            <Trash2 size={14} /> Remove Duplicate
+                          </button>
+                        )}
+
+                        <button className="mod-btn icon" onClick={() => handleDelete(incident.id)} disabled={saving}>
+                          <Trash2 size={14} />
+                        </button>
+                      </div>
+
+                      <div className="mod-card-footer" onClick={(e) => e.stopPropagation()}>
+                        <span><FileText size={13} /> {attachmentsCount} attachments</span>
+                        <span><MessageSquare size={13} /> {incident.comments_count || 0} comments</span>
+                      </div>
+                    </div>
+                  </div>
+                </article>
+              );
             })}
           </div>
         )}
@@ -670,6 +776,12 @@ const IncidentModeration = ({ initialSearch = '' }) => {
         onClose={() => setShowModal(false)}
         onApprove={handleApprove}
         onReject={handleReject}
+        onStartAction={handleStartAction}
+        onMarkResolved={openResolveModal}
+        onMarkDuplicate={handleMarkDuplicate}
+        onRevertPending={(id) => handleRevertStatus(id, 'pending')}
+        onDeleteReport={handleDelete}
+        onSaveNote={handleSaveNote}
         loading={saving}
       />
     </div>
