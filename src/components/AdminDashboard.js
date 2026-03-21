@@ -20,7 +20,8 @@ import {
   Mail,
   Moon,
   Sun,
-  LayoutDashboard
+  LayoutDashboard,
+  Shield
 } from 'lucide-react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar, PieChart, Pie, Cell } from 'recharts';
 import MapComponent from './MapComponent';
@@ -77,6 +78,9 @@ const AdminDashboard = ({ user, onLogout }) => {
   const [settingsSubTab, setSettingsSubTab] = useState('settings');
   const [adminAvatarUrl, setAdminAvatarUrl] = useState('');
   const [adminName, setAdminName] = useState(user?.name || '');
+  const [adminId, setAdminId] = useState(null);
+  const [responders, setResponders] = useState([]);
+  const [respondersLoading, setRespondersLoading] = useState(false);
 
   // Handle window resize for responsive sidebar
   useEffect(() => {
@@ -96,6 +100,7 @@ const AdminDashboard = ({ user, onLogout }) => {
       try {
         const { data: { user: authUser } } = await supabase.auth.getUser();
         if (!authUser) return;
+        setAdminId(authUser.id);
         const { data: profile } = await supabase
           .from('profiles')
           .select('full_name, avatar_url')
@@ -117,6 +122,7 @@ const AdminDashboard = ({ user, onLogout }) => {
     loadDashboardData();
     setupRealtimeSubscription();
     loadNotificationCount();
+    loadResponders();
 
     // Cleanup all subscriptions on unmount
     return () => {
@@ -191,6 +197,18 @@ const AdminDashboard = ({ user, onLogout }) => {
     } catch (error) {
       console.error('Error loading notification count:', error);
       setNotificationCount(0);
+    }
+  };
+
+  const loadResponders = async () => {
+    try {
+      setRespondersLoading(true);
+      const data = await adminService.getResponders();
+      setResponders(data || []);
+    } catch (error) {
+      console.error('Error loading responders:', error);
+    } finally {
+      setRespondersLoading(false);
     }
   };
 
@@ -480,6 +498,33 @@ const AdminDashboard = ({ user, onLogout }) => {
   const handleLogout = () => {
     if (onLogout) {
       onLogout();
+    }
+  };
+
+  const handleAssignResponder = async (incidentId, responder) => {
+    if (!incidentId || !responder) return;
+    try {
+      setLoading(true);
+      let assignedBy = adminId;
+      if (!assignedBy) {
+        const { data: { user: authUser } = {} } = await supabase.auth.getUser();
+        assignedBy = authUser?.id || null;
+        if (assignedBy) setAdminId(assignedBy);
+      }
+
+      await adminService.assignResponder(incidentId, responder.id, {
+        assignedBy,
+        status: 'in_action'
+      });
+      await loadReports();
+      setSelectedReport(prev => (prev && prev.id === incidentId
+        ? { ...prev, assigned_officer: responder.full_name, assigned_officer_id: responder.id }
+        : prev));
+    } catch (err) {
+      console.error('Error assigning responder:', err);
+      setError('Failed to assign responder');
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -923,6 +968,8 @@ const AdminDashboard = ({ user, onLogout }) => {
               key={activeTab}
               initialSearch={searchTerm}
               onStatusChange={handleIncidentStatusChange}
+              onAssignResponder={handleAssignResponder}
+              responders={responders}
             />
           )}
 

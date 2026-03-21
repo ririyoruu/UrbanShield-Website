@@ -85,6 +85,30 @@ export const adminService = {
     }
   },
 
+  async getResponders() {
+    try {
+      const allUsers = await this.getAllUsers();
+      const allowedTypes = new Set([
+        'government',
+        'responder',
+        'government_official',
+        'government_responder'
+      ]);
+      return (allUsers || [])
+        .filter(profile => {
+          const userType = (profile.user_type || '').toLowerCase().trim();
+          const isAllowedRole = allowedTypes.has(userType);
+          const verificationState = (profile.verification_status || '').toLowerCase().trim();
+          const isVerified = profile.is_verified === true || verificationState === 'verified';
+          return isAllowedRole && isVerified;
+        })
+        .sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0));
+    } catch (error) {
+      console.error('Error fetching responders:', error);
+      return [];
+    }
+  },
+
   // Helper: parse PostGIS WKB hex → {lat, lng}
   parsePostGISLocation(hex) {
     try {
@@ -249,6 +273,53 @@ export const adminService = {
       return data[0];
     } catch (error) {
       console.error('Error updating report status:', error);
+      throw error;
+    }
+  },
+
+  async assignResponder(incidentId, responderId, options = {}) {
+    try {
+      if (!incidentId || !responderId) {
+        throw new Error('Missing incidentId or responderId');
+      }
+
+      const { assignedBy = null, status = 'in_action' } = options;
+
+      const { data: responder, error: responderError } = await supabase
+        .from('profiles')
+        .select('id, full_name, department, phone, email')
+        .eq('id', responderId)
+        .single();
+
+      if (responderError) throw responderError;
+
+      const updateData = {
+        assigned_officer: responder?.full_name || null,
+        assigned_officer_id: responder?.id || null,
+        assigned_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      };
+
+      if (status) {
+        updateData.status = status;
+      }
+
+      updateData.status_updated_at = new Date().toISOString();
+      if (assignedBy) {
+        updateData.status_updated_by = assignedBy;
+      }
+
+      const { data, error } = await supabase
+        .from('incidents')
+        .update(updateData)
+        .eq('id', incidentId)
+        .select()
+        .single();
+
+      if (error) throw error;
+      return data;
+    } catch (error) {
+      console.error('Error assigning responder:', error);
       throw error;
     }
   },
