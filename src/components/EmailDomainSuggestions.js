@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import './ModernAuth.css';
 
-const EmailDomainSuggestions = ({ emailValue, onChange, onSelect }) => {
+const EmailDomainSuggestions = ({ emailValue, onChange, onSelect, textColor = '#e2e8f0' }) => {
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [suggestions, setSuggestions] = useState([]);
   const [selectedIndex, setSelectedIndex] = useState(-1);
@@ -10,12 +10,7 @@ const EmailDomainSuggestions = ({ emailValue, onChange, onSelect }) => {
   const commonDomains = [
     '@gmail.com',
     '@yahoo.com',
-    '@outlook.com',
-    '@hotmail.com',
-    '@icloud.com',
-    '@aol.com',
-    '@protonmail.com',
-    '@mail.com'
+    '@outlook.com'
   ];
 
   useEffect(() => {
@@ -35,34 +30,38 @@ const EmailDomainSuggestions = ({ emailValue, onChange, onSelect }) => {
     const email = emailValue || '';
     const atIndex = email.lastIndexOf('@');
     
+    // Always show suggestions if we have some input, or handle specific logic
+    // The user wants "the three common @" right below. 
+    // We will show them if there is a partial match or if we are just typing (helper).
     if (atIndex === -1) {
-      // No @ symbol, don't show suggestions
-      setSuggestions([]);
       setShowSuggestions(false);
       return;
     }
 
     const domain = email.substring(atIndex).toLowerCase();
-    const localPart = email.substring(0, atIndex);
     
-    // If domain is empty or partial, show suggestions
+    // If domain is empty (just @) or partial, show suggestions
     if (domain === '@' || domain.length < 3) {
       const filtered = commonDomains.filter(d => 
         d.startsWith(domain) && d !== domain
       );
-      setSuggestions(filtered);
+      setSuggestions(filtered.length > 0 ? filtered : commonDomains);
       setShowSuggestions(true);
       setSelectedIndex(-1);
     } else if (commonDomains.includes(domain)) {
       // Exact match found, hide suggestions
       setShowSuggestions(false);
     } else {
-      // Partial domain, show matching suggestions
+       // Partial domain match
       const filtered = commonDomains.filter(d => 
         d.startsWith(domain) && d !== domain
       );
-      setSuggestions(filtered);
-      setShowSuggestions(filtered.length > 0);
+      if (filtered.length > 0) {
+          setSuggestions(filtered);
+          setShowSuggestions(true);
+      } else {
+          setShowSuggestions(false);
+      }
       setSelectedIndex(-1);
     }
   }, [emailValue]);
@@ -115,15 +114,38 @@ const EmailDomainSuggestions = ({ emailValue, onChange, onSelect }) => {
 
   return (
     <div className="email-suggestions-wrapper" ref={wrapperRef}>
-      <div className="email-suggestions">
+      <div className="email-suggestions" style={{
+        background: 'transparent',
+        border: 'none',
+        boxShadow: 'none',
+        backdropFilter: 'none',
+        position: 'relative',
+        marginTop: '10px',
+        display: 'flex',
+        gap: '15px',
+        padding: '0',
+        width: '100%'
+      }}>
         {suggestions.map((suggestion, index) => (
           <div
             key={suggestion}
             className={`email-suggestion ${index === selectedIndex ? 'selected' : ''}`}
             onClick={() => selectSuggestion(suggestion)}
             onMouseEnter={() => setSelectedIndex(index)}
+            style={{
+              background: 'transparent',
+              border: 'none',
+              padding: '0',
+              color: textColor,
+              cursor: 'pointer',
+              flexShrink: 0
+            }}
           >
-            <span className="suggestion-text">{suggestion}</span>
+            <span className="suggestion-text" style={{
+              color: textColor,
+              fontWeight: '600',
+              fontSize: '0.9rem'
+            }}>{suggestion}</span>
           </div>
         ))}
       </div>

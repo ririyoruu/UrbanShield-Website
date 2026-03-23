@@ -291,16 +291,17 @@ const AdminLogin = ({ onLogin, onSignup }) => {
                                     <div className="al-input-wrap">
                                         <Mail size={15} className="al-input-icon" />
                                         <input
-                                            type="email" required autoComplete="email"
+                                            type="email" required autoComplete="off"
                                             placeholder="admin@domain.com"
                                             value={loginData.email}
                                             onChange={e => setLoginData({ ...loginData, email: e.target.value })}
                                         />
-                                        <EmailDomainSuggestions
-                                            emailValue={loginData.email}
-                                            onChange={v => setLoginData(p => ({ ...p, email: v }))}
-                                        />
                                     </div>
+                                    <EmailDomainSuggestions
+                                        emailValue={loginData.email}
+                                        onChange={(value) => setLoginData(prev => ({ ...prev, email: value }))}
+                                        textColor="black"
+                                    />
                                 </div>
 
                                 <div className="al-field">
@@ -363,11 +364,14 @@ const AdminLogin = ({ onLogin, onSignup }) => {
                                 <div className="al-field">
                                     <label>Email address</label>
                                     <div className="al-input-wrap">
+                                    <EmailDomainSuggestions
+                                        emailValue={signupData.email}
+                                        onChange={(value) => setSignupData(prev => ({ ...prev, email: value }))}
+                                        textColor="black"
+                                    />
                                         <Mail size={15} className="al-input-icon" />
-                                        <input type="email" required placeholder="admin@domain.com"
+                                        <input type="email" required autoComplete="off" placeholder="admin@domain.com"
                                             value={signupData.email} onChange={e => setSignupData({ ...signupData, email: e.target.value })} />
-                                        <EmailDomainSuggestions emailValue={signupData.email}
-                                            onChange={v => setSignupData(p => ({ ...p, email: v }))} />
                                     </div>
                                 </div>
 
@@ -458,10 +462,14 @@ const AdminLogin = ({ onLogin, onSignup }) => {
                                     <label>Email address</label>
                                     <div className="al-input-wrap">
                                         <Mail size={15} className="al-input-icon" />
-                                        <input type="email" required placeholder="admin@domain.com"
+                                        <input type="email" required autoComplete="off" placeholder="admin@domain.com"
                                             value={forgotEmail} onChange={e => setForgotEmail(e.target.value)} />
-                                        <EmailDomainSuggestions emailValue={forgotEmail} onChange={setForgotEmail} />
                                     </div>
+                                    <EmailDomainSuggestions
+                                        textColor="black"
+                                        emailValue={forgotEmail}
+                                        onChange={setForgotEmail}
+                                    />
                                 </div>
                                 <button type="submit" className="al-btn-primary" disabled={forgotLoading}>
                                     {forgotLoading ? <span className="al-spinner" /> : 'Send Reset Code'}
