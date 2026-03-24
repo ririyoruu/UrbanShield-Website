@@ -100,7 +100,7 @@ const LeftPanel = ({ stats }) => (
                     <div className="al-qr-wrap">
                         <img src="/qr.png" alt="Scan to download" />
                     </div>
-                    <a href="https://www.mediafire.com/file/jlzydwcutixrpfu/UrbanShield.apk/file" target="_blank" rel="noopener noreferrer" className="al-download-btn">
+                    <a href="https://expo.dev/accounts/yorfu/projects/urbanshield/builds/f23596ec-4bb4-4976-a1be-bea9109e661d" target="_blank" rel="noopener noreferrer" className="al-download-btn">
                         <Download size={13} /> Download APK
                     </a>
                 </div>
