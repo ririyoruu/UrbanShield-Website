@@ -35,6 +35,7 @@ import UserReportsManagement from './UserReportsManagement';
 import AnnouncementsManagement from './AnnouncementsManagement';
 import NotificationDropdown from './NotificationDropdown';
 import Settings from './Settings';
+import RespondersManagement from './RespondersManagement';
 import './AdminDashboard.css';
 
 const AdminDashboard = ({ user, onLogout }) => {
@@ -705,6 +706,9 @@ const AdminDashboard = ({ user, onLogout }) => {
           <button className={`nav-item ${activeTab === 'users' ? 'active' : ''}`} onClick={() => handleTabChange('users')}>
             <Users size={18} /><span>Users</span>
           </button>
+          <button className={`nav-item ${activeTab === 'responders' ? 'active' : ''}`} onClick={() => handleTabChange('responders')}>
+            <Shield size={18} /><span>Responders</span>
+          </button>
 
           <span className="sidebar-section-label">Other</span>
           <button className={`nav-item ${activeTab === 'announcements' ? 'active' : ''}`} onClick={() => handleTabChange('announcements')}>
@@ -754,6 +758,7 @@ const AdminDashboard = ({ user, onLogout }) => {
               {activeTab === 'incidents' && <span style={{ fontSize: '2em', fontWeight: 'bold' }}>Post Management</span>}
               {activeTab === 'reports' && <span style={{ fontSize: '2em', fontWeight: 'bold' }}>Posts Management</span>}
               {activeTab === 'users' && <span style={{ fontSize: '2em', fontWeight: 'bold' }}>User Management</span>}
+              {activeTab === 'responders' && <span style={{ fontSize: '2em', fontWeight: 'bold' }}>Emergency Responders</span>}
               {activeTab === 'announcements' && <span style={{ fontSize: '2em', fontWeight: 'bold' }}>Announcements</span>}
               {activeTab === 'profile' && <span style={{ fontSize: '2em', fontWeight: 'bold' }}>Settings</span>}
             </h1>
@@ -997,6 +1002,10 @@ const AdminDashboard = ({ user, onLogout }) => {
 
           {activeTab === 'announcements' && (
             <AnnouncementsManagement />
+          )}
+
+          {activeTab === 'responders' && (
+            <RespondersManagement />
           )}
 
           {activeTab === 'reports' && (
