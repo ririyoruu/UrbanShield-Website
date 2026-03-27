@@ -4,40 +4,34 @@ import {
   Plus,
   Edit,
   Trash2,
-  Save,
   X,
-  Users,
   Clock,
   AlertTriangle,
-  Bell,
   CheckCircle,
-  Calendar,
-  Loader2
+  Loader2,
+  MapPin,
+  Tag,
+  ChevronDown,
+  ChevronUp,
+  ListChecks
 } from 'lucide-react';
 import { adminService } from '../config/supabase';
 import './AnnouncementsManagement.css';
 
-const PRIORITY_CONFIG = {
-  low: { label: 'Low', color: '#64748b', bg: '#f8fafc', border: '#e2e8f0' },
-  normal: { label: 'Normal', color: '#71717a', bg: '#f4f4f5', border: '#e4e4e7' },
-  high: { label: 'High', color: '#d97706', bg: '#fffbeb', border: '#fde68a' },
-  urgent: { label: 'Urgent', color: '#dc2626', bg: '#fef2f2', border: '#fecaca' },
-};
-
-const AUDIENCE_LABELS = {
-  all: 'All Users',
-  residents: 'Residents',
-  government: 'Government / Responders',
-  admin: 'Admin Only',
+const ALERT_LEVEL_CONFIG = {
+  critical: { label: 'Critical', color: '#dc2626', bg: '#fef2f2', border: '#fecaca', dot: '🔴' },
+  warning:  { label: 'Warning',  color: '#f59e0b', bg: '#fffbeb', border: '#fde68a', dot: '🟡' },
+  info:     { label: 'Info',     color: '#2563eb', bg: '#eff6ff', border: '#bfdbfe', dot: '🔵' },
+  notice:   { label: 'Notice',   color: '#475569', bg: '#f8fafc', border: '#e2e8f0', dot: '⚫' },
 };
 
 const emptyForm = {
+  alert_level: 'info',
+  alert_type: '',
   title: '',
-  description: '',
   content: '',
-  target_audience: 'all',
-  priority: 'normal',
-  expiration_date: ''
+  areas: '',
+  action_items: [''],
 };
 
 const AnnouncementsManagement = () => {
@@ -46,47 +40,65 @@ const AnnouncementsManagement = () => {
   const [editing, setEditing] = useState(null);
   const [formData, setFormData] = useState(emptyForm);
   const [loading, setLoading] = useState(false);
+  const [fetchLoading, setFetchLoading] = useState(false);
   const [error, setError] = useState('');
+  const [expandedId, setExpandedId] = useState(null);
 
-  // Load announcements from database on component mount
-  useEffect(() => {
-    loadAnnouncements();
-  }, []);
+  useEffect(() => { loadAnnouncements(); }, []);
 
   const loadAnnouncements = async () => {
     try {
-      setLoading(true);
+      setFetchLoading(true);
       const data = await adminService.getAllAnnouncements();
       setAnnouncements(data);
       setError('');
-    } catch (error) {
-      console.error('Failed to load announcements:', error);
+    } catch (err) {
+      console.error('Failed to load announcements:', err);
       setError('Failed to load announcements');
     } finally {
-      setLoading(false);
+      setFetchLoading(false);
     }
   };
 
-  const openCreate = () => { setEditing(null); setFormData(emptyForm); setDrawerOpen(true); setError(''); };
-  const openEdit = (a) => { setEditing(a.id); setFormData({ ...a }); setDrawerOpen(true); setError(''); };
+  const openCreate = () => {
+    setEditing(null);
+    setFormData(emptyForm);
+    setDrawerOpen(true);
+    setError('');
+  };
+
+  const openEdit = (a) => {
+    setEditing(a.id);
+    setFormData({
+      alert_level: a.alert_level || 'info',
+      alert_type: a.alert_type || '',
+      title: a.title || '',
+      content: a.content || '',
+      areas: a.areas || a.districts || '',
+      action_items: a.action_items?.length ? a.action_items : [''],
+    });
+    setDrawerOpen(true);
+    setError('');
+  };
+
   const closeDrawer = () => { setDrawerOpen(false); setEditing(null); setError(''); };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
     setError('');
-
     try {
+      const payload = { ...formData, action_items: formData.action_items.filter(i => i.trim()) };
       if (editing) {
-        await adminService.updateAnnouncement(editing, formData);
-        setAnnouncements(prev => prev.map(a => a.id === editing ? { ...a, ...formData } : a));
+        const updated = await adminService.updateAnnouncement(editing, payload);
+        setAnnouncements(prev => prev.map(a => a.id === editing ? { ...a, ...updated } : a));
       } else {
-        const newAnnouncement = await adminService.createAnnouncement(formData);
-        setAnnouncements(prev => [newAnnouncement, ...prev]);
+        const created = await adminService.createAnnouncement(payload);
+        setAnnouncements(prev => [created, ...prev]);
       }
       closeDrawer();
-    } catch (error) {
-      console.error('Failed to save announcement:', error);
+    } catch (err) {
+      console.error('Failed to save announcement:', err);
       setError(editing ? 'Failed to update announcement' : 'Failed to create announcement');
     } finally {
       setLoading(false);
@@ -94,24 +106,34 @@ const AnnouncementsManagement = () => {
   };
 
   const handleDelete = async (id) => {
-    if (window.confirm('Delete this announcement?')) {
-      try {
-        setLoading(true);
-        await adminService.deleteAnnouncement(id);
-        setAnnouncements(prev => prev.filter(a => a.id !== id));
-      } catch (error) {
-        console.error('Failed to delete announcement:', error);
-        setError('Failed to delete announcement');
-      } finally {
-        setLoading(false);
-      }
+    if (!window.confirm('Delete this announcement?')) return;
+    try {
+      await adminService.deleteAnnouncement(id);
+      setAnnouncements(prev => prev.filter(a => a.id !== id));
+    } catch (err) {
+      console.error('Failed to delete:', err);
     }
   };
+
+  const addActionItem = () => setFormData(f => ({ ...f, action_items: [...f.action_items, ''] }));
+  const removeActionItem = (i) => setFormData(f => ({ ...f, action_items: f.action_items.filter((_, idx) => idx !== i) }));
+  const updateActionItem = (i, val) => setFormData(f => {
+    const items = [...f.action_items]; items[i] = val; return { ...f, action_items: items };
+  });
 
   const formatDate = (iso) => {
     if (!iso) return '';
     return new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
   };
+
+  const getAlertConfig = (ann) => {
+    const level = ann.alert_level || 'info';
+    return ALERT_LEVEL_CONFIG[level] || ALERT_LEVEL_CONFIG.info;
+  };
+
+  const sortedAnnouncements = [...announcements].sort((a, b) =>
+    new Date(b.created_at) - new Date(a.created_at)
+  );
 
   return (
     <div className="ann-root">
@@ -128,22 +150,19 @@ const AnnouncementsManagement = () => {
       </div>
 
       {/* ── List ── */}
-      {loading && announcements.length === 0 ? (
+      {fetchLoading && announcements.length === 0 ? (
         <div className="ann-loading">
           <div className="ann-loading-spinner"><Loader2 size={24} /></div>
           <h3>Loading announcements...</h3>
-          <p>Please wait while we fetch the announcements.</p>
         </div>
       ) : error && announcements.length === 0 ? (
         <div className="ann-error">
           <div className="ann-error-icon"><AlertTriangle size={28} /></div>
           <h3>Error loading announcements</h3>
           <p>{error}</p>
-          <button className="ann-btn-create" onClick={loadAnnouncements}>
-            <Loader2 size={14} /> Try Again
-          </button>
+          <button className="ann-btn-create" onClick={loadAnnouncements}><Loader2 size={14} /> Try Again</button>
         </div>
-      ) : announcements.length === 0 ? (
+      ) : sortedAnnouncements.length === 0 ? (
         <div className="ann-empty">
           <div className="ann-empty-icon"><Megaphone size={28} /></div>
           <h3>No announcements yet</h3>
@@ -152,43 +171,62 @@ const AnnouncementsManagement = () => {
         </div>
       ) : (
         <div className="ann-list">
-          {announcements.map(ann => {
-            const p = PRIORITY_CONFIG[ann.priority] || PRIORITY_CONFIG.normal;
+          {sortedAnnouncements.map(ann => {
+            const cfg = getAlertConfig(ann);
+            const isExpanded = expandedId === ann.id;
             return (
-              <div key={ann.id} className="ann-card">
-                <div className="ann-card-left" style={{ background: p.bg, borderColor: p.border }}>
-                  <Bell size={16} style={{ color: p.color }} />
-                </div>
+              <div key={ann.id} className="ann-card" style={{ borderLeftColor: cfg.color }}>
                 <div className="ann-card-body">
+
                   <div className="ann-card-top">
-                    <div className="ann-card-meta-row">
-                      <span className="ann-priority-pill" style={{ color: p.color, background: p.bg, borderColor: p.border }}>
-                        {p.label}
+                    <div className="ann-card-badges">
+                      <span className="ann-alert-badge" style={{ color: cfg.color, background: cfg.bg, borderColor: cfg.border }}>
+                        {cfg.dot} {cfg.label}
                       </span>
-                      <span className="ann-audience-pill">
-                        <Users size={11} /> {AUDIENCE_LABELS[ann.target_audience] || ann.target_audience}
-                      </span>
+                      {ann.alert_type && (
+                        <span className="ann-type-badge"><Tag size={10} /> {ann.alert_type}</span>
+                      )}
                     </div>
                     <div className="ann-card-actions">
-                      <button className="ann-icon-btn" onClick={() => openEdit(ann)} title="Edit" disabled={loading}>
+                      <button className="ann-icon-btn" onClick={() => openEdit(ann)} title="Edit">
                         <Edit size={14} />
                       </button>
-                      <button className="ann-icon-btn danger" onClick={() => handleDelete(ann.id)} title="Delete" disabled={loading}>
-                        {loading ? <Loader2 size={14} /> : <Trash2 size={14} />}
+                      <button className="ann-icon-btn danger" onClick={() => handleDelete(ann.id)} title="Delete">
+                        <Trash2 size={14} />
                       </button>
                     </div>
                   </div>
+
                   <h4 className="ann-card-title">{ann.title}</h4>
-                  {ann.description && <p className="ann-card-desc">{ann.description}</p>}
-                  {ann.content && <p className="ann-card-content">{ann.content}</p>}
+
+                  {(ann.areas || ann.districts) && (
+                    <p className="ann-card-district"><MapPin size={12} /> {ann.areas || ann.districts}</p>
+                  )}
+
+                  <p className={`ann-card-content ${!isExpanded ? 'ann-card-content--clamped' : ''}`}>
+                    {ann.content}
+                  </p>
+
+                  {ann.action_items?.length > 0 && isExpanded && (
+                    <div className="ann-action-items">
+                      <p className="ann-action-items-label"><ListChecks size={13} /> What You Should Do</p>
+                      <ul>
+                        {ann.action_items.map((item, i) => <li key={i}>{item}</li>)}
+                      </ul>
+                    </div>
+                  )}
+
                   <div className="ann-card-footer">
-                    {ann.created_at && (
-                      <span className="ann-footer-item"><Clock size={11} /> {formatDate(ann.created_at)}</span>
-                    )}
-                    {ann.expires_at && (
-                      <span className="ann-footer-item warn"><Calendar size={11} /> Expires {formatDate(ann.expires_at)}</span>
-                    )}
+                    <div className="ann-footer-left">
+                      {ann.created_at && (
+                        <span className="ann-footer-item"><Clock size={11} /> {formatDate(ann.created_at)}</span>
+                      )}
+                    </div>
+                    <button className="ann-expand-btn" onClick={() => setExpandedId(isExpanded ? null : ann.id)}>
+                      {isExpanded ? <><ChevronUp size={13} /> Less</> : <><ChevronDown size={13} /> More</>}
+                    </button>
                   </div>
+
                 </div>
               </div>
             );
@@ -196,12 +234,11 @@ const AnnouncementsManagement = () => {
         </div>
       )}
 
-      {/* ── Right-side Drawer ── */}
+      {/* ── Drawer ── */}
       {drawerOpen && (
         <>
           <div className="ann-backdrop" onClick={closeDrawer} />
           <div className="ann-drawer">
-            {/* Drawer Header */}
             <div className="ann-drawer-header">
               <div>
                 <p className="ann-drawer-eyebrow">{editing ? 'Edit' : 'New'} Announcement</p>
@@ -210,109 +247,94 @@ const AnnouncementsManagement = () => {
               <button className="ann-drawer-close" onClick={closeDrawer}><X size={16} /></button>
             </div>
 
-            {/* Drawer Form */}
             <form className="ann-drawer-body" onSubmit={handleSubmit}>
 
-              {/* Error Display */}
               {error && (
-                <div className="ann-form-error">
-                  <AlertTriangle size={14} />
-                  <span>{error}</span>
-                </div>
+                <div className="ann-form-error"><AlertTriangle size={14} /><span>{error}</span></div>
               )}
 
+              {/* 1. Alert Level */}
               <div className="ann-field">
-                <label>Title <span>*</span></label>
-                <input
-                  type="text"
-                  placeholder="e.g. Scheduled Maintenance Tonight"
-                  value={formData.title}
-                  onChange={e => setFormData({ ...formData, title: e.target.value })}
-                  required
-                  disabled={loading}
-                />
-              </div>
-
-              <div className="ann-field">
-                <label>Short Description</label>
-                <input
-                  type="text"
-                  placeholder="Brief summary shown in the list"
-                  value={formData.description}
-                  onChange={e => setFormData({ ...formData, description: e.target.value })}
-                  disabled={loading}
-                />
-              </div>
-
-              <div className="ann-field">
-                <label>Full Content <span>*</span></label>
-                <textarea
-                  rows={5}
-                  placeholder="Write the full announcement body here..."
-                  value={formData.content}
-                  onChange={e => setFormData({ ...formData, content: e.target.value })}
-                  required
-                  disabled={loading}
-                />
-              </div>
-
-              <div className="ann-field-row">
-                <div className="ann-field">
-                  <label>Priority</label>
-                  <select value={formData.priority} onChange={e => setFormData({ ...formData, priority: e.target.value })} disabled={loading}>
-                    <option value="low">Low</option>
-                    <option value="normal">Normal</option>
-                    <option value="high">High</option>
-                    <option value="urgent">Urgent</option>
-                  </select>
-                </div>
-                <div className="ann-field">
-                  <label>Target Audience</label>
-                  <select value={formData.target_audience} onChange={e => setFormData({ ...formData, target_audience: e.target.value })} disabled={loading}>
-                    <option value="all">All Users</option>
-                    <option value="residents">Residents</option>
-                    <option value="government">Government / Responders</option>
-                    <option value="admin">Admin Only</option>
-                  </select>
+                <label>Alert Level <span className="ann-req">*</span></label>
+                <div className="ann-level-picker">
+                  {Object.entries(ALERT_LEVEL_CONFIG).map(([key, cfg]) => (
+                    <button
+                      key={key}
+                      type="button"
+                      className={`ann-level-btn ${formData.alert_level === key ? 'ann-level-btn--active' : ''}`}
+                      style={formData.alert_level === key ? { background: cfg.bg, borderColor: cfg.color, color: cfg.color } : {}}
+                      onClick={() => setFormData({ ...formData, alert_level: key })}
+                      disabled={loading}
+                    >
+                      <span>{cfg.dot}</span>
+                      <span>{cfg.label}</span>
+                    </button>
+                  ))}
                 </div>
               </div>
 
+              {/* 2. Tag */}
               <div className="ann-field">
-                <label>Expiration Date <span className="ann-optional">(optional)</span></label>
-                <input
-                  type="date"
-                  value={formData.expiration_date}
-                  onChange={e => setFormData({ ...formData, expiration_date: e.target.value })}
-                  disabled={loading}
-                />
+                <label>Tag</label>
+                <input type="text" placeholder="e.g. Typhoon Warning, Health Advisory"
+                  value={formData.alert_type} onChange={e => setFormData({ ...formData, alert_type: e.target.value })}
+                  disabled={loading} />
               </div>
 
-              {/* Priority preview */}
-              {formData.priority !== 'normal' && (
-                <div className="ann-priority-preview" style={{
-                  background: PRIORITY_CONFIG[formData.priority]?.bg,
-                  borderColor: PRIORITY_CONFIG[formData.priority]?.border,
-                  color: PRIORITY_CONFIG[formData.priority]?.color,
-                }}>
-                  <AlertTriangle size={14} />
-                  This announcement is marked as <strong>{PRIORITY_CONFIG[formData.priority]?.label}</strong> priority.
+              {/* 3. Title */}
+              <div className="ann-field">
+                <label>Title <span className="ann-req">*</span></label>
+                <input type="text" placeholder="e.g. Evacuation Order – Barangay Tubigon"
+                  value={formData.title} onChange={e => setFormData({ ...formData, title: e.target.value })}
+                  required disabled={loading} />
+              </div>
+
+              {/* 4. Content */}
+              <div className="ann-field">
+                <label>Content <span className="ann-req">*</span></label>
+                <textarea rows={4} placeholder="Write the full announcement body here..."
+                  value={formData.content} onChange={e => setFormData({ ...formData, content: e.target.value })}
+                  required disabled={loading} />
+              </div>
+
+              {/* 5. Areas */}
+              <div className="ann-field">
+                <label>Areas</label>
+                <input type="text" placeholder="e.g. Barangay Tubigon, Bohol"
+                  value={formData.areas} onChange={e => setFormData({ ...formData, areas: e.target.value })}
+                  disabled={loading} />
+              </div>
+
+              {/* 6. Action Items */}
+              <div className="ann-field">
+                <label>Action Items</label>
+                <div className="ann-action-list">
+                  {formData.action_items.map((item, i) => (
+                    <div key={i} className="ann-action-row">
+                      <span className="ann-action-num">{i + 1}</span>
+                      <input type="text" placeholder={`Step ${i + 1}...`}
+                        value={item} onChange={e => updateActionItem(i, e.target.value)}
+                        disabled={loading} />
+                      {formData.action_items.length > 1 && (
+                        <button type="button" className="ann-action-remove" onClick={() => removeActionItem(i)}>
+                          <X size={13} />
+                        </button>
+                      )}
+                    </div>
+                  ))}
+                  <button type="button" className="ann-action-add" onClick={addActionItem} disabled={loading}>
+                    <Plus size={13} /> Add Step
+                  </button>
                 </div>
-              )}
+              </div>
 
               <div className="ann-drawer-footer">
-                <button type="button" className="ann-btn-cancel" onClick={closeDrawer} disabled={loading}>
-                  Cancel
-                </button>
+                <button type="button" className="ann-btn-cancel" onClick={closeDrawer} disabled={loading}>Cancel</button>
                 <button type="submit" className="ann-btn-submit" disabled={loading}>
                   {loading ? (
-                    <>
-                      <Loader2 size={15} className="ann-spinner" />
-                      {editing ? 'Updating...' : 'Publishing...'}
-                    </>
+                    <><Loader2 size={15} className="ann-spinner" />{editing ? 'Updating...' : 'Publishing...'}</>
                   ) : (
-                    <>
-                      <CheckCircle size={15} /> {editing ? 'Update' : 'Publish'} Announcement
-                    </>
+                    <><CheckCircle size={15} /> {editing ? 'Update' : 'Publish'} Announcement</>
                   )}
                 </button>
               </div>

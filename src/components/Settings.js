@@ -309,7 +309,7 @@ const Settings = ({ user, onAvatarChange }) => {
                 onClick={() => setShowCurrentPassword(!showCurrentPassword)}
                 type="button"
               >
-                {showCurrentPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                {showCurrentPassword ? <Eye size={16} /> : <EyeOff size={16} />}
               </button>
             </div>
           </div>
@@ -345,7 +345,7 @@ const Settings = ({ user, onAvatarChange }) => {
                 onClick={() => setShowConfirmPassword(!showConfirmPassword)}
                 type="button"
               >
-                {showConfirmPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                {showConfirmPassword ? <Eye size={16} /> : <EyeOff size={16} />}
               </button>
             </div>
           </div>

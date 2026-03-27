@@ -100,7 +100,7 @@ const LeftPanel = ({ stats }) => (
                     <div className="al-qr-wrap">
                         <img src="/qr.png" alt="Scan to download" />
                     </div>
-                    <a href="https://expo.dev/accounts/yorfu/projects/urbanshield/builds/f23596ec-4bb4-4976-a1be-bea9109e661d" target="_blank" rel="noopener noreferrer" className="al-download-btn">
+                    <a href="https://expo.dev/accounts/yorfu/projects/urbanshield/builds/40296135-1354-455e-8238-c8d95f771984" target="_blank" rel="noopener noreferrer" className="al-download-btn">
                         <Download size={13} /> Download APK
                     </a>
                 </div>
@@ -320,7 +320,7 @@ const AdminLogin = ({ onLogin, onSignup }) => {
                                             onChange={e => setLoginData({ ...loginData, password: e.target.value })}
                                         />
                                         <button type="button" className="al-toggle-pw" onClick={() => setShowPassword(v => !v)}>
-                                            {showPassword ? <EyeOff size={15} /> : <Eye size={15} />}
+                                            {showPassword ? <Eye size={15} /> : <EyeOff size={15} />}
                                         </button>
                                     </div>
                                 </div>
@@ -383,7 +383,7 @@ const AdminLogin = ({ onLogin, onSignup }) => {
                                             <input type={showSignupPassword ? 'text' : 'password'} required placeholder="••••••••"
                                                 value={signupData.password} onChange={e => setSignupData({ ...signupData, password: e.target.value })} />
                                             <button type="button" className="al-toggle-pw" onClick={() => setShowSignupPassword(v => !v)}>
-                                                {showSignupPassword ? <EyeOff size={15} /> : <Eye size={15} />}
+                                                {showSignupPassword ? <Eye size={15} /> : <EyeOff size={15} />}
                                             </button>
                                         </div>
                                     </div>

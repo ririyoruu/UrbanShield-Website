@@ -173,13 +173,10 @@ export const adminService = {
         .insert([{
           title: announcement.title,
           content: announcement.content,
-          author_id: '25df1a57-852e-4c02-8e24-f62789ff70da', // Default admin ID
-          author_name: 'System Admin',
-          author_type: 'admin',
-          is_pinned: false,
-          priority: announcement.priority || 'normal',
-          target_audience: announcement.target_audience || 'all',
-          expires_at: announcement.expiration_date || null
+          alert_level: announcement.alert_level || 'info',
+          alert_type: announcement.alert_type || null,
+          areas: announcement.areas || null,
+          action_items: announcement.action_items?.filter(i => i.trim()) || null,
         }])
         .select()
         .single();
@@ -199,9 +196,10 @@ export const adminService = {
         .update({
           title: announcement.title,
           content: announcement.content,
-          priority: announcement.priority,
-          target_audience: announcement.target_audience,
-          expires_at: announcement.expiration_date || null
+          alert_level: announcement.alert_level || 'info',
+          alert_type: announcement.alert_type || null,
+          areas: announcement.areas || null,
+          action_items: announcement.action_items?.filter(i => i.trim()) || null,
         })
         .eq('id', id)
         .select()

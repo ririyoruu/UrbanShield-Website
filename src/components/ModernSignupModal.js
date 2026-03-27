@@ -168,7 +168,7 @@ const ModernSignupModal = ({ onClose, onSignup, onSwitchToLogin }) => {
                 className="auth-password-toggle"
                 onClick={() => setShowPassword(!showPassword)}
               >
-                {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                {showPassword ? <Eye size={18} /> : <EyeOff size={18} />}
               </button>
             </div>
 
@@ -188,7 +188,7 @@ const ModernSignupModal = ({ onClose, onSignup, onSwitchToLogin }) => {
                 className="auth-password-toggle"
                 onClick={() => setShowConfirmPassword(!showConfirmPassword)}
               >
-                {showConfirmPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                {showConfirmPassword ? <Eye size={18} /> : <EyeOff size={18} />}
               </button>
             </div>
 
