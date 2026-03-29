@@ -1,6 +1,6 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import Map, { Marker, Popup, NavigationControl, FullscreenControl, ScaleControl } from 'react-map-gl/mapbox';
-import { MapPin, AlertTriangle, Clock, X, Tag, User, ChevronRight, Moon, Sun, Map as MapIcon, Flame, Droplets, Car, Zap, ShieldAlert, HelpCircle } from 'lucide-react';
+import { MapPin, AlertTriangle, Clock, X, Tag, User, ChevronRight, Moon, Sun, Map as MapIcon, Flame, Droplets, Car, Zap, ShieldAlert, HelpCircle, Search } from 'lucide-react';
 import { MAPBOX_CONFIG } from '../config/mapbox';
 import 'mapbox-gl/dist/mapbox-gl.css';
 import './MapComponent.css';
@@ -20,9 +20,12 @@ const MapComponent = ({
     zoom: 12
   });
   const [selectedMarker, setSelectedMarker] = useState(null);
+  const [highlightedMarker, setHighlightedMarker] = useState(null);
   const [hoveredMarker, setHoveredMarker] = useState(null);
   const [mapStyle, setMapStyle] = useState(MAPBOX_CONFIG.DEFAULT_STYLE);
   const [pins, setPins] = useState([]);
+  const [incidentSearch, setIncidentSearch] = useState('');
+  const mapRef = useRef(null);
 
   // Sync map style with site theme
   useEffect(() => {
@@ -88,7 +91,20 @@ const MapComponent = ({
   // Process incidents into pins
   useEffect(() => {
     const processIncidents = async () => {
-      const activeIncidents = incidents.filter(incident => incident.status !== 'resolved');
+      const ONE_WEEK_MS = 7 * 24 * 60 * 60 * 1000; // 7 days in milliseconds
+      const now = Date.now();
+      
+      // Keep resolved posts for 1 week before removing from map
+      const activeIncidents = incidents.filter(incident => {
+        if (incident.status !== 'resolved') {
+          return true; // Keep non-resolved incidents
+        }
+        // For resolved incidents, check if resolved within last week
+        // Use resolved_at, updated_at, or created_at as fallback
+        const resolvedTime = new Date(incident.resolved_at || incident.updated_at || incident.created_at).getTime();
+        return (now - resolvedTime) < ONE_WEEK_MS;
+      });
+      
       // First, handle incidents with existing coordinates
       const pinsWithCoords = activeIncidents
         .map(incident => {
@@ -130,7 +146,13 @@ const MapComponent = ({
         }
       }
 
-      const allPins = [...pinsWithCoords, ...geocodedPins];
+      // Combine and sort by newest first (created_at descending)
+      const allPins = [...pinsWithCoords, ...geocodedPins].sort((a, b) => {
+        const dateA = new Date(a.created_at || 0).getTime();
+        const dateB = new Date(b.created_at || 0).getTime();
+        return dateB - dateA; // Newest first
+      });
+      
       setPins(allPins);
 
       // Auto-fit map to pins if we have any
@@ -158,20 +180,15 @@ const MapComponent = ({
     processIncidents();
   }, [incidents]);
 
-  const getMarkerColor = (severity, status) => {
-    // Status takes priority - resolved incidents are always green
-    if (status === 'resolved') {
-      return '#10b981'; // Green for resolved
-    }
-
-    // For non-resolved, use severity colors
-    const severityColors = {
-      critical: '#dc2626',
-      high: '#ef4444',
-      medium: '#f59e0b',
-      low: '#10b981'
+  const getMarkerColor = (status) => {
+    // Color based on status only
+    const statusColors = {
+      pending: '#f59e0b',    // Orange for open
+      in_action: '#3b82f6',  // Blue for in progress
+      resolved: '#10b981',   // Green for resolved
+      duplicate: '#8b5cf6'   // Purple for duplicate
     };
-    return severityColors[severity] || '#6b7280';
+    return statusColors[status] || '#6b7280';
   };
 
   const getCategoryIcon = (category) => {
@@ -186,7 +203,7 @@ const MapComponent = ({
 
   const statusInfo = (status) => {
     const statusMap = {
-      pending: { label: 'Unconfirmed', color: '#f59e0b' },
+      pending: { label: 'Open', color: '#f59e0b' },
       in_action: { label: 'In Progress', color: '#3b82f6' },
       resolved: { label: 'Resolved', color: '#10b981' },
       duplicate: { label: 'Duplicate', color: '#8b5cf6' }
@@ -207,24 +224,40 @@ const MapComponent = ({
   };
 
   const onClickMarker = useCallback((pin) => {
-    // Open post detail modal instead of showing popup
+    // Call onMarkerClick to open the post modal
     if (onMarkerClick) {
       onMarkerClick(pin);
-    } else {
-      setSelectedMarker(pin);
     }
   }, [onMarkerClick]);
 
   const closePopup = useCallback(() => {
     setSelectedMarker(null);
+    setHighlightedMarker(null);
   }, []);
 
   const onMarkerHover = useCallback((pin) => {
-    setHoveredMarker(pin);
+    // Hover preview removed - do nothing
   }, []);
 
   const onMarkerLeave = useCallback(() => {
-    setHoveredMarker(null);
+    // Hover preview removed - do nothing
+  }, []);
+
+  const handleIncidentClick = useCallback((incident) => {
+    if (incident._lat && incident._lng) {
+      // Use flyTo for smooth animated zoom
+      const map = mapRef.current;
+      if (map && map.flyTo) {
+        map.flyTo({
+          center: [incident._lng, incident._lat],
+          zoom: 16,
+          duration: 1500,
+          essential: true
+        });
+      }
+      // Just highlight the marker, don't show popup
+      setHighlightedMarker(incident);
+    }
   }, []);
 
   return (
@@ -255,28 +288,59 @@ const MapComponent = ({
             <MapIcon size={14} />
           </button>
         </div>
+      </div>
 
-        {/* Severity Legend */}
-        <div className="map-legend">
-          <h4>Severity</h4>
-          <div className="legend-items">
-            {[
-              ['Critical', '#dc2626'],
-              ['High', '#ef4444'],
-              ['Medium', '#f59e0b'],
-              ['Low', '#10b981']
-            ].map(([label, color]) => (
-              <div key={label} className="legend-item">
-                <div className="legend-marker" style={{ backgroundColor: color }} />
-                <span>{label}</span>
-              </div>
-            ))}
-          </div>
+      {/* Posts Panel - Right Side */}
+      <div className="map-incidents-panel">
+        <div className="map-incidents-header">
+          <h3>POSTS</h3>
+        </div>
+        <div className="map-incidents-search">
+          <Search size={16} />
+          <input
+            type="text"
+            placeholder="Search..."
+            value={incidentSearch}
+            onChange={(e) => setIncidentSearch(e.target.value)}
+          />
+        </div>
+        <div className="map-incidents-list">
+          {pins
+            .filter(pin => {
+              if (!incidentSearch) return true;
+              const search = incidentSearch.toLowerCase();
+              return (
+                pin.title?.toLowerCase().includes(search) ||
+                pin.address?.toLowerCase().includes(search) ||
+                pin.location?.toLowerCase().includes(search) ||
+                pin._type?.toLowerCase().includes(search)
+              );
+            })
+            .map((incident, index) => {
+              const statusConfig = statusInfo(incident._status);
+              const postId = `POST ${String(index + 1).padStart(4, '0')}`;
+              return (
+                <div
+                  key={incident.id}
+                  className={`map-incident-card ${highlightedMarker?.id === incident.id ? 'selected' : ''}`}
+                  onClick={() => handleIncidentClick(incident)}
+                >
+                  <div className="map-incident-header-row">
+                    <div className="map-incident-id">{postId}</div>
+                    <span className="map-incident-status" style={{ backgroundColor: statusConfig.color }}>
+                      {statusConfig.label}
+                    </span>
+                  </div>
+                  <div className="map-incident-meta">{incident._type} • {timeAgo(incident.created_at)}</div>
+                </div>
+              );
+            })}
         </div>
       </div>
 
       {/* Map */}
       <Map
+        ref={mapRef}
         {...viewState}
         onMove={(e) => setViewState(e.viewState)}
         onClick={closePopup}
@@ -304,8 +368,8 @@ const MapComponent = ({
             onMouseLeave={onMarkerLeave}
           >
             <div
-              className={`custom-marker ${pin._severity} ${pin._status} ${pin._geocoded ? 'geocoded' : ''} ${selectedMarker?.id === pin.id ? 'selected' : ''} ${hoveredMarker?.id === pin.id ? 'hovered' : ''}`}
-              style={{ backgroundColor: getMarkerColor(pin._severity, pin._status) }}
+              className={`custom-marker ${pin._status} ${pin._geocoded ? 'geocoded' : ''} ${highlightedMarker?.id === pin.id ? 'selected' : ''}`}
+              style={{ backgroundColor: getMarkerColor(pin._status) }}
               title={`${pin.title || pin._type} - ${pin._status}`}
             >
               {getCategoryIcon(pin._type)}
@@ -313,150 +377,6 @@ const MapComponent = ({
           </Marker>
         ))}
 
-        {/* Hover Preview Modal */}
-        {hoveredMarker && !selectedMarker && (
-          <div 
-            className="hover-preview-modal"
-            style={{
-              position: 'absolute',
-              top: '20px',
-              left: '20px',
-              right: '20px',
-              bottom: '20px',
-              pointerEvents: 'none',
-              zIndex: 1000,
-              display: 'flex',
-              alignItems: 'flex-start',
-              justifyContent: 'flex-start'
-            }}
-          >
-            <div className="hover-preview-modal-content">
-              <div className="hover-preview-modal-header">
-                <div className="hover-preview-modal-title-section">
-                  <h3>{hoveredMarker.title || 'Incident Report'}</h3>
-                  <span className="hover-preview-modal-time">{timeAgo(hoveredMarker.created_at)}</span>
-                </div>
-                <div className="hover-preview-modal-tags">
-                  <span className="hover-preview-modal-tag" style={{ background: getMarkerColor(hoveredMarker._severity, hoveredMarker._status) }}>
-                    {hoveredMarker._severity || 'unknown'}
-                  </span>
-                  <span className="hover-preview-modal-tag" style={{ background: statusInfo(hoveredMarker._status).color }}>
-                    {statusInfo(hoveredMarker._status).label}
-                  </span>
-                </div>
-              </div>
-              
-              <div className="hover-preview-modal-body">
-                <div className="hover-preview-modal-description">
-                  {hoveredMarker.description && hoveredMarker.description.length > 150 
-                    ? hoveredMarker.description.substring(0, 150) + '...' 
-                    : hoveredMarker.description || 'No description available'}
-                </div>
-                
-                <div className="hover-preview-meta-grid">
-                  <div className="hover-preview-meta-item">
-                    <MapPin size={14} />
-                    <span>{hoveredMarker._address || 'Location not specified'}</span>
-                  </div>
-                  {hoveredMarker.reporter_name && (
-                    <div className="hover-preview-meta-item">
-                      <User size={14} />
-                      <span>Reported by {hoveredMarker.reporter_name}</span>
-                    </div>
-                  )}
-                  <div className="hover-preview-meta-item">
-                    <AlertTriangle size={14} />
-                    <span>{hoveredMarker._type || 'General'}</span>
-                  </div>
-                </div>
-              </div>
-              
-              <div className="hover-preview-modal-footer">
-                <div className="hover-preview-hint">
-                  <span>📍 Click pin for full details</span>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Popup */}
-        {selectedMarker && (
-          <Popup
-            longitude={selectedMarker._lng}
-            latitude={selectedMarker._lat}
-            anchor="bottom"
-            onClose={closePopup}
-            closeButton={false}
-            className="modern-popup"
-            maxWidth="320px"
-            offset={28}
-            closeOnClick={false}
-          >
-            <div className="modern-popup-content">
-              {/* Colored accent bar */}
-              <div
-                className="popup-accent-bar"
-                style={{ background: getMarkerColor(selectedMarker._severity, selectedMarker._status) }}
-              />
-
-              {/* Header */}
-              <div className="popup-header">
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <h4 className="popup-title">{selectedMarker.title || 'Incident Report'}</h4>
-                </div>
-                <span className="popup-time">{timeAgo(selectedMarker.created_at)}</span>
-              </div>
-
-              {/* Tags */}
-              <div className="popup-tags">
-                <span className="popup-severity-tag" style={{ background: getMarkerColor(selectedMarker._severity, selectedMarker._status) }}>
-                  {selectedMarker._severity || 'unknown'}
-                </span>
-                <span className="popup-status-tag" style={{ background: statusInfo(selectedMarker._status).color }}>
-                  {statusInfo(selectedMarker._status).label}
-                </span>
-                {selectedMarker._type && (
-                  <span className="popup-status-tag" style={{ background: '#71717a' }}>
-                    {selectedMarker._type}
-                  </span>
-                )}
-              </div>
-
-              <div className="popup-divider" />
-
-              {/* Body */}
-              <div className="popup-body">
-                <div className="popup-row">
-                  <MapPin size={13} />
-                  <span>{selectedMarker._address || 'Location not specified'}</span>
-                </div>
-                {selectedMarker.reporter_name && (
-                  <div className="popup-row">
-                    <User size={13} />
-                    <span>Reported by {selectedMarker.reporter_name}</span>
-                  </div>
-                )}
-                {selectedMarker.created_at && (
-                  <div className="popup-row">
-                    <Clock size={13} />
-                    <span>{new Date(selectedMarker.created_at).toLocaleString()}</span>
-                  </div>
-                )}
-                {selectedMarker.description && (
-                  <div className="popup-description">{selectedMarker.description}</div>
-                )}
-              </div>
-
-              {/* CTA */}
-              {onMarkerClick && (
-                <button className="popup-action-btn" onClick={() => onMarkerClick(selectedMarker)}>
-                  View Full Post <ChevronRight size={14} />
-                </button>
-              )}
-            </div>
-          </Popup>
-        )}
       </Map>
 
       {/* Stats Bar */}
@@ -466,7 +386,7 @@ const MapComponent = ({
           <span className="stat-value">{pins.length}</span>
         </div>
         <div className="stat-item">
-          <span className="stat-label">Unconfirmed</span>
+          <span className="stat-label">Open</span>
           <span className="stat-value" style={{ color: '#f59e0b' }}>
             {pins.filter(p => p._status === 'pending').length}
           </span>

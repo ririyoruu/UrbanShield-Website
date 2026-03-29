@@ -1,7 +1,7 @@
 import { createClient } from '@supabase/supabase-js';
 
-const supabaseUrl = 'https://jphydwbpizcmltrehuyp.supabase.co/';
-const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImpwaHlkd2JwaXpjbWx0cmVodXlwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTkxMDYyMDQsImV4cCI6MjA3NDY4MjIwNH0.LBscRvA_Y-xKVD27UphJYXr62cmapUMr-yZcgzd4bG8';
+const supabaseUrl = 'https://efiswsdjscypiujrvawp.supabase.co';
+const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVmaXN3c2Rqc2N5cGl1anJ2YXdwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ2MDk4MTQsImV4cCI6MjA5MDE4NTgxNH0.WATfKs11i3ViCtC3i0cPNr2FHZGUqk6iP3GLsSgF_mo';
 
 export const supabase = createClient(supabaseUrl, supabaseKey);
 
@@ -85,14 +85,33 @@ export const adminService = {
     }
   },
 
+  async getIncidentById(incidentId) {
+    try {
+      if (!incidentId) throw new Error('Missing incidentId');
+      const { data, error } = await supabase
+        .from('incidents')
+        .select(`
+          *,
+          reporter:reporter_id (
+            full_name
+          )
+        `)
+        .eq('id', incidentId)
+        .single();
+
+      if (error) throw error;
+      return data;
+    } catch (error) {
+      console.error('❌ Error fetching incident by id:', error);
+      throw error;
+    }
+  },
+
   async getResponders() {
     try {
       const allUsers = await this.getAllUsers();
       const allowedTypes = new Set([
-        'government',
-        'responder',
-        'government_official',
-        'government_responder'
+        'responder'
       ]);
       return (allUsers || [])
         .filter(profile => {
@@ -156,10 +175,19 @@ export const adminService = {
       const { data, error } = await supabase
         .from('announcements')
         .select('*')
+        .order('is_pinned', { ascending: false })
         .order('created_at', { ascending: false });
       
       if (error) throw error;
-      return data || [];
+      
+      // Normalize data to match frontend expectations
+      return (data || []).map(ann => ({
+        ...ann,
+        alert_level: ann.alert_level || 'info',
+        alert_type: ann.alert_type || '',
+        areas: ann.areas || '',
+        action_items: ann.action_items || [],
+      }));
     } catch (error) {
       console.error('❌ Error fetching announcements:', error);
       throw error;
@@ -177,6 +205,9 @@ export const adminService = {
           alert_type: announcement.alert_type || null,
           areas: announcement.areas || null,
           action_items: announcement.action_items?.filter(i => i.trim()) || null,
+          is_pinned: false,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
         }])
         .select()
         .single();
@@ -200,6 +231,7 @@ export const adminService = {
           alert_type: announcement.alert_type || null,
           areas: announcement.areas || null,
           action_items: announcement.action_items?.filter(i => i.trim()) || null,
+          updated_at: new Date().toISOString(),
         })
         .eq('id', id)
         .select()
@@ -251,15 +283,40 @@ export const adminService = {
 
   async updateReportStatus(reportId, status, adminNotes = null) {
     try {
-      // Only update fields that actually exist in the incidents table
+      console.log('🔄 Attempting to update report:', reportId, 'to status:', status);
+      
+      // Get current notes to append
+      const { data: currentIncident } = await supabase
+        .from('incidents')
+        .select('admin_notes')
+        .eq('id', reportId)
+        .single();
+      
+      // Create automatic status change note
+      const timestamp = new Date().toLocaleString('en-US', { 
+        month: 'short', 
+        day: 'numeric', 
+        year: 'numeric',
+        hour: '2-digit', 
+        minute: '2-digit'
+      });
+      const statusLabels = {
+        'pending': 'Reverted to Pending',
+        'in_action': 'Marked as In Progress',
+        'resolved': 'Marked as Resolved',
+        'duplicate': 'Marked as Duplicate'
+      };
+      const autoNote = `[${timestamp}] ${statusLabels[status] || 'Status updated'}`;
+      
+      // Append to existing notes
+      const existingNotes = currentIncident?.admin_notes || '';
+      const newNotes = adminNotes || (existingNotes ? `${existingNotes}\n${autoNote}` : autoNote);
+      
       const updateData = { 
         status: status,
-        updated_at: new Date().toISOString()
+        updated_at: new Date().toISOString(),
+        admin_notes: newNotes
       };
-      
-      if (adminNotes) {
-        updateData.admin_notes = adminNotes;
-      }
       
       const { data, error } = await supabase
         .from('incidents')
@@ -267,10 +324,20 @@ export const adminService = {
         .eq('id', reportId)
         .select();
       
-      if (error) throw error;
+      if (error) {
+        console.error('❌ Supabase error details:', {
+          message: error.message,
+          details: error.details,
+          hint: error.hint,
+          code: error.code
+        });
+        throw error;
+      }
+      
+      console.log('✅ Update successful, returned data:', data);
       return data[0];
     } catch (error) {
-      console.error('Error updating report status:', error);
+      console.error('❌ Error updating report status:', error);
       throw error;
     }
   },
@@ -291,11 +358,22 @@ export const adminService = {
 
       if (responderError) throw responderError;
 
+      // Create automatic activity note
+      const timestamp = new Date().toLocaleString('en-US', { 
+        month: 'short', 
+        day: 'numeric', 
+        year: 'numeric',
+        hour: '2-digit', 
+        minute: '2-digit'
+      });
+      const autoNote = `[${timestamp}] Responder assigned: ${responder.full_name}${responder.department ? ` (${responder.department})` : ''}`;
+
       const updateData = {
         assigned_officer: responder?.full_name || null,
         assigned_officer_id: responder?.id || null,
         assigned_at: new Date().toISOString(),
-        updated_at: new Date().toISOString()
+        updated_at: new Date().toISOString(),
+        admin_notes: autoNote
       };
 
       if (status) {
@@ -324,6 +402,7 @@ export const adminService = {
 
   async startAction(reportId) {
     try {
+      console.log('🔄 Starting action for report:', reportId);
       const updateData = {
         status: 'in_action',
         updated_at: new Date().toISOString()
@@ -333,22 +412,57 @@ export const adminService = {
         .update(updateData)
         .eq('id', reportId)
         .select();
-      if (error) throw error;
+      
+      if (error) {
+        console.error('❌ Supabase error details:', {
+          message: error.message,
+          details: error.details,
+          hint: error.hint,
+          code: error.code
+        });
+        throw error;
+      }
+      
+      console.log('✅ Start action successful, returned data:', data);
       return data[0];
     } catch (error) {
-      console.error('Error starting action:', error);
+      console.error('❌ Error starting action:', error);
       throw error;
     }
   },
 
   async resolveIncident(reportId, { updateText, proofUrl } = {}) {
     try {
+      console.log('🔄 Resolving incident:', reportId);
+      
+      // Get current incident to append to existing notes
+      const { data: currentIncident } = await supabase
+        .from('incidents')
+        .select('admin_notes, assigned_officer')
+        .eq('id', reportId)
+        .single();
+      
+      // Create automatic resolution note
+      const timestamp = new Date().toLocaleString('en-US', { 
+        month: 'short', 
+        day: 'numeric', 
+        year: 'numeric',
+        hour: '2-digit', 
+        minute: '2-digit'
+      });
+      const resolvedBy = currentIncident?.assigned_officer || 'Admin';
+      const autoNote = `[${timestamp}] Incident resolved by ${resolvedBy}`;
+      
+      // Append to existing notes
+      const existingNotes = currentIncident?.admin_notes || '';
+      const newNotes = existingNotes ? `${existingNotes}\n${autoNote}` : autoNote;
+      
       const updateData = {
         status: 'resolved',
         resolved_at: new Date().toISOString(),
-        updated_at: new Date().toISOString()
+        updated_at: new Date().toISOString(),
+        admin_notes: updateText || newNotes
       };
-      if (updateText) updateData.admin_notes = updateText;
       if (proofUrl) updateData.proof_url = proofUrl;
 
       const { data, error } = await supabase
@@ -356,10 +470,21 @@ export const adminService = {
         .update(updateData)
         .eq('id', reportId)
         .select();
-      if (error) throw error;
+      
+      if (error) {
+        console.error('❌ Supabase error details:', {
+          message: error.message,
+          details: error.details,
+          hint: error.hint,
+          code: error.code
+        });
+        throw error;
+      }
+      
+      console.log('✅ Resolve successful, returned data:', data);
       return data[0];
     } catch (error) {
-      console.error('Error resolving incident:', error);
+      console.error('❌ Error resolving incident:', error);
       throw error;
     }
   },

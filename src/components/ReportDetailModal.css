@@ -592,6 +592,49 @@
   color: #475569;
 }
 
+.note-display {
+  background: #fafafa;
+  border: 1px solid #e4e4e7;
+  border-radius: 8px;
+  padding: 12px;
+  max-height: 200px;
+  overflow-y: auto;
+  font-size: 13px;
+  line-height: 1.6;
+  color: #52525b;
+}
+
+.activity-log-item {
+  padding: 6px 0;
+  border-bottom: 1px solid #f0f0f0;
+  font-family: 'Inter', -apple-system, sans-serif;
+}
+
+.activity-log-item:last-child {
+  border-bottom: none;
+}
+
+.no-activity {
+  color: #a1a1aa;
+  font-style: italic;
+  text-align: center;
+  padding: 20px;
+}
+
+[data-theme="dark"] .note-display {
+  background: #09090b;
+  border-color: #27272a;
+  color: #a1a1aa;
+}
+
+[data-theme="dark"] .activity-log-item {
+  border-color: #27272a;
+}
+
+[data-theme="dark"] .no-activity {
+  color: #71717a;
+}
+
 .note-textarea {
   width: 100%;
   min-height: 100px;

@@ -47,7 +47,7 @@ const UserDetailModal = ({ user, isOpen, onClose, onApprove, onReject, onSuspend
 
   /* ── Status ── */
   const vs = user.verification_status;
-  const isAdmin = user.user_type === 'admin' || user.user_type === 'superadmin';
+  const isAdmin = user.user_type === 'admin';
   const isPending = !vs || vs === 'pending';
   const isVerified = vs === 'verified' || isAdmin;
   const isSuspended = vs === 'suspended';
@@ -68,13 +68,9 @@ const UserDetailModal = ({ user, isOpen, onClose, onApprove, onReject, onSuspend
   const getRoleConfig = (type) => {
     switch (type) {
       case 'admin':
-      case 'superadmin':
         return { label: 'Administrator', icon: <Crown size={13} /> };
-      case 'government':
-      case 'government_responder':
-      case 'government_official':
       case 'responder':
-        return { label: 'Official/Responder', icon: <Shield size={13} /> };
+        return { label: 'Responder', icon: <Shield size={13} /> };
       default:
         return { label: 'Resident', icon: <User size={13} /> };
     }

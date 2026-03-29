@@ -20,7 +20,7 @@ const VerificationManagement = () => {
       // Only keep users that need verification and are pending
       const pendingUsers = data.filter(u => {
         const isPending = !u.verification_status || u.verification_status === 'pending';
-        const isNotAdmin = u.user_type !== 'admin' && u.user_type !== 'superadmin';
+        const isNotAdmin = u.user_type !== 'admin';
         return isPending && isNotAdmin;
       }).map(u => ({
         ...u,

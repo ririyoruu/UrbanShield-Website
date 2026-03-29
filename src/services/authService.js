@@ -89,29 +89,23 @@ export const authService = {
             throw new Error(`Cannot access profiles table: ${profileTestError.message}`);
           }
           
-          // Create profile record with ONLY essential fields
+          // Create profile record with ALL required fields for admin
           const profileData = {
             id: data.user.id,
             full_name: userData.name,
-            username: userData.name + '_' + Date.now(), // Make username unique
-            user_type: 'admin' // This matches the constraint: ['resident', 'government', 'admin']
+            username: userData.name + '_' + Date.now(),
+            user_type: 'admin',
+            verification_status: 'verified',
+            is_verified: true,
+            email: email,
+            phone_number: userData.phone || null
           };
-          
-          // Only add email if it's not null
-          if (email) {
-            profileData.email = email;
-          }
-          
-          // Only add phone if provided
-          if (userData.phone) {
-            profileData.phone_number = userData.phone;
-          }
           
           console.log('Profile data to insert:', profileData);
           
           const { data: profile, error: profileError } = await supabase
             .from('profiles')
-            .insert(profileData)
+            .upsert(profileData, { onConflict: 'id' })
             .select()
             .single();
             
@@ -152,14 +146,14 @@ export const authService = {
             try {
               const { data: adminProfile, error: adminProfileError } = await supabase
                 .from('admin_profiles')
-                .insert({
+                .upsert({
                   admin_id: data.user.id,
                   email: email,
                   full_name: userData.name,
                   phone: userData.phone || null,
                   created_at: new Date().toISOString(),
                   updated_at: new Date().toISOString()
-                })
+                }, { onConflict: 'admin_id' })
                 .select()
                 .single();
               
@@ -201,24 +195,28 @@ export const authService = {
   // Sign in user
   async signIn(email, password) {
     try {
-      // First, check if this email exists in our profiles table
-      const { data: profileData, error: profileError } = await supabase
-        .from('profiles')
-        .select('id, email, full_name, user_type')
-        .eq('email', email)
-        .single();
+      // Try to check if email exists in profiles table (optional check)
+      let profileExists = false;
+      try {
+        const { data: profileData, error: profileError } = await supabase
+          .from('profiles')
+          .select('id, email, full_name, user_type')
+          .eq('email', email)
+          .single();
 
-      // If email doesn't exist in profiles table, it might be an old email
-      if (profileError && profileError.code === 'PGRST116') {
-        throw new Error('Invalid email address. Please use your current email address.');
+        if (!profileError && profileData) {
+          profileExists = true;
+          console.log('✅ Profile found for email:', email);
+        } else if (profileError && profileError.code === 'PGRST116') {
+          console.warn('⚠️ No profile found for email:', email, '- will be created after login');
+        } else if (profileError) {
+          console.warn('⚠️ Profile check failed:', profileError.message, '- continuing with login');
+        }
+      } catch (profileCheckError) {
+        console.warn('⚠️ Profile check error (non-fatal):', profileCheckError.message);
       }
 
-      if (profileError) {
-        console.error('Profile lookup error:', profileError);
-        throw new Error('Unable to verify email address. Please try again.');
-      }
-
-      // Attempt to sign in with Supabase Auth
+      // Attempt to sign in with Supabase Auth (proceed regardless of profile check)
       const { data, error } = await supabase.auth.signInWithPassword({
         email,
         password
@@ -242,6 +240,92 @@ export const authService = {
           requestedEmail: email
         });
         throw new Error('Email address has been changed. Please use your current email address.');
+      }
+
+      // ADMIN-ONLY CHECK: Verify user has admin access
+      if (data.user) {
+        console.log('🔍 Checking admin permissions for user:', data.user.id);
+        
+        // Wait a moment for auth session to fully establish
+        await new Promise(resolve => setTimeout(resolve, 100));
+        
+        try {
+          const { data: userProfile, error: profileError } = await supabase
+            .from('profiles')
+            .select('user_type, verification_status, email, full_name')
+            .eq('id', data.user.id)
+            .single();
+
+          console.log('Profile fetch result:', { userProfile, profileError });
+
+          if (profileError) {
+            console.error('❌ Failed to fetch user profile:', profileError);
+            console.error('Error details:', {
+              code: profileError.code,
+              message: profileError.message,
+              details: profileError.details,
+              hint: profileError.hint
+            });
+            
+            // If profile doesn't exist (PGRST116), create it
+            if (profileError.code === 'PGRST116') {
+              console.log('📝 Profile not found, creating default admin profile...');
+              const { data: newProfile, error: createError } = await supabase
+                .from('profiles')
+                .insert({
+                  id: data.user.id,
+                  email: data.user.email,
+                  full_name: data.user.email.split('@')[0],
+                  user_type: 'admin',
+                  verification_status: 'verified',
+                  is_verified: true
+                })
+                .select()
+                .single();
+              
+              if (createError) {
+                console.error('❌ Failed to create profile:', createError);
+                await supabase.auth.signOut();
+                throw new Error('Unable to create user profile. Please run the database setup SQL first.');
+              }
+              
+              console.log('✅ Profile created:', newProfile);
+              return data; // Allow login with new admin profile
+            }
+            
+            // For other errors, sign out and show error
+            await supabase.auth.signOut();
+            throw new Error('Unable to verify account permissions. Please ensure the database setup SQL has been run.');
+          }
+
+          // Only allow admin users to login
+          if (userProfile.user_type !== 'admin') {
+            console.warn('❌ Non-admin user attempted login:', { email, user_type: userProfile.user_type });
+            await supabase.auth.signOut();
+            throw new Error('Access denied. This portal is for administrators only.');
+          }
+
+          // Block suspended users
+          if (userProfile.verification_status === 'suspended') {
+            console.warn('❌ Suspended user attempted login:', { email, status: userProfile.verification_status });
+            await supabase.auth.signOut();
+            throw new Error('Your account has been suspended. Please contact support.');
+          }
+
+          console.log('✅ Admin user verified:', { email, user_type: userProfile.user_type });
+        } catch (checkError) {
+          // If it's our custom error, re-throw it
+          if (checkError.message.includes('Access denied') || 
+              checkError.message.includes('Unable to verify') || 
+              checkError.message.includes('Unable to create') ||
+              checkError.message.includes('suspended')) {
+            throw checkError;
+          }
+          // For unexpected errors, log and block login
+          console.error('❌ Unexpected error during admin check:', checkError);
+          await supabase.auth.signOut();
+          throw new Error('Login verification failed. Please contact support.');
+        }
       }
 
       return data;

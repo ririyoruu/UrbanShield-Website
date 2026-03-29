@@ -24,8 +24,10 @@ import {
 import { adminService, supabase } from '../config/supabase';
 import ReportDetailModal from './ReportDetailModal';
 import './IncidentModeration.css';
+import './ZenithIncidentModeration.css';
+import './ZenithTableModeration.css';
 
-const IncidentModeration = ({ initialSearch = '', onStatusChange }) => {
+const IncidentModeration = ({ initialSearch = '', onStatusChange, onAssignResponder }) => {
   const [incidents, setIncidents] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
@@ -46,7 +48,13 @@ const IncidentModeration = ({ initialSearch = '', onStatusChange }) => {
   // Duplicates
   const [duplicateGroups, setDuplicateGroups] = useState({});
   const [refreshKey, setRefreshKey] = useState(0);
+  const [selectedIncidents, setSelectedIncidents] = useState(new Set());
   const proofInputRef = useRef(null);
+
+  const formatDisplayId = useCallback((index, total, prefix = 'POS') => {
+    const padded = (total - index).toString().padStart(4, '0');
+    return `${prefix}-${padded}`;
+  }, []);
 
   useEffect(() => {
     loadIncidents();
@@ -76,35 +84,41 @@ const IncidentModeration = ({ initialSearch = '', onStatusChange }) => {
       setSaving(true);
       const incident = incidents.find(i => i.id === incidentId);
       const currentStatus = incident?.status || 'pending';
-      await adminService.updateReportStatus(incidentId, currentStatus, note);
-      await loadIncidents();
-      setSelectedIncident(prev => (prev && prev.id === incidentId ? { ...prev, admin_notes: note } : prev));
+      const result = await adminService.updateReportStatus(incidentId, currentStatus, note);
+      console.log('✅ Note saved in DB:', result);
+      if (result) {
+        setSelectedIncident(prev => (prev && prev.id === incidentId ? { ...prev, admin_notes: result.admin_notes || note } : prev));
+        setIncidents(prev => prev.map(i => i.id === incidentId ? { ...i, admin_notes: result.admin_notes || note } : i));
+        await loadIncidents();
+      } else {
+        console.error('⚠️ DB returned null/undefined for note save');
+        setError('Note may not have been saved');
+      }
     } catch (error) {
-      console.error('Error saving note:', error);
-      setError('Failed to save note');
+      console.error('❌ Error saving note:', error);
+      setError('Failed to save note: ' + error.message);
     } finally {
       setSaving(false);
     }
   };
 
   const handleMarkDuplicate = async (incidentId) => {
-    // Only confirm if not triggered from inside the modal (modal has its own UX)
     const fromModal = selectedIncident && selectedIncident.id === incidentId && showModal;
     if (!fromModal && !window.confirm('Mark this post as a duplicate?')) return;
     try {
       setSaving(true);
-      // Immediately update modal state so UI reflects change right away
-      setSelectedIncident(prev => (prev && prev.id === incidentId ? { ...prev, status: 'duplicate', isDuplicate: true } : prev));
-      // Also update incidents list state immediately
-      setIncidents(prev => prev.map(i => i.id === incidentId ? { ...i, status: 'duplicate', isDuplicate: true } : i));
-      await adminService.updateReportStatus(incidentId, 'duplicate', 'Marked as duplicate');
-      // Refresh to ensure data is in sync
-      await loadIncidents();
+      const result = await adminService.updateReportStatus(incidentId, 'duplicate', 'Marked as duplicate');
+      console.log('✅ Marked duplicate in DB:', result);
+      if (result && result.status) {
+        setSelectedIncident(prev => prev?.id === incidentId ? { ...prev, status: result.status, isDuplicate: true } : prev);
+        setIncidents(prev => prev.map(i => i.id === incidentId ? { ...i, status: result.status, isDuplicate: true } : i));
+      } else {
+        console.error('⚠️ DB returned null/undefined - duplicate mark may have failed');
+        setError('Mark duplicate failed - check database permissions');
+      }
     } catch (error) {
-      console.error('Error marking duplicate:', error);
-      setError('Failed to mark duplicate');
-      // Revert optimistic update on error
-      await loadIncidents();
+      console.error('❌ Error marking duplicate:', error);
+      setError('Failed to mark duplicate: ' + error.message);
     } finally {
       setSaving(false);
     }
@@ -125,7 +139,7 @@ const IncidentModeration = ({ initialSearch = '', onStatusChange }) => {
       case 'in_action':
         return { label: 'In Progress', color: '#2563eb', bg: 'rgba(37,99,235,.12)' };
       case 'pending':
-        return { label: 'Unconfirmed', color: '#d97706', bg: 'rgba(217,119,6,.14)' };
+        return { label: 'Open', color: '#d97706', bg: 'rgba(217,119,6,.14)' };
       case 'duplicate':
         return { label: 'Duplicate', color: '#a855f7', bg: 'rgba(168,85,247,.15)' };
       default:
@@ -344,7 +358,7 @@ const IncidentModeration = ({ initialSearch = '', onStatusChange }) => {
       }));
 
       setIncidents(withDupes);
-      
+
       // Force React re-render by incrementing refresh key
       setRefreshKey(prev => prev + 1);
 
@@ -390,28 +404,44 @@ const IncidentModeration = ({ initialSearch = '', onStatusChange }) => {
   }), [incidents]);
 
   // ─── Actions ───
-  const handleViewIncident = (incident) => {
-    setSelectedIncident(incident);
+  const handleViewIncident = async (incident) => {
+    // Don't open modal if clicking on checkbox
+    if (selectedIncidents.has(incident.id)) return;
+    
+    let refreshed = incident;
+    try {
+      const fresh = await adminService.getIncidentById(incident.id);
+      if (fresh) {
+        refreshed = {
+          ...incident,
+          ...fresh,
+          reporter: fresh?.reporter?.full_name || incident.reporter,
+          admin_notes: fresh.admin_notes ?? incident.admin_notes,
+        };
+      }
+    } catch (err) {
+      console.warn('Failed to refresh incident detail, using cached data', err);
+    }
+    setSelectedIncident(refreshed);
     setShowModal(true);
   };
 
   const handleStartAction = async (incidentId) => {
     try {
       setSaving(true);
-      console.log('🚀 Starting action for incident:', incidentId);
-      // Optimistic update: reflect change in modal and list immediately
-      setSelectedIncident(prev => (prev && prev.id === incidentId ? { ...prev, status: 'in_action' } : prev));
-      setIncidents(prev => prev.map(i => i.id === incidentId ? { ...i, status: 'in_action' } : i));
       const result = await adminService.startAction(incidentId);
-      console.log('✅ Action started successfully:', result);
-      await new Promise(resolve => setTimeout(resolve, 500));
-      await loadIncidents();
-      console.log('🔄 Incidents data refreshed');
+      console.log('✅ Status updated in DB:', result);
+      if (result && result.status) {
+        setSelectedIncident(prev => prev?.id === incidentId ? { ...prev, status: result.status } : prev);
+        setIncidents(prev => prev.map(i => i.id === incidentId ? { ...i, status: result.status } : i));
+      } else {
+        console.error('⚠️ DB returned null/undefined - update may have failed');
+        console.error('This usually means RLS policy is blocking the update');
+        setError('Status update failed - check database permissions');
+      }
     } catch (error) {
       console.error('❌ Error starting action:', error);
-      setError('Failed to start action');
-      // Revert optimistic update on error
-      await loadIncidents();
+      setError('Failed to start action: ' + error.message);
     } finally {
       setSaving(false);
     }
@@ -477,21 +507,43 @@ const IncidentModeration = ({ initialSearch = '', onStatusChange }) => {
     }
   };
 
+  const handleDirectResolve = async (incident) => {
+    try {
+      setSaving(true);
+      const result = await adminService.resolveIncident(incident.id, { updateText: '', proofUrl: null });
+      console.log('✅ Resolved in DB:', result);
+      if (result && result.status) {
+        setSelectedIncident(prev => prev?.id === incident.id ? { ...prev, status: result.status } : prev);
+        setIncidents(prev => prev.map(i => i.id === incident.id ? { ...i, status: result.status } : i));
+        onStatusChange?.(incident.id, 'resolved');
+      } else {
+        console.error('⚠️ DB returned null/undefined - resolve may have failed');
+        setError('Resolve failed - check database permissions');
+      }
+    } catch (err) {
+      console.error('❌ Error resolving:', err);
+      setError('Failed to resolve incident: ' + err.message);
+    } finally {
+      setSaving(false);
+    }
+  };
+
   const handleRevertStatus = async (incidentId, newStatus) => {
     try {
       setSaving(true);
-      // Immediately update modal state so UI reflects change right away
-      setSelectedIncident(prev => (prev && prev.id === incidentId ? { ...prev, status: newStatus, isDuplicate: newStatus === 'duplicate' } : prev));
-      // Also update incidents list immediately
-      setIncidents(prev => prev.map(i => i.id === incidentId ? { ...i, status: newStatus, isDuplicate: newStatus === 'duplicate' } : i));
-      await adminService.updateReportStatus(incidentId, newStatus, `Status reverted to ${newStatus}`);
-      onStatusChange?.(incidentId, newStatus);
-      await loadIncidents();
+      const result = await adminService.updateReportStatus(incidentId, newStatus, `Status reverted to ${newStatus}`);
+      console.log('✅ Reverted in DB:', result);
+      if (result && result.status) {
+        setSelectedIncident(prev => prev?.id === incidentId ? { ...prev, status: result.status, isDuplicate: result.status === 'duplicate' } : prev);
+        setIncidents(prev => prev.map(i => i.id === incidentId ? { ...i, status: result.status, isDuplicate: result.status === 'duplicate' } : i));
+        onStatusChange?.(incidentId, newStatus);
+      } else {
+        console.error('⚠️ DB returned null/undefined - revert may have failed');
+        setError('Revert failed - check database permissions');
+      }
     } catch (err) {
-      console.error('Error reverting incident status:', err);
-      setError('Failed to revert incident status');
-      // Revert optimistic update on error
-      await loadIncidents();
+      console.error('❌ Error reverting status:', err);
+      setError('Failed to revert status: ' + err.message);
     } finally {
       setSaving(false);
     }
@@ -501,10 +553,11 @@ const IncidentModeration = ({ initialSearch = '', onStatusChange }) => {
     if (!window.confirm('Remove this duplicate post?')) return;
     try {
       setSaving(true);
+      setIncidents(prev => prev.filter(i => i.id !== incidentId));
       await adminService.deleteReport(incidentId);
-      await loadIncidents();
     } catch (error) {
       console.error('Error deleting duplicate:', error);
+      await loadIncidents();
     } finally {
       setSaving(false);
     }
@@ -515,13 +568,39 @@ const IncidentModeration = ({ initialSearch = '', onStatusChange }) => {
     try {
       setSaving(true);
       await adminService.deleteReport(incidentId);
-      await loadIncidents();
+      console.log('✅ Deleted from DB');
+      setIncidents(prev => prev.filter(i => i.id !== incidentId));
+      setShowModal(false);
+      setSelectedIncident(null);
     } catch (error) {
-      console.error('Error deleting incident:', error);
+      console.error('❌ Error deleting:', error);
     } finally {
       setSaving(false);
     }
   };
+
+  /* ── Checkbox Selection ── */
+  const handleSelectAll = (e) => {
+    if (e.target.checked) {
+      setSelectedIncidents(new Set(filteredIncidents.map(i => i.id)));
+    } else {
+      setSelectedIncidents(new Set());
+    }
+  };
+
+  const handleSelectIncident = (e, incidentId) => {
+    e.stopPropagation();
+    const newSelected = new Set(selectedIncidents);
+    if (newSelected.has(incidentId)) {
+      newSelected.delete(incidentId);
+    } else {
+      newSelected.add(incidentId);
+    }
+    setSelectedIncidents(newSelected);
+  };
+
+  const isAllSelected = filteredIncidents.length > 0 && selectedIncidents.size === filteredIncidents.length;
+  const isIndeterminate = selectedIncidents.size > 0 && selectedIncidents.size < filteredIncidents.length;
 
   // For backwards compat with ReportDetailModal
   const handleApprove = async (id) => handleStartAction(id);
@@ -531,193 +610,136 @@ const IncidentModeration = ({ initialSearch = '', onStatusChange }) => {
 
   return (
     <>
-    <div className="incident-moderation">
-      {/* Stats Row */}
-      <div className="mod-stats-row">
-        <div className={`mod-stat-chip ${filterStatus === 'all' ? 'active' : ''}`} onClick={() => setFilterStatus('all')}>
-          <span className="mod-stat-num">{stats.total}</span>
-          <span className="mod-stat-label">All</span>
-        </div>
-        <div className={`mod-stat-chip pending ${filterStatus === 'pending' ? 'active' : ''}`} onClick={() => setFilterStatus('pending')}>
-          <span className="mod-stat-num">{stats.pending}</span>
-          <span className="mod-stat-label">Unconfirmed</span>
-        </div>
-        <div className={`mod-stat-chip in_action ${filterStatus === 'in_action' ? 'active' : ''}`} onClick={() => setFilterStatus('in_action')}>
-          <span className="mod-stat-num">{stats.in_action}</span>
-          <span className="mod-stat-label">In Progress</span>
-        </div>
-        <div className={`mod-stat-chip resolved ${filterStatus === 'resolved' ? 'active' : ''}`} onClick={() => setFilterStatus('resolved')}>
-          <span className="mod-stat-num">{stats.resolved}</span>
-          <span className="mod-stat-label">Resolved</span>
-        </div>
+    <div className="zenith-table-moderation">
+      {/* Tab Filters */}
+      <div className="zenith-tabs">
+        <button className={`zenith-tab ${filterStatus === 'all' ? 'active' : ''}`} onClick={() => setFilterStatus('all')}>
+          All
+        </button>
+        <button className={`zenith-tab ${filterStatus === 'resolved' ? 'active' : ''}`} onClick={() => setFilterStatus('resolved')}>
+          Resolved
+        </button>
+        <button className={`zenith-tab ${filterStatus === 'in_action' ? 'active' : ''}`} onClick={() => setFilterStatus('in_action')}>
+          In Progress
+        </button>
+        <button className={`zenith-tab ${filterStatus === 'pending' ? 'active' : ''}`} onClick={() => setFilterStatus('pending')}>
+          Open
+        </button>
         {stats.duplicate > 0 && (
-          <div className={`mod-stat-chip duplicate ${filterStatus === 'duplicate' ? 'active' : ''}`} onClick={() => setFilterStatus('duplicate')}>
-            <span className="mod-stat-num">{stats.duplicate}</span>
-            <span className="mod-stat-label">Duplicates</span>
-          </div>
+          <button className={`zenith-tab ${filterStatus === 'duplicate' ? 'active' : ''}`} onClick={() => setFilterStatus('duplicate')}>
+            Duplicate
+          </button>
         )}
       </div>
 
-      {/* Filters */}
-      <div className="moderation-filters">
-        <div className="search-box">
+      {/* Toolbar */}
+      <div className="zenith-toolbar">
+        <div className="zenith-search">
           <Search size={18} />
           <input type="text" placeholder="Search posts..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
         </div>
-        <select value={filterCategory} onChange={(e) => setFilterCategory(e.target.value)}>
-          <option value="all">All Categories</option>
-          <option value="accident">Accident</option>
-          <option value="road">Road Issue</option>
-          <option value="infrastructure">Infrastructure</option>
-          <option value="other">Other</option>
-        </select>
-        <select value={filterSeverity} onChange={(e) => setFilterSeverity(e.target.value)}>
-          <option value="all">All Severities</option>
-          <option value="low">Low</option>
-          <option value="medium">Medium</option>
-          <option value="high">High</option>
-        </select>
+        <div className="zenith-toolbar-actions">
+          <button className="zenith-toolbar-btn">
+            <Activity size={16} /> Columns
+          </button>
+          <button className="zenith-toolbar-btn">
+            <Upload size={16} /> Export
+          </button>
+        </div>
       </div>
 
-      {/* Posts List */}
-      <div className="moderation-list">
+      {/* Table */}
+      <div className="zenith-table-container">
         {loading ? (
-          <div className="loading-state">
-            <RefreshCw size={32} className="spinning" />
+          <div className="zenith-loading-state">
+            <RefreshCw size={32} />
             <p>Loading posts...</p>
           </div>
         ) : incidents.length === 0 ? (
-          <div className="empty-state">
+          <div className="zenith-empty-state">
             <AlertTriangle size={48} />
             <h3>No posts found</h3>
             <p>There are currently no posts in the database.</p>
           </div>
         ) : filteredIncidents.length === 0 ? (
-          <div className="empty-state">
+          <div className="zenith-empty-state">
             <AlertTriangle size={48} />
             <h3>No matching posts</h3>
             <p>Try changing your filter settings. ({incidents.length} total posts)</p>
           </div>
         ) : (
-          <div key={refreshKey} className="mod-card-stack">
-            {filteredIncidents.map(incident => {
-              const status = getStatus(incident);
-              const statusConfig = getStatusConfig(status);
-              const categoryConfig = getCategoryConfig(incident.category);
-              const displayLocation = incident.resolvedLocation || incident.location || 'No location provided';
-              const attachmentsCount = incident.images?.length || incident.photo_urls?.length || 0;
-              const duplicateSource = incident.duplicateOf ? incidents.find(i => i.id === incident.duplicateOf) : null;
-              return (
-                <article key={incident.id} className={`mod-card ${status} ${incident.isDuplicate ? 'is-duplicate' : ''}`} onClick={() => handleViewIncident(incident)}>
-                  {status === 'duplicate' && (
-                    <div className="mod-card-duplicate-banner">
-                      <Copy size={14} /> Duplicate post detected
-                    </div>
-                  )}
-
-                  <div className="mod-card-body">
-                    <div
-                      className="mod-card-icon"
-                      style={{ color: categoryConfig.color, borderColor: `${categoryConfig.color}26` }}
-                    >
-                      {categoryConfig.icon}
-                    </div>
-
-                    <div className="mod-card-content">
-                      <div className="mod-card-header">
-                        <div>
-                          <h4 className="mod-card-title">{incident.title || 'Untitled Post'}</h4>
-                          <div className="mod-card-meta">
-                            <span className="mod-card-meta-item"><MapPin size={14} /> {displayLocation}</span>
-                            <span className="mod-card-meta-item"><User size={14} /> {incident.reporter || 'Unknown Reporter'}</span>
-                            <span className="mod-card-meta-item"><Clock size={14} /> {formatTimestamp(incident.timestamp || incident.created_at)}</span>
+          <div className="zenith-table-wrapper">
+            <table className="zenith-data-table">
+              <thead>
+                <tr>
+                  <th className="zenith-checkbox-cell">
+                    <input
+                      type="checkbox"
+                      className="zenith-checkbox"
+                      checked={isAllSelected}
+                      ref={el => el && (el.indeterminate = isIndeterminate)}
+                      onChange={handleSelectAll}
+                    />
+                  </th>
+                  <th>Post ID</th>
+                  <th>Reporter</th>
+                  <th>Location</th>
+                  <th>Status</th>
+                  <th>Date</th>
+                  <th className="zenith-actions-cell"></th>
+                </tr>
+              </thead>
+              <tbody>
+                {filteredIncidents.map((incident, index) => {
+                  const status = getStatus(incident);
+                  const statusConfig = getStatusConfig(status);
+                  const displayLocation = incident.resolvedLocation || incident.location || 'No location provided';
+                  const statusClass = status === 'in_action' ? 'in-progress' : status;
+                  return (
+                    <tr key={incident.id} onClick={() => handleViewIncident(incident)}>
+                      <td className="zenith-checkbox-cell" onClick={(e) => e.stopPropagation()}>
+                        <input
+                          type="checkbox"
+                          className="zenith-checkbox"
+                          checked={selectedIncidents.has(incident.id)}
+                          onChange={(e) => handleSelectIncident(e, incident.id)}
+                        />
+                      </td>
+                      <td className="zenith-order-cell">
+                        {formatDisplayId(index, filteredIncidents.length)}
+                      </td>
+                      <td>
+                        <div className="zenith-customer-cell">
+                          <div className="zenith-avatar">
+                            {(incident.reporter || 'U').charAt(0).toUpperCase()}
+                          </div>
+                          <div className="zenith-customer-info">
+                            <div className="zenith-customer-name">{incident.reporter || 'Unknown User'}</div>
+                            <div className="zenith-customer-email">{incident.title || 'Untitled Post'}</div>
                           </div>
                         </div>
-                        <div className="mod-card-badges">
-                          <span className="mod-badge" style={{ color: categoryConfig.color, background: `${categoryConfig.color}1a` }}>
-                            {categoryConfig.label}
-                          </span>
-                          <span className="mod-badge" style={{ color: statusConfig.color, background: statusConfig.bg }}>
-                            {statusConfig.label}
-                          </span>
-                        </div>
-                      </div>
-
-                      {incident.description && (
-                        <p className="mod-card-description">
-                          {incident.description.length > 140 ? `${incident.description.substring(0, 140)}…` : incident.description}
-                        </p>
-                      )}
-
-                      {status === 'duplicate' && duplicateSource && (
-                        <div className="mod-card-duplicate-info" onClick={(e) => e.stopPropagation()}>
-                          <AlertTriangle size={14} /> Possible duplicate of
-                          <button type="button" className="link-btn" onClick={() => handleViewIncident(duplicateSource)}>
-                            #{duplicateSource.id}
-                          </button>
-                        </div>
-                      )}
-
-                      <div className="mod-card-actions" onClick={(e) => e.stopPropagation()}>
-                        {status === 'pending' && (
-                          <>
-                            <button className="mod-btn ghost" onClick={() => handleStartAction(incident.id)} disabled={saving}>
-                              <Search size={14} /> Start Investigation
-                            </button>
-                            <button className="mod-btn success" onClick={() => openResolveModal(incident)} disabled={saving}>
-                              <CheckCircle size={14} /> Mark as Resolved
-                            </button>
-                            <button className="mod-btn outline" onClick={() => handleRevertStatus(incident.id, 'duplicate')} disabled={saving}>
-                              <Copy size={14} /> Mark Duplicate
-                            </button>
-                          </>
-                        )}
-
-                        {status === 'in_action' && (
-                          <>
-                            <button className="mod-btn success" onClick={() => openResolveModal(incident)} disabled={saving}>
-                              <CheckCircle size={14} /> Mark as Resolved
-                            </button>
-                            <button className="mod-btn outline" onClick={() => handleRevertStatus(incident.id, 'pending')} disabled={saving}>
-                              <Clock size={14} /> Revert
-                            </button>
-                            <button className="mod-btn outline" onClick={() => handleRevertStatus(incident.id, 'duplicate')} disabled={saving}>
-                              <Copy size={14} /> Mark Duplicate
-                            </button>
-                          </>
-                        )}
-
-                        {status === 'resolved' && (
-                          <>
-                            <button className="mod-btn outline" onClick={() => handleRevertStatus(incident.id, 'in_action')} disabled={saving}>
-                              <Play size={14} /> Revert to In Progress
-                            </button>
-                            <button className="mod-btn outline" onClick={() => handleRevertStatus(incident.id, 'pending')} disabled={saving}>
-                              <Clock size={14} /> Revert to Unconfirmed
-                            </button>
-                          </>
-                        )}
-
-                        {status === 'duplicate' && (
-                          <button className="mod-btn outline" onClick={() => handleDeleteDuplicate(incident.id)} disabled={saving}>
-                            <Trash2 size={14} /> Remove Duplicate
-                          </button>
-                        )}
-
-                        <button className="mod-btn icon" onClick={() => handleDelete(incident.id)} disabled={saving}>
-                          <Trash2 size={14} />
+                      </td>
+                      <td className="zenith-product-cell">
+                        {displayLocation}
+                      </td>
+                      <td>
+                        <span className={`zenith-status-badge ${statusClass}`}>
+                          {statusConfig.label}
+                        </span>
+                      </td>
+                      <td className="zenith-date-cell">
+                        {new Date(incident.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                      </td>
+                      <td className="zenith-actions-cell" onClick={(e) => e.stopPropagation()}>
+                        <button className="zenith-actions-btn">
+                          <Activity size={16} />
                         </button>
-                      </div>
-
-                      <div className="mod-card-footer" onClick={(e) => e.stopPropagation()}>
-                        <span><FileText size={13} /> {attachmentsCount} attachments</span>
-                        <span><MessageSquare size={13} /> {incident.comments_count || 0} comments</span>
-                      </div>
-                    </div>
-                  </div>
-                </article>
-              );
-            })}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
           </div>
         )}
       </div>
@@ -777,11 +799,12 @@ const IncidentModeration = ({ initialSearch = '', onStatusChange }) => {
         onApprove={handleApprove}
         onReject={handleReject}
         onStartAction={handleStartAction}
-        onMarkResolved={openResolveModal}
+        onMarkResolved={handleDirectResolve}
         onMarkDuplicate={handleMarkDuplicate}
         onRevertPending={(id) => handleRevertStatus(id, 'pending')}
         onDeleteReport={handleDelete}
         onSaveNote={handleSaveNote}
+        onAssignResponder={onAssignResponder}
         loading={saving}
       />
     </div>

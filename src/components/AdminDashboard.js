@@ -35,8 +35,9 @@ import UserReportsManagement from './UserReportsManagement';
 import AnnouncementsManagement from './AnnouncementsManagement';
 import NotificationDropdown from './NotificationDropdown';
 import Settings from './Settings';
-import RespondersManagement from './RespondersManagement';
+import ResponderManagement from './ResponderManagement';
 import './AdminDashboard.css';
+import './ZenithDashboard.css';
 
 const AdminDashboard = ({ user, onLogout }) => {
   const { isDark, toggleTheme } = useTheme();
@@ -60,7 +61,7 @@ const AdminDashboard = ({ user, onLogout }) => {
   });
   const [stats, setStats] = useState([
     { title: 'Total Posts', value: '0', change: null, icon: <AlertTriangle />, color: '#dc2626' },
-    { title: 'Unconfirmed', value: '0', change: null, icon: <Clock />, color: '#f59e0b' },
+    { title: 'Open', value: '0', change: null, icon: <Clock />, color: '#f59e0b' },
     { title: 'Resolved Today', value: '0', change: null, icon: <CheckCircle />, color: '#10b981' },
     { title: 'Total Users', value: '0', change: null, icon: <Users />, color: '#3b82f6' }
   ]);
@@ -80,8 +81,6 @@ const AdminDashboard = ({ user, onLogout }) => {
   const [adminAvatarUrl, setAdminAvatarUrl] = useState('');
   const [adminName, setAdminName] = useState(user?.name || '');
   const [adminId, setAdminId] = useState(null);
-  const [responders, setResponders] = useState([]);
-  const [respondersLoading, setRespondersLoading] = useState(false);
 
   // Handle window resize for responsive sidebar
   useEffect(() => {
@@ -123,7 +122,6 @@ const AdminDashboard = ({ user, onLogout }) => {
     loadDashboardData();
     setupRealtimeSubscription();
     loadNotificationCount();
-    loadResponders();
 
     // Cleanup all subscriptions on unmount
     return () => {
@@ -201,17 +199,6 @@ const AdminDashboard = ({ user, onLogout }) => {
     }
   };
 
-  const loadResponders = async () => {
-    try {
-      setRespondersLoading(true);
-      const data = await adminService.getResponders();
-      setResponders(data || []);
-    } catch (error) {
-      console.error('Error loading responders:', error);
-    } finally {
-      setRespondersLoading(false);
-    }
-  };
 
   // Load reports from database
   const loadReports = async () => {
@@ -352,7 +339,7 @@ const AdminDashboard = ({ user, onLogout }) => {
           color: '#dc2626'
         },
         {
-          title: 'Unconfirmed',
+          title: 'Open',
           value: (dashboardStats.pendingReports || 0).toString(),
           change: null,
           icon: <Clock />,
@@ -379,7 +366,7 @@ const AdminDashboard = ({ user, onLogout }) => {
       console.error('Error loading stats:', err);
       setStats([
         { title: 'Total Posts', value: '0', change: null, icon: <AlertTriangle />, color: '#dc2626' },
-        { title: 'Unconfirmed', value: '0', change: null, icon: <Clock />, color: '#f59e0b' },
+        { title: 'Open', value: '0', change: null, icon: <Clock />, color: '#f59e0b' },
         { title: 'Resolved Today', value: '0', change: null, icon: <CheckCircle />, color: '#10b981' },
         { title: 'Active Users', value: '0', change: null, icon: <Users />, color: '#3b82f6' }
       ]);
@@ -758,7 +745,7 @@ const AdminDashboard = ({ user, onLogout }) => {
               {activeTab === 'incidents' && <span style={{ fontSize: '2em', fontWeight: 'bold' }}>Post Management</span>}
               {activeTab === 'reports' && <span style={{ fontSize: '2em', fontWeight: 'bold' }}>Posts Management</span>}
               {activeTab === 'users' && <span style={{ fontSize: '2em', fontWeight: 'bold' }}>User Management</span>}
-              {activeTab === 'responders' && <span style={{ fontSize: '2em', fontWeight: 'bold' }}>Emergency Responders</span>}
+              {activeTab === 'responders' && <span style={{ fontSize: '2em', fontWeight: 'bold' }}>Responder Management</span>}
               {activeTab === 'announcements' && <span style={{ fontSize: '2em', fontWeight: 'bold' }}>Announcements</span>}
               {activeTab === 'profile' && <span style={{ fontSize: '2em', fontWeight: 'bold' }}>Settings</span>}
             </h1>
@@ -823,90 +810,83 @@ const AdminDashboard = ({ user, onLogout }) => {
 
           {activeTab === 'overview' && (
             <div className="overview-content">
-              {/* Stat Cards */}
-              <div className="stats-grid-compact">
-                <div className="stat-box">
-                  <div className="stat-box-header">
-                    <span className="stat-box-label">Total Posts</span>
-                    <AlertTriangle size={16} className="stat-box-icon" style={{ color: '#dc2626' }} />
-                  </div>
-                  <span className="stat-box-value">{stats[0]?.value || '0'}</span>
-                  <span className="stat-box-change">All reported incidents</span>
+              {/* Zenith-style Stat Cards */}
+              <div className="zenith-stats-grid">
+                <div className="zenith-stat-card" onClick={() => setActiveTab('incidents')}>
+                  <div className="zenith-stat-label">Total Posts</div>
+                  <div className="zenith-stat-value">{stats[0]?.value || '0'}</div>
+                  <div className="zenith-stat-change positive">All reported incidents</div>
                 </div>
-                <div className="stat-box">
-                  <div className="stat-box-header">
-                    <span className="stat-box-label">Unconfirmed</span>
-                    <Clock size={16} className="stat-box-icon" style={{ color: '#f59e0b' }} />
-                  </div>
-                  <span className="stat-box-value">{stats[1]?.value || '0'}</span>
-                  <span className="stat-box-change">Awaiting moderation</span>
+                <div className="zenith-stat-card" onClick={() => setActiveTab('users')}>
+                  <div className="zenith-stat-label">Active Users</div>
+                  <div className="zenith-stat-value">{stats[3]?.value || '0'}</div>
+                  <div className="zenith-stat-change positive">Registered accounts</div>
                 </div>
-                <div className="stat-box">
-                  <div className="stat-box-header">
-                    <span className="stat-box-label">Resolved Today</span>
-                    <CheckCircle size={16} className="stat-box-icon" style={{ color: '#10b981' }} />
-                  </div>
-                  <span className="stat-box-value">{stats[2]?.value || '0'}</span>
-                  <span className="stat-box-change">Handled today</span>
+                <div className="zenith-stat-card" onClick={() => setActiveTab('incidents')}>
+                  <div className="zenith-stat-label">Open</div>
+                  <div className="zenith-stat-value">{stats[1]?.value || '0'}</div>
+                  <div className="zenith-stat-change negative">Awaiting moderation</div>
                 </div>
-                <div className="stat-box">
-                  <div className="stat-box-header">
-                    <span className="stat-box-label">Active Users</span>
-                    <Users size={16} className="stat-box-icon" style={{ color: '#3b82f6' }} />
-                  </div>
-                  <span className="stat-box-value">{stats[3]?.value || '0'}</span>
-                  <span className="stat-box-change">Registered accounts</span>
-                </div>
-                <div className="stat-box stat-box-clickable" onClick={() => setActiveTab('incidents')}>
-                  <div className="stat-box-header">
-                    <span className="stat-box-label">Unconfirmed Posts</span>
-                    <Eye size={16} className="stat-box-icon" style={{ color: '#ef4444' }} />
-                  </div>
-                  <span className="stat-box-value">{reports.filter(r => r.is_verified === null || r.is_verified === undefined).length}</span>
-                  <span className="stat-box-change">Click to review →</span>
+                <div className="zenith-stat-card" onClick={() => setActiveTab('incidents')}>
+                  <div className="zenith-stat-label">Resolved Today</div>
+                  <div className="zenith-stat-value">{stats[2]?.value || '0'}</div>
+                  <div className="zenith-stat-change positive">Handled today</div>
                 </div>
               </div>
 
-              {/* Charts */}
-              <div className="charts-grid">
-                <div className="chart-card card">
-                  <h3 className="chart-title">Post Trends</h3>
-                  <ResponsiveContainer width="100%" height={300}>
-                    <LineChart data={analyticsData}>
-                      <CartesianGrid strokeDasharray="3 3" stroke={isDark ? 'rgba(255,255,255,0.1)' : '#e2e8f0'} />
-                      <XAxis dataKey="name" stroke={isDark ? 'rgba(255,255,255,0.6)' : '#64748b'} />
-                      <YAxis stroke={isDark ? 'rgba(255,255,255,0.6)' : '#64748b'} />
+              {/* Zenith-style Charts Grid */}
+              <div className="zenith-charts-grid">
+                <div className="zenith-chart-card">
+                  <div className="zenith-chart-header">
+                    <h3 className="zenith-chart-title">Post Trends</h3>
+                    <p className="zenith-chart-subtitle">Incident reports over the past 6 months</p>
+                  </div>
+                  <ResponsiveContainer width="100%" height={320}>
+                    <BarChart data={analyticsData}>
+                      <CartesianGrid strokeDasharray="3 3" stroke={isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)'} vertical={false} />
+                      <XAxis 
+                        dataKey="name" 
+                        stroke={isDark ? '#71717a' : '#a1a1aa'}
+                        tick={{ fontSize: 12, fill: isDark ? '#71717a' : '#a1a1aa' }}
+                        axisLine={false}
+                        tickLine={false}
+                      />
+                      <YAxis 
+                        stroke={isDark ? '#71717a' : '#a1a1aa'}
+                        tick={{ fontSize: 12, fill: isDark ? '#71717a' : '#a1a1aa' }}
+                        axisLine={false}
+                        tickLine={false}
+                      />
                       <Tooltip
                         contentStyle={{
                           backgroundColor: isDark ? '#18181b' : '#ffffff',
-                          border: isDark ? '1px solid #27272a' : '1px solid #e4e4e7',
+                          border: 'none',
                           borderRadius: '8px',
-                          color: isDark ? '#fafafa' : '#09090b'
+                          boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)',
+                          fontSize: '13px'
                         }}
-                        labelStyle={{ color: isDark ? '#fafafa' : '#09090b' }}
-                        itemStyle={{ color: isDark ? '#a1a1aa' : '#52525b' }}
+                        cursor={{ fill: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)' }}
                       />
-                      <Line type="monotone" dataKey="incidents" stroke={isDark ? '#a1a1aa' : '#18181b'} strokeWidth={2} dot={false} />
-                      <Line type="monotone" dataKey="resolved" stroke={isDark ? '#52525b' : '#71717a'} strokeWidth={2} dot={false} strokeDasharray="4 2" />
-                    </LineChart>
+                      <Bar dataKey="incidents" fill={isDark ? '#71717a' : '#18181b'} radius={[4, 4, 0, 0]} />
+                    </BarChart>
                   </ResponsiveContainer>
                 </div>
 
-                <div className="chart-card card">
-                  <h3 className="chart-title">Post Types</h3>
-                  <ResponsiveContainer width="100%" height={300}>
+                <div className="zenith-chart-card">
+                  <div className="zenith-chart-header">
+                    <h3 className="zenith-chart-title">Incident Categories</h3>
+                    <p className="zenith-chart-subtitle">Distribution of reported incident types</p>
+                  </div>
+                  <ResponsiveContainer width="100%" height={320}>
                     <PieChart>
                       <Pie
                         data={incidentTypes}
                         cx="50%"
                         cy="50%"
-                        innerRadius={60}
-                        outerRadius={100}
-                        paddingAngle={5}
+                        innerRadius={70}
+                        outerRadius={110}
+                        paddingAngle={2}
                         dataKey="value"
-                        label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
-                        labelLine={{ stroke: isDark ? 'rgba(255,255,255,0.3)' : '#94a3b8' }}
-                        style={{ fontSize: '0.75rem', fill: isDark ? '#e2e8f0' : '#374151' }}
                       >
                         {incidentTypes.map((entry, index) => (
                           <Cell key={`cell-${index}`} fill={entry.color} />
@@ -915,54 +895,78 @@ const AdminDashboard = ({ user, onLogout }) => {
                       <Tooltip
                         contentStyle={{
                           backgroundColor: isDark ? '#18181b' : '#ffffff',
-                          border: isDark ? '1px solid #27272a' : '1px solid #e4e4e7',
+                          border: 'none',
                           borderRadius: '8px',
-                          color: isDark ? '#fafafa' : '#09090b'
+                          boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)',
+                          fontSize: '13px'
                         }}
-                        labelStyle={{ color: isDark ? '#fafafa' : '#09090b' }}
-                        itemStyle={{ color: isDark ? '#a1a1aa' : '#52525b' }}
                       />
                     </PieChart>
                   </ResponsiveContainer>
+                  <div className="zenith-legend">
+                    {incidentTypes.map((entry, index) => (
+                      <div key={index} className="zenith-legend-item">
+                        <div className="zenith-legend-color" style={{ backgroundColor: entry.color }}></div>
+                        <span className="zenith-legend-label">{entry.name}</span>
+                        <span className="zenith-legend-value">{entry.value}</span>
+                      </div>
+                    ))}
+                  </div>
                 </div>
               </div>
 
-              {/* Recent Posts */}
-              <div className="recent-reports card">
-                <div className="card-header">
-                  <h3>Recent Posts</h3>
-                  <button className="view-all-btn" onClick={() => setActiveTab('incidents')}>View All →</button>
+              {/* Zenith-style Recent Activity */}
+              <div className="zenith-activity-card">
+                <div className="zenith-card-header">
+                  <div>
+                    <h3 className="zenith-card-title">Recent Posts</h3>
+                    <p className="zenith-card-description">Latest incident reports from the community</p>
+                  </div>
+                  <button className="zenith-view-all" onClick={() => setActiveTab('incidents')}>View all</button>
                 </div>
-                <div className="reports-list">
-                  {reports.length === 0 ? (
-                    <div style={{ padding: '24px', textAlign: 'center', color: '#a1a1aa', fontSize: '13px' }}>
-                      No posts yet
-                    </div>
-                  ) : reports.slice(0, 5).map(report => {
-                    const postStatus = report.status === 'resolved' ? 'resolved'
-                      : report.status === 'in_action' ? 'in_action'
-                        : 'pending';
-                    const statusLabel = postStatus === 'resolved' ? 'Resolved'
-                      : postStatus === 'in_action' ? 'In Progress'
-                        : 'Unconfirmed';
-                    return (
-                      <div
-                        key={report.id}
-                        className="report-item"
-                        style={{ cursor: 'pointer' }}
-                        onClick={() => { setSelectedReport(report); setShowReportModal(true); }}
-                      >
-                        <div className="report-info">
-                          <h4>{report.title || 'Untitled Post'}</h4>
-                          <p>{report.address || report.location || '—'}</p>
-                          <span className="report-time">
-                            {new Date(report.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
-                          </span>
-                        </div>
-                        <span className={`status-badge ${postStatus}`}>{statusLabel}</span>
-                      </div>
-                    );
-                  })}
+                <div className="zenith-table">
+                  <table>
+                    <thead>
+                      <tr>
+                        <th>Reporter</th>
+                        <th>Location</th>
+                        <th>Date</th>
+                        <th>Status</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {reports.length === 0 ? (
+                        <tr>
+                          <td colSpan="4" style={{ textAlign: 'center', padding: '2rem', color: 'var(--muted-fg)' }}>
+                            No posts yet
+                          </td>
+                        </tr>
+                      ) : reports.slice(0, 6).map(report => {
+                        const postStatus = report.status === 'resolved' ? 'resolved'
+                          : report.status === 'in_action' ? 'in_action'
+                            : 'pending';
+                        const statusLabel = postStatus === 'resolved' ? 'Resolved'
+                          : postStatus === 'in_action' ? 'In Progress'
+                            : 'Pending';
+                        return (
+                          <tr key={report.id} onClick={() => { setSelectedReport(report); setShowReportModal(true); }}>
+                            <td>
+                              <div className="zenith-customer">
+                                <div className="zenith-avatar">{(report.reporter || 'U').charAt(0).toUpperCase()}</div>
+                                <div>
+                                  <div className="zenith-customer-name">{report.reporter || 'Unknown User'}</div>
+                                  <div className="zenith-customer-email">{report.title || 'Untitled'}</div>
+                                </div>
+                              </div>
+                            </td>
+                            <td className="zenith-location">{report.address || report.location || '—'}</td>
+                            <td className="zenith-date">{new Date(report.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</td>
+                            <td><span className={`zenith-badge zenith-badge-${postStatus}`}>{statusLabel}</span></td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
                 </div>
               </div>
             </div>
@@ -974,38 +978,19 @@ const AdminDashboard = ({ user, onLogout }) => {
               initialSearch={searchTerm}
               onStatusChange={handleIncidentStatusChange}
               onAssignResponder={handleAssignResponder}
-              responders={responders}
             />
           )}
 
           {activeTab === 'users' && (
-            <div className="users-with-verification">
-              <div className="sub-tabs">
-                <button
-                  className={`sub-tab ${usersSubTab === 'users' ? 'active' : ''}`}
-                  onClick={() => setUsersSubTab('users')}
-                >
-                  <Users size={16} />
-                  <span>Users</span>
-                </button>
-                <button
-                  className={`sub-tab ${usersSubTab === 'verification' ? 'active' : ''}`}
-                  onClick={() => setUsersSubTab('verification')}
-                >
-                  <CheckCircle size={16} />
-                  <span>Verification</span>
-                </button>
-              </div>
-              {usersSubTab === 'users' ? <UserManagement /> : <VerificationManagement />}
-            </div>
+            <UserManagement />
+          )}
+
+          {activeTab === 'responders' && (
+            <ResponderManagement />
           )}
 
           {activeTab === 'announcements' && (
             <AnnouncementsManagement />
-          )}
-
-          {activeTab === 'responders' && (
-            <RespondersManagement />
           )}
 
           {activeTab === 'reports' && (
@@ -1044,6 +1029,8 @@ const AdminDashboard = ({ user, onLogout }) => {
         onClose={handleCloseModal}
         onApprove={handleApprove}
         onReject={handleReject}
+        onAssignResponder={handleAssignResponder}
+        onDeleteReport={handleDeleteReport}
         loading={loading}
       />
     </div>

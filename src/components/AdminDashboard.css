@@ -780,7 +780,7 @@ body {
    ================================================ */
 .stats-grid-compact {
   display: grid;
-  grid-template-columns: repeat(5, 1fr);
+  grid-template-columns: repeat(4, 1fr);
   gap: 1rem;
   margin-bottom: 1.5rem;
 }
@@ -794,7 +794,7 @@ body {
   display: flex;
   flex-direction: column;
   gap: .375rem;
-  transition: box-shadow .15s;
+  transition: all .2s ease;
 }
 
 .stat-box:hover {
@@ -803,6 +803,11 @@ body {
 
 .stat-box-clickable {
   cursor: pointer;
+}
+
+.stat-box-clickable:hover {
+  transform: translateY(-2px);
+  border-color: var(--primary);
 }
 
 .stat-box-header {

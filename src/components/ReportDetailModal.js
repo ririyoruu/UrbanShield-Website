@@ -25,7 +25,9 @@ import {
   MessageSquare
 } from 'lucide-react';
 import { supabase } from '../config/supabase';
+import AssignResponderModal from './AssignResponderModal';
 import './ReportDetailModal.css';
+import './ZenithReportModal.css';
 
 const ReportDetailModal = ({
   report,
@@ -39,6 +41,7 @@ const ReportDetailModal = ({
   onRevertPending,
   onDeleteReport,
   onSaveNote,
+  onAssignResponder,
   loading,
   isSidePanel = false
 }) => {
@@ -48,7 +51,15 @@ const ReportDetailModal = ({
   const [showFullImage, setShowFullImage] = useState(false);
   const [noteDraft, setNoteDraft] = useState('');
   const [isStatusUpdating, setIsStatusUpdating] = useState(false);
-  const [isStatusDropdownOpen, setIsStatusDropdownOpen] = useState(false); // Renamed to avoid collisions
+  const [isStatusDropdownOpen, setIsStatusDropdownOpen] = useState(false);
+  const [showAssignModal, setShowAssignModal] = useState(false);
+
+  // Debug: Log if onAssignResponder is available
+  useEffect(() => {
+    if (isOpen) {
+      console.log('ReportDetailModal opened with onAssignResponder:', !!onAssignResponder, typeof onAssignResponder);
+    }
+  }, [isOpen, onAssignResponder]);
 
   // Load authenticated URLs when images change
   useEffect(() => {
@@ -102,10 +113,18 @@ const ReportDetailModal = ({
     if (report.status === 'duplicate') return { label: 'Duplicate', color: '#8b5cf6', bg: 'rgba(139,92,246,.1)', border: 'rgba(139,92,246,.25)', icon: <Copy size={14} /> };
     if (report.status === 'resolved') return { label: 'Resolved', color: '#10b981', bg: 'rgba(16,185,129,.1)', border: 'rgba(16,185,129,.25)', icon: <CheckCircle size={14} /> };
     if (report.status === 'in_action') return { label: 'In Progress', color: '#3b82f6', bg: 'rgba(59,130,246,.1)', border: 'rgba(59,130,246,.25)', icon: <Clock size={14} /> };
-    return { label: 'Unconfirmed', color: '#f59e0b', bg: 'rgba(245,158,11,.1)', border: 'rgba(245,158,11,.25)', icon: <AlertTriangle size={14} /> };
+    return { label: 'Open', color: '#f59e0b', bg: 'rgba(245,158,11,.1)', border: 'rgba(245,158,11,.25)', icon: <AlertTriangle size={14} /> };
   };
 
   const statusConfig = getStatusConfig();
+
+  // Normalize raw DB status to canonical values for button logic
+  const currentStatus =
+    report.status === 'in_action' ? 'in_action' :
+    report.status === 'resolved'  ? 'resolved'  :
+    report.status === 'duplicate' ? 'duplicate' :
+    'pending'; // handles null, undefined, 'pending', or anything else
+
   const getSeverityColor = (s) => ({
     critical: '#e11d48', high: '#ef4444', medium: '#f59e0b', low: '#10b981'
   })[s?.toLowerCase()] || '#71717a';
@@ -224,16 +243,6 @@ const ReportDetailModal = ({
           )}
 
           <div className="post-body-content">
-            <h2 className="post-body-title">{report.title || 'Untitled Post'}</h2>
-            {report.severity && (
-              <span
-                className="post-badge badge-severity"
-                style={{ color: getSeverityColor(report.severity), borderColor: getSeverityColor(report.severity) }}
-              >
-                {report.severity} Priority
-              </span>
-            )}
-
             <div className="post-meta-list">
               <div className="post-meta-list-item">
                 <MapPin size={16} className="meta-icon" />
@@ -241,15 +250,11 @@ const ReportDetailModal = ({
               </div>
               <div className="post-meta-list-item">
                 <User size={16} className="meta-icon" />
-                <span><strong>{report.reporter || report.reporter_name || 'Anonymous'}</strong> <span className="meta-dot">·</span> Citizen</span>
+                <span>{report.reporter || report.reporter_name || 'Anonymous'}</span>
               </div>
               <div className="post-meta-list-item">
                 <Clock size={16} className="meta-icon" />
-                <span>Reported {formatRelativeTime(report.created_at)}</span>
-              </div>
-              <div className="post-meta-list-item">
-                <Shield size={16} className="meta-icon" />
-                <span>Assigned to <strong>{report.assigned_officer || 'Unassigned'}</strong></span>
+                <span>{formatRelativeTime(report.created_at)}</span>
               </div>
             </div>
 
@@ -259,116 +264,68 @@ const ReportDetailModal = ({
                 <p className="post-description-text">{report.description}</p>
               </>
             )}
-
-            <hr className="post-divider" />
-            <div className="post-footer-stats">
-              <span className="stat-item"><Paperclip size={14} /> {imageUrls.length} attachments</span>
-              <span className="stat-item"><MessageSquare size={14} /> {activityLog.length} in timeline</span>
-            </div>
           </div>
         </div>
 
         <aside className="post-modal-aside">
-          <div className="aside-card aside-card-status">
-            <p className="aside-label">STATUS</p>
-            <div className="custom-status-dropdown" onClick={() => !isStatusUpdating && !loading && setIsStatusDropdownOpen(!isStatusDropdownOpen)}>
-              <div className="dropdown-trigger">
-                <span className="status-dot" style={{ backgroundColor: statusConfig.color }}></span>
-                <span className="status-text" style={{ color: statusConfig.color }}>{statusConfig.label.toUpperCase()}</span>
-                <span className="dropdown-icon">{isStatusDropdownOpen ? '∧' : '∨'}</span>
-              </div>
-              {isStatusDropdownOpen && (
-                <div className="dropdown-menu">
-                  {['pending', 'in_action', 'resolved', 'duplicate'].map((s) => {
-                    const config = {
-                      pending: { label: 'Unconfirmed', color: '#f59e0b' },
-                      in_action: { label: 'In Progress', color: '#3b82f6' },
-                      resolved: { label: 'Resolved', color: '#10b981' },
-                      duplicate: { label: 'Duplicate', color: '#8b5cf6' }
-                    }[s];
-                    return (
-                      <div
-                        key={s}
-                        className={`dropdown-item ${report.status === s ? 'active' : ''}`}
-                        onClick={(e) => { e.stopPropagation(); handleStatusChange(s); }}
-                      >
-                        <span className="status-dot" style={{ backgroundColor: config.color }}></span>
-                        <span className="status-text" style={{ color: config.color }}>{config.label.toUpperCase()}</span>
-                        {report.status === s && <CheckCircle size={14} className="check-icon" />}
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
-          </div>
-
-          <div className="aside-card aside-card-primary">
-            <p className="aside-label">PRIMARY ACTIONS</p>
+          <div className="aside-card">
+            <p className="aside-label">Actions</p>
+            {onAssignResponder ? (
+              <button
+                className={`aside-btn ${currentStatus === 'pending' ? 'dark' : 'gray-solid'}`}
+                onClick={() => setShowAssignModal(true)}
+                disabled={loading || currentStatus !== 'pending'}
+              >
+                <Shield size={16} /> Assign Responder
+              </button>
+            ) : (
+              <button
+                className={`aside-btn ${currentStatus === 'pending' ? 'dark' : 'gray-solid'}`}
+                onClick={() => onStartAction?.(report.id)}
+                disabled={loading || currentStatus !== 'pending'}
+              >
+                <Activity size={16} /> Mark In Progress
+              </button>
+            )}
             <button
-              className={`aside-btn ${report.status === 'pending' ? 'dark' : 'gray-solid'}`}
-              onClick={() => onStartAction?.(report.id)}
-              disabled={loading || report.status !== 'pending'}
-            >
-              <Search size={16} /> Start Investigation
-            </button>
-            <button
-              className={`aside-btn ${report.status === 'pending' || report.status === 'in_action' ? 'dark' : 'gray-solid'}`}
+              className={`aside-btn ${currentStatus === 'in_action' ? 'dark' : 'gray-solid'}`}
               onClick={() => onMarkResolved?.(report)}
-              disabled={loading || report.status === 'resolved' || report.status === 'duplicate'}
+              disabled={loading || currentStatus !== 'in_action'}
+              title={currentStatus === 'pending' ? 'Assign a responder first' : ''}
             >
               <CheckCircle size={16} /> Mark Resolved
             </button>
-          </div>
-
-          <div className="aside-card aside-card-secondary">
-            <p className="aside-label">SECONDARY</p>
-            {report.status === 'duplicate' ? (
-              <button className="aside-btn outline purple-outline" onClick={() => onRevertPending?.(report.id)} disabled={loading}>
-                <RotateCcw size={16} /> Remove Duplicate
-              </button>
-            ) : (
-              <button className="aside-btn outline" onClick={() => onMarkDuplicate?.(report.id)} disabled={loading || report.status === 'resolved'}>
-                <Copy size={16} /> Mark Duplicate
-              </button>
-            )}
             <button 
-              className="aside-btn outline" 
-              onClick={() => onRevertPending?.(report.id)} 
-              disabled={loading || report.status === 'pending' || report.status === 'duplicate'}
+              className={`aside-btn ${currentStatus === 'duplicate' ? 'gray-solid' : 'outline'}`}
+              onClick={() => onMarkDuplicate?.(report.id)} 
+              disabled={loading || currentStatus === 'duplicate' || currentStatus === 'resolved'}
             >
-              <RotateCcw size={16} /> Revert to Unconfirmed
+              <Copy size={16} /> Mark Duplicate
+            </button>
+            <button 
+              className={`aside-btn ${['in_action', 'resolved', 'duplicate'].includes(currentStatus) ? 'outline' : 'gray-solid'}`}
+              onClick={() => onRevertPending?.(report.id)} 
+              disabled={loading || !['in_action', 'resolved', 'duplicate'].includes(currentStatus)}
+            >
+              <RotateCcw size={16} /> {currentStatus === 'duplicate' ? 'Remove Duplicate' : 'Revert to Open'}
             </button>
             <button className="aside-btn outline danger-outline" onClick={() => onDeleteReport?.(report.id)} disabled={loading}>
-              <Trash2 size={16} /> Delete Report
+              <Trash2 size={16} /> Delete
             </button>
           </div>
 
           <div className="aside-card">
-            <p className="aside-label">Internal Note</p>
-            <textarea
-              className="note-textarea"
-              placeholder="Add an internal note..."
-              value={noteDraft}
-              onChange={(e) => setNoteDraft(e.target.value)}
-            />
-            <button className="aside-btn muted" onClick={handleSaveNoteClick} disabled={loading || noteDraft.trim() === (report.admin_notes || '').trim()}>
-              <FileText size={16} /> Save Note
-            </button>
-          </div>
-
-          <div className="aside-card">
-            <p className="aside-label">Activity Timeline</p>
-            <div className="activity-log">
-              {activityLog.map((item, idx) => (
-                <div key={idx} className="activity-item">
-                  <span className="activity-dot" style={{ background: item.color || '#94a3b8' }} />
-                  <div>
-                    <p>{item.label}</p>
-                    <small>{formatRelativeTime(item.time)}</small>
+            <p className="aside-label">Activity Log</p>
+            <div className="note-display">
+              {report.admin_notes ? (
+                report.admin_notes.split('\n').map((line, idx) => (
+                  <div key={idx} className="activity-log-item">
+                    {line}
                   </div>
-                </div>
-              ))}
+                ))
+              ) : (
+                <div className="no-activity">No activity yet</div>
+              )}
             </div>
           </div>
         </aside>
@@ -455,6 +412,15 @@ const ReportDetailModal = ({
             </>
           )}
         </div>
+      )}
+      {onAssignResponder && (
+        <AssignResponderModal
+          incident={report}
+          isOpen={showAssignModal}
+          onClose={() => setShowAssignModal(false)}
+          onAssign={onAssignResponder}
+          loading={loading}
+        />
       )}
     </>
   );

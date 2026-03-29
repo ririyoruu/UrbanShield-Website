@@ -1,0 +1,457 @@
+/* ================================================
+   ZENITH TABLE-STYLE POST MANAGEMENT
+   Clean table design matching Zenith orders table
+   ================================================ */
+
+/* Container */
+.zenith-table-moderation {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+/* Tab Filters */
+.zenith-tabs {
+  display: flex;
+  gap: 0.5rem;
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 0;
+}
+
+.zenith-tab {
+  padding: 0.75rem 1rem;
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  color: var(--muted-fg);
+  font-size: 0.875rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s;
+  position: relative;
+  bottom: -1px;
+}
+
+.zenith-tab:hover {
+  color: var(--fg);
+}
+
+.zenith-tab.active {
+  color: var(--fg);
+  border-bottom-color: var(--fg);
+}
+
+/* Toolbar */
+.zenith-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.zenith-search {
+  flex: 1;
+  min-width: 250px;
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.zenith-search svg {
+  position: absolute;
+  left: 0.875rem;
+  color: var(--muted-fg);
+  pointer-events: none;
+}
+
+.zenith-search input {
+  width: 100%;
+  padding: 0.625rem 0.875rem 0.625rem 2.5rem;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  color: var(--fg);
+  font-size: 0.875rem;
+  transition: border-color 0.15s;
+}
+
+.zenith-search input:focus {
+  outline: none;
+  border-color: var(--fg);
+}
+
+.zenith-search input::placeholder {
+  color: var(--muted-fg);
+}
+
+.zenith-toolbar-actions {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.zenith-toolbar-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.625rem 1rem;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  color: var(--fg);
+  font-size: 0.875rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.zenith-toolbar-btn:hover {
+  background: var(--muted);
+}
+
+/* Table Container */
+.zenith-table-container {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+
+.zenith-table-wrapper {
+  overflow-x: auto;
+}
+
+/* Table */
+.zenith-data-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.zenith-data-table thead {
+  background: var(--muted);
+  border-bottom: 1px solid var(--border);
+}
+
+.zenith-data-table th {
+  text-align: left;
+  padding: 0.75rem 1rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--muted-fg);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  white-space: nowrap;
+}
+
+.zenith-data-table th.sortable {
+  cursor: pointer;
+  user-select: none;
+}
+
+.zenith-data-table th.sortable:hover {
+  color: var(--fg);
+}
+
+.zenith-data-table tbody tr {
+  border-bottom: 1px solid var(--border);
+  transition: background 0.15s;
+  cursor: pointer;
+}
+
+.zenith-data-table tbody tr:last-child {
+  border-bottom: none;
+}
+
+.zenith-data-table tbody tr:hover {
+  background: var(--muted);
+}
+
+.zenith-data-table td {
+  padding: 1rem;
+  font-size: 0.875rem;
+  color: var(--fg);
+  vertical-align: middle;
+}
+
+/* Checkbox Column */
+.zenith-checkbox-cell {
+  width: 40px;
+  padding-left: 1rem;
+}
+
+.zenith-checkbox {
+  width: 16px;
+  height: 16px;
+  cursor: pointer;
+  accent-color: var(--fg);
+}
+
+/* Order/ID Column */
+.zenith-order-cell {
+  font-weight: 600;
+  color: var(--fg);
+  white-space: nowrap;
+}
+
+/* Customer/Reporter Column */
+.zenith-customer-cell {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.zenith-avatar {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: var(--muted);
+  color: var(--fg);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.875rem;
+  font-weight: 600;
+  flex-shrink: 0;
+}
+
+.zenith-customer-info {
+  display: flex;
+  flex-direction: column;
+  gap: 0.125rem;
+  min-width: 0;
+}
+
+.zenith-customer-name {
+  font-weight: 500;
+  color: var(--fg);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.zenith-customer-email {
+  font-size: 0.8125rem;
+  color: var(--muted-fg);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Product/Location Column */
+.zenith-product-cell {
+  color: var(--fg);
+  max-width: 250px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Status Column */
+.zenith-status-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1.4;
+  white-space: nowrap;
+}
+
+.zenith-status-badge.open {
+  background: rgba(245, 158, 11, 0.1);
+  color: #f59e0b;
+}
+
+.zenith-status-badge.in-progress {
+  background: rgba(59, 130, 246, 0.1);
+  color: #3b82f6;
+}
+
+.zenith-status-badge.resolved {
+  background: rgba(16, 185, 129, 0.1);
+  color: #10b981;
+}
+
+.zenith-status-badge.duplicate {
+  background: rgba(139, 92, 246, 0.1);
+  color: #8b5cf6;
+}
+
+/* Role pill */
+.zenith-role-pill {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.25rem 0.625rem;
+  border-radius: 0.375rem;
+  font-size: 0.75rem;
+  font-weight: 500;
+  background: var(--muted);
+  color: var(--muted-fg);
+  text-transform: capitalize;
+}
+
+/* User verification status variants */
+.zenith-status-badge.status-verified {
+  background: rgba(16, 185, 129, 0.1);
+  color: #10b981;
+}
+
+.zenith-status-badge.status-pending {
+  background: rgba(245, 158, 11, 0.1);
+  color: #f59e0b;
+}
+
+.zenith-status-badge.status-suspended {
+  background: rgba(239, 68, 68, 0.1);
+  color: #ef4444;
+}
+
+.zenith-status-badge.status-rejected {
+  background: rgba(239, 68, 68, 0.1);
+  color: #ef4444;
+}
+
+/* Date Column */
+.zenith-date-cell {
+  color: var(--muted-fg);
+  white-space: nowrap;
+}
+
+/* Trend Column */
+.zenith-trend-cell {
+  width: 80px;
+}
+
+.zenith-trend-placeholder {
+  width: 60px;
+  height: 24px;
+  background: var(--muted);
+  border-radius: 4px;
+}
+
+/* Amount Column */
+.zenith-amount-cell {
+  font-weight: 600;
+  color: var(--fg);
+  text-align: right;
+  white-space: nowrap;
+}
+
+/* Actions Column */
+.zenith-actions-cell {
+  width: 40px;
+  text-align: right;
+  padding-right: 1rem;
+}
+
+.zenith-actions-btn {
+  background: none;
+  border: none;
+  color: var(--muted-fg);
+  cursor: pointer;
+  padding: 0.25rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: calc(var(--radius) - 2px);
+  transition: all 0.15s;
+}
+
+.zenith-actions-btn:hover {
+  background: var(--muted);
+  color: var(--fg);
+}
+
+/* Empty State */
+.zenith-empty-state {
+  padding: 4rem 2rem;
+  text-align: center;
+  color: var(--muted-fg);
+}
+
+.zenith-empty-state svg {
+  margin-bottom: 1rem;
+  color: var(--muted-fg);
+}
+
+.zenith-empty-state h3 {
+  font-size: 1.125rem;
+  font-weight: 600;
+  color: var(--fg);
+  margin: 0 0 0.5rem 0;
+}
+
+.zenith-empty-state p {
+  font-size: 0.875rem;
+  color: var(--muted-fg);
+  margin: 0;
+}
+
+/* Loading State */
+.zenith-loading-state {
+  padding: 4rem 2rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  color: var(--muted-fg);
+}
+
+.zenith-loading-state svg {
+  margin-bottom: 1rem;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* Responsive */
+@media (max-width: 1024px) {
+  .zenith-data-table th,
+  .zenith-data-table td {
+    padding: 0.75rem;
+  }
+  
+  .zenith-product-cell {
+    max-width: 150px;
+  }
+}
+
+@media (max-width: 768px) {
+  .zenith-tabs {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+  
+  .zenith-tab {
+    flex-shrink: 0;
+  }
+  
+  .zenith-toolbar {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  
+  .zenith-search {
+    width: 100%;
+  }
+  
+  .zenith-toolbar-actions {
+    width: 100%;
+  }
+  
+  .zenith-toolbar-btn {
+    flex: 1;
+  }
+  
+  .zenith-table-wrapper {
+    overflow-x: scroll;
+  }
+  
+  .zenith-data-table {
+    min-width: 800px;
+  }
+}

@@ -1,23 +1,38 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import {
   Users,
   RefreshCw,
   Search,
+  MoreHorizontal,
 } from 'lucide-react';
 import { adminService } from '../config/supabase';
 import UserDetailModal from './UserDetailModal';
 import './UserManagement.css';
+import './ZenithIncidentModeration.css';
+import './ZenithTableModeration.css';
 
 const UserManagement = () => {
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [actionUserId, setActionUserId] = useState(null);
   const [message, setMessage] = useState({ type: '', text: '' });
   const [searchTerm, setSearchTerm] = useState('');
   const [filterRole, setFilterRole] = useState('all');
   const [filterStatus, setFilterStatus] = useState('all');
   const [selectedUser, setSelectedUser] = useState(null);
   const [showUserModal, setShowUserModal] = useState(false);
+  const [selectedUsers, setSelectedUsers] = useState(new Set());
+
+  const formatDisplayId = useCallback((index, total, prefix = 'USR') => {
+    const padded = (total - index).toString().padStart(4, '0');
+    return `${prefix}-${padded}`;
+  }, []);
+
+  const formatDate = (ds) => {
+    if (!ds) return '—';
+    return new Date(ds).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+  };
 
   useEffect(() => { loadUsers(); }, []);
 
@@ -67,81 +82,72 @@ const UserManagement = () => {
   };
 
   /* ── Actions (optimistic + reload) ── */
-  const handleApproveUser = async (userId) => {
+  const applyUserUpdate = (userId, updates) => {
+    if (!userId || !updates) return;
+    setUsers(prev => prev.map(u => u.id === userId ? { ...u, ...updates } : u));
+    setSelectedUser(prev => (prev && prev.id === userId ? { ...prev, ...updates } : prev));
+  };
+
+  const handleUserStatusChange = async (userId, { isVerified, status, successMessage }) => {
     try {
       setSaving(true);
-      // Optimistic update
-      setSelectedUser(prev => prev && prev.id === userId ? { ...prev, verification_status: 'verified', is_verified: true } : prev);
-      setUsers(prev => prev.map(u => u.id === userId ? { ...u, verification_status: 'verified', is_verified: true } : u));
-      await adminService.updateUserVerification(userId, true, 'verified');
+      setActionUserId(userId);
+      console.log('🔄 Updating user verification:', { userId, isVerified, status });
+      const response = await adminService.updateUserVerification(userId, isVerified, status);
+      console.log('✅ DB response:', response);
+      const updated = Array.isArray(response) ? response[0] : response;
+      if (updated) {
+        console.log('✅ Applying optimistic update:', updated);
+        applyUserUpdate(userId, {
+          verification_status: updated.verification_status,
+          is_verified: updated.is_verified,
+          updated_at: updated.updated_at
+        });
+      }
+      console.log('🔄 Reloading all users from DB...');
       await loadUsers();
-      showMessage('success', 'User verified successfully');
+      if (successMessage) {
+        showMessage('success', successMessage);
+      }
+      handleCloseModal();
     } catch (error) {
-      console.error('Error verifying user:', error);
-      showMessage('error', `Failed to verify user: ${error.message}`);
+      console.error('❌ Error updating user status:', error);
+      showMessage('error', `Failed to update user: ${error.message || 'Unknown error'}`);
       await loadUsers();
     } finally {
+      setActionUserId(null);
       setSaving(false);
     }
   };
 
-  const handleRejectUser = async (userId) => {
-    try {
-      setSaving(true);
-      setSelectedUser(prev => prev && prev.id === userId ? { ...prev, verification_status: 'rejected', is_verified: false } : prev);
-      setUsers(prev => prev.map(u => u.id === userId ? { ...u, verification_status: 'rejected', is_verified: false } : u));
-      await adminService.updateUserVerification(userId, false, 'rejected');
-      await loadUsers();
-      showMessage('success', 'User rejected successfully');
-    } catch (error) {
-      console.error('Error rejecting user:', error);
-      showMessage('error', `Failed to reject user: ${error.message}`);
-      await loadUsers();
-    } finally {
-      setSaving(false);
-    }
-  };
+  const handleApproveUser = (userId) => handleUserStatusChange(userId, {
+    isVerified: true,
+    status: 'verified',
+    successMessage: 'User verified successfully'
+  });
 
-  const handleSuspendUser = async (userId) => {
-    try {
-      setSaving(true);
-      setSelectedUser(prev => prev && prev.id === userId ? { ...prev, verification_status: 'suspended', is_verified: false } : prev);
-      setUsers(prev => prev.map(u => u.id === userId ? { ...u, verification_status: 'suspended', is_verified: false } : u));
-      await adminService.updateUserVerification(userId, false, 'suspended');
-      await loadUsers();
-      showMessage('success', 'User suspended successfully');
-    } catch (error) {
-      console.error('Error suspending user:', error);
-      showMessage('error', `Failed to suspend user: ${error.message}`);
-      await loadUsers();
-    } finally {
-      setSaving(false);
-    }
-  };
+  const handleRejectUser = (userId) => handleUserStatusChange(userId, {
+    isVerified: false,
+    status: 'rejected',
+    successMessage: 'User rejected successfully'
+  });
 
-  // Restore resets to pending so admin can re-verify
-  const handleRestoreUser = async (userId) => {
-    try {
-      setSaving(true);
-      setSelectedUser(prev => prev && prev.id === userId ? { ...prev, verification_status: 'pending', is_verified: null } : prev);
-      setUsers(prev => prev.map(u => u.id === userId ? { ...u, verification_status: 'pending', is_verified: null } : u));
-      // Reset to pending so verify flow restarts
-      await adminService.updateUserVerification(userId, null, 'pending');
-      await loadUsers();
-      showMessage('success', 'User access restored — now pending review');
-    } catch (error) {
-      console.error('Error restoring user:', error);
-      showMessage('error', `Failed to restore user: ${error.message}`);
-      await loadUsers();
-    } finally {
-      setSaving(false);
-    }
-  };
+  const handleSuspendUser = (userId) => handleUserStatusChange(userId, {
+    isVerified: false,
+    status: 'suspended',
+    successMessage: 'User suspended successfully'
+  });
+
+  const handleRestoreUser = (userId) => handleUserStatusChange(userId, {
+    isVerified: null,
+    status: 'pending',
+    successMessage: 'User access restored — now pending review'
+  });
 
   /* ── Status helpers ── */
   const getStatusInfo = (user) => {
     const vs = user.verification_status;
-    if (user.user_type === 'admin' || user.user_type === 'superadmin') {
+    if (user.user_type === 'admin') {
       return { label: 'Verified', color: '#10b981', key: 'verified' };
     }
     if (vs === 'verified') return { label: 'Verified', color: '#10b981', key: 'verified' };
@@ -152,14 +158,9 @@ const UserManagement = () => {
 
   const getRoleLabel = (userType) => {
     switch (userType) {
-      case 'admin':
-      case 'superadmin': return 'Admin';
-      case 'government':
-      case 'government_responder':
-      case 'government_official':
-      case 'responder': return 'Official/Responder';
-      case 'resident':
-      case 'verified_resident': return 'Resident';
+      case 'admin': return 'Admin';
+      case 'responder': return 'Responder';
+      case 'resident': return 'Resident';
       default: return userType || 'Resident';
     }
   };
@@ -175,115 +176,178 @@ const UserManagement = () => {
         user.full_name.toLowerCase().includes(s) ||
         user.email.toLowerCase().includes(s);
       const matchesRole = filterRole === 'all' ||
-        user.user_type === filterRole ||
-        (filterRole === 'government_responder' && (
-          user.user_type === 'government_official' ||
-          user.user_type === 'government' ||
-          user.user_type === 'responder'
-        )) ||
-        (filterRole === 'resident' && user.user_type === 'verified_resident');
+        user.user_type === filterRole;
       const statusKey = getStatusInfo(user).key;
       const matchesStatus = filterStatus === 'all' || statusKey === filterStatus;
       return matchesSearch && matchesRole && matchesStatus;
     });
   }, [users, searchTerm, filterRole, filterStatus]);
 
+  const stats = useMemo(() => {
+    return {
+      total: users.length,
+      pending: users.filter(u => getStatusInfo(u).key === 'pending').length,
+      verified: users.filter(u => getStatusInfo(u).key === 'verified').length,
+      suspended: users.filter(u => getStatusInfo(u).key === 'suspended').length,
+      rejected: users.filter(u => getStatusInfo(u).key === 'rejected').length,
+    };
+  }, [users]);
+
+  /* ── Checkbox Selection ── */
+  const handleSelectAll = (e) => {
+    if (e.target.checked) {
+      setSelectedUsers(new Set(filteredUsers.map(u => u.id)));
+    } else {
+      setSelectedUsers(new Set());
+    }
+  };
+
+  const handleSelectUser = (e, userId) => {
+    e.stopPropagation();
+    const newSelected = new Set(selectedUsers);
+    if (newSelected.has(userId)) {
+      newSelected.delete(userId);
+    } else {
+      newSelected.add(userId);
+    }
+    setSelectedUsers(newSelected);
+  };
+
+  const isAllSelected = filteredUsers.length > 0 && selectedUsers.size === filteredUsers.length;
+  const isIndeterminate = selectedUsers.size > 0 && selectedUsers.size < filteredUsers.length;
+
   return (
-    <div className="user-management">
+    <div className="zenith-table-moderation user-management-module">
       {message.text && (
         <div className={`message ${message.type}`}>{message.text}</div>
       )}
 
-      {/* Filters */}
-      <div className="user-filters">
-        <div className="search-container">
-          <Search size={15} className="search-icon" />
+      <div className="zenith-tabs">
+        <button className={`zenith-tab ${filterStatus === 'all' ? 'active' : ''}`} onClick={() => setFilterStatus('all')}>
+          All <span>{stats.total}</span>
+        </button>
+        <button className={`zenith-tab ${filterStatus === 'verified' ? 'active' : ''}`} onClick={() => setFilterStatus('verified')}>
+          Verified <span>{stats.verified}</span>
+        </button>
+        <button className={`zenith-tab ${filterStatus === 'pending' ? 'active' : ''}`} onClick={() => setFilterStatus('pending')}>
+          Pending <span>{stats.pending}</span>
+        </button>
+        <button className={`zenith-tab ${filterStatus === 'suspended' ? 'active' : ''}`} onClick={() => setFilterStatus('suspended')}>
+          Suspended <span>{stats.suspended}</span>
+        </button>
+        <button className={`zenith-tab ${filterStatus === 'rejected' ? 'active' : ''}`} onClick={() => setFilterStatus('rejected')}>
+          Unverified <span>{stats.rejected}</span>
+        </button>
+      </div>
+
+      <div className="zenith-toolbar">
+        <div className="zenith-search">
+          <Search size={18} />
           <input
             type="text"
-            placeholder="Search users by name or email..."
+            placeholder="Search users..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="search-input"
           />
         </div>
-        <div className="filter-controls">
-          <select value={filterRole} onChange={(e) => setFilterRole(e.target.value)} className="filter-select">
+        <div className="zenith-toolbar-actions">
+          <select value={filterRole} onChange={(e) => setFilterRole(e.target.value)} className="zenith-filter-select um-role-select">
             <option value="all">All Roles</option>
-            <option value="admin">Admin</option>
-            <option value="government_responder">Responders</option>
+            <option value="admin">Admins</option>
+            <option value="responder">Responders</option>
             <option value="resident">Residents</option>
-          </select>
-          <select value={filterStatus} onChange={(e) => setFilterStatus(e.target.value)} className="filter-select">
-            <option value="all">All Status</option>
-            <option value="pending">Pending</option>
-            <option value="verified">Verified</option>
-            <option value="suspended">Suspended</option>
-            <option value="rejected">Unverified</option>
           </select>
         </div>
       </div>
 
-      {/* Table */}
-      {loading ? (
-        <div className="loading-state">
-          <RefreshCw size={32} className="spinning" />
-          <p>Loading users...</p>
-        </div>
-      ) : filteredUsers.length === 0 ? (
-        <div className="empty-state">
-          <Users size={48} />
-          <h3>No users found</h3>
-          <p>No users match your current filters</p>
-        </div>
-      ) : (
-        <div className="users-table-wrap">
-          <table className="users-table">
-            <thead>
-              <tr>
-                <th>Name</th>
-                <th>Role</th>
-                <th>Status</th>
-                <th>Docs</th>
-              </tr>
-            </thead>
-            <tbody>
-              {filteredUsers.map(user => {
-                const statusInfo = getStatusInfo(user);
-                const docs = user.verification_documents || user.documents || [];
-                const docCount = Array.isArray(docs) ? docs.filter(d => d && d.trim()).length : 0;
-                const initials = getInitials(user.full_name);
-                return (
-                  <tr key={user.id} onClick={() => handleViewUser(user)}>
-                    <td>
-                      <div className="um-user-cell">
-                        <div className="um-avatar">{initials}</div>
-                        <div>
-                          <div className="um-user-name">{user.full_name}</div>
-                          <div className="um-user-email">{user.email}</div>
+      <div className="zenith-table-container">
+        {loading ? (
+          <div className="zenith-loading-state">
+            <RefreshCw size={32} className="spinning" />
+            <p>Loading users...</p>
+          </div>
+        ) : filteredUsers.length === 0 ? (
+          <div className="zenith-empty-state">
+            <Users size={48} />
+            <h3>No users found</h3>
+            <p>Try adjusting your filters.</p>
+          </div>
+        ) : (
+          <div className="zenith-table-wrapper">
+            <table className="zenith-data-table">
+              <thead>
+                <tr>
+                  <th className="zenith-checkbox-cell">
+                    <input
+                      type="checkbox"
+                      className="zenith-checkbox"
+                      checked={isAllSelected}
+                      ref={el => el && (el.indeterminate = isIndeterminate)}
+                      onChange={handleSelectAll}
+                    />
+                  </th>
+                  <th>User ID</th>
+                  <th>User</th>
+                  <th>Role</th>
+                  <th>Status</th>
+                  <th>Documents</th>
+                  <th>Joined</th>
+                  <th className="zenith-actions-cell"></th>
+                </tr>
+              </thead>
+              <tbody>
+                {filteredUsers.map((user, index) => {
+                  const statusInfo = getStatusInfo(user);
+                  const docs = user.verification_documents || user.documents || [];
+                  const docCount = Array.isArray(docs) ? docs.filter(d => d && d.trim()).length : 0;
+                  const initials = getInitials(user.full_name);
+                  const statusClass = `status-${statusInfo.key}`;
+                  return (
+                    <tr key={user.id} onClick={() => handleViewUser(user)}>
+                      <td className="zenith-checkbox-cell" onClick={(e) => e.stopPropagation()}>
+                        <input
+                          type="checkbox"
+                          className="zenith-checkbox"
+                          checked={selectedUsers.has(user.id)}
+                          onChange={(e) => handleSelectUser(e, user.id)}
+                        />
+                      </td>
+                      <td className="zenith-order-cell">
+                        {formatDisplayId(index, filteredUsers.length)}
+                      </td>
+                      <td>
+                        <div className="zenith-customer-cell">
+                          <div className="zenith-avatar">{initials}</div>
+                          <div className="zenith-customer-info">
+                            <div className="zenith-customer-name">{user.full_name}</div>
+                            <div className="zenith-customer-email">{user.email}</div>
+                          </div>
                         </div>
-                      </div>
-                    </td>
-                    <td>
-                      <span className="um-role">{getRoleLabel(user.user_type)}</span>
-                    </td>
-                    <td>
-                      <span className="um-status">
-                        <span className="um-status-dot" style={{ background: statusInfo.color }} />
-                        <span style={{ color: statusInfo.color }}>{statusInfo.label}</span>
-                      </span>
-                    </td>
-                    <td>
-                      <span className="um-docs">{docCount > 0 ? docCount : '—'}</span>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
-      )}
+                      </td>
+                      <td>
+                        <span className="zenith-role-pill">{getRoleLabel(user.user_type)}</span>
+                      </td>
+                      <td>
+                        <span className={`zenith-status-badge ${statusClass}`}>
+                          {statusInfo.label}
+                        </span>
+                      </td>
+                      <td>{docCount > 0 ? `${docCount} file${docCount > 1 ? 's' : ''}` : '—'}</td>
+                      <td className="zenith-date-cell">{formatDate(user.created_at)}</td>
+                      <td className="zenith-actions-cell" onClick={(e) => e.stopPropagation()}>
+                        <button className="zenith-actions-btn" onClick={() => handleViewUser(user)}>
+                          <MoreHorizontal size={16} />
+                        </button>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
 
-      {/* User Detail Modal */}
       <UserDetailModal
         user={selectedUser}
         isOpen={showUserModal}
@@ -292,10 +356,11 @@ const UserManagement = () => {
         onReject={handleRejectUser}
         onSuspend={handleSuspendUser}
         onRestore={handleRestoreUser}
-        loading={saving}
+        loading={saving && selectedUser?.id === actionUserId}
       />
     </div>
   );
-};
+}
+;
 
 export default UserManagement;

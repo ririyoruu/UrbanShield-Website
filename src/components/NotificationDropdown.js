@@ -111,7 +111,7 @@ const NotificationDropdown = ({ user, reports = [], isOpen, onClose, onNavigateT
         <div className="nd-summary">
           {pendingCount > 0 && (
             <span className="nd-chip pending">
-              <AlertTriangle size={11} /> {pendingCount} Unconfirmed
+              <AlertTriangle size={11} /> {pendingCount} Open
             </span>
           )}
           {inActionCount > 0 && (
@@ -145,7 +145,7 @@ const NotificationDropdown = ({ user, reports = [], isOpen, onClose, onNavigateT
                 <div className="nd-item-top">
                   <span className="nd-item-title">{notif.title}</span>
                   <span className={`nd-status-pill ${notif.status}`}>
-                    {notif.status === 'in_action' ? 'In Progress' : 'Unconfirmed'}
+                    {notif.status === 'in_action' ? 'In Progress' : 'Open'}
                   </span>
                 </div>
                 <div className="nd-item-meta">
