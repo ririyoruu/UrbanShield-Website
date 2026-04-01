@@ -708,6 +708,15 @@ const AdminDashboard = ({ user, onLogout }) => {
       });
       
       console.log('✅ adminService result:', result);
+      
+      // Optimistic update for reports list (for map and main dashboard)
+      setReports(prev => prev.map(r => r.id === incidentId ? { 
+        ...r, 
+        status: 'in_action', 
+        assigned_officer_id: responder.id,
+        assigned_officer: responder.full_name
+      } : r));
+      
       await loadReports();
       console.log('🔄 Data refreshed via loadReports()');
       
@@ -769,6 +778,10 @@ const AdminDashboard = ({ user, onLogout }) => {
     try {
       setLoading(true);
       await adminService.setIncidentVerified(reportId, true);
+      
+      // Optimistic update
+      setReports(prev => prev.map(r => r.id === reportId ? { ...r, status: 'approved', is_under_review: false } : r));
+      
       await loadReports();
       await loadStats();
 
@@ -795,6 +808,10 @@ const AdminDashboard = ({ user, onLogout }) => {
       if (reason) {
         console.log('Rejection reason:', reason);
       }
+      
+      // Optimistic update
+      setReports(prev => prev.map(r => r.id === reportId ? { ...r, status: 'rejected', is_verified: false } : r));
+      
       await loadReports();
       await loadStats();
 
@@ -809,6 +826,49 @@ const AdminDashboard = ({ user, onLogout }) => {
       const message = err?.message || 'Failed to reject report';
       setError(message);
       console.error('Error rejecting report:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleStartAction = async (reportId) => {
+    try {
+      setLoading(true);
+      await adminService.startAction(reportId);
+      
+      // Optimistic update
+      setReports(prev => prev.map(r => r.id === reportId ? { ...r, status: 'in_action' } : r));
+      if (selectedReport?.id === reportId) {
+        setSelectedReport(prev => ({ ...prev, status: 'in_action' }));
+      }
+      
+      await loadStats();
+      setError(null);
+    } catch (err) {
+      console.error('Error starting action:', err);
+      setError('Failed to start action: ' + err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleMarkResolved = async (report) => {
+    try {
+      setLoading(true);
+      const reportId = typeof report === 'object' ? report.id : report;
+      await adminService.resolveIncident(reportId);
+      
+      // Optimistic update
+      setReports(prev => prev.map(r => r.id === reportId ? { ...r, status: 'resolved' } : r));
+      if (selectedReport?.id === reportId) {
+        setSelectedReport(prev => ({ ...prev, status: 'resolved' }));
+      }
+      
+      await loadStats();
+      setError(null);
+    } catch (err) {
+      console.error('Error marking resolved:', err);
+      setError('Failed to mark resolved: ' + err.message);
     } finally {
       setLoading(false);
     }
@@ -851,6 +911,10 @@ const AdminDashboard = ({ user, onLogout }) => {
     try {
       setLoading(true);
       await adminService.updateReportStatus(reportId, 'pending', 'Status reverted to pending');
+      
+      // Optimistic update
+      setReports(prev => prev.map(r => r.id === reportId ? { ...r, status: 'pending', assigned_officer: null, assigned_officer_id: null } : r));
+      
       await handleIncidentStatusChange(reportId, 'pending');
     } catch (err) {
       setError('Failed to revert report');
@@ -1365,6 +1429,8 @@ const AdminDashboard = ({ user, onLogout }) => {
         onClose={handleCloseModal}
         onApprove={handleApprove}
         onReject={handleReject}
+        onStartAction={handleStartAction}
+        onMarkResolved={handleMarkResolved}
         onMarkDuplicate={handleMarkDuplicate}
         onRevertPending={handleRevertReport}
         onAssignResponder={handleAssignResponder}
