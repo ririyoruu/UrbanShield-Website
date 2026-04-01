@@ -109,14 +109,14 @@ CREATE POLICY "Allow admin full access to announcements"
     EXISTS (
       SELECT 1 FROM profiles 
       WHERE profiles.id = auth.uid() 
-      AND profiles.user_type IN ('admin', 'superadmin')
+      AND profiles.user_type IN ('admin', 'super_admin')
     )
   )
   WITH CHECK (
     EXISTS (
       SELECT 1 FROM profiles 
       WHERE profiles.id = auth.uid() 
-      AND profiles.user_type IN ('admin', 'superadmin')
+      AND profiles.user_type IN ('admin', 'super_admin')
     )
   );
 
