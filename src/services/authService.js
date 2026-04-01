@@ -59,7 +59,7 @@ export const authService = {
           data: {
             full_name: userData.name,
             username: userData.name + '_' + Date.now(), // Make unique
-            user_type: 'admin', // Must match constraint: ['resident', 'government', 'admin']
+            user_type: 'admin', // This portal ONLY creates admin accounts via invitation
             phone_number: userData.phone || null
           }
         }
@@ -298,11 +298,11 @@ export const authService = {
             throw new Error('Unable to verify account permissions. Please ensure the database setup SQL has been run.');
           }
 
-          // Only allow admin users to login
+          // CRITICAL: Only allow admin OR super_admin users to login to the website
           if (userProfile.user_type !== 'admin' && userProfile.user_type !== 'super_admin') {
-            console.warn('❌ Non-admin user attempted login:', { email, user_type: userProfile.user_type });
+            console.warn('❌ AUTH DENIED: Only Admin/SuperAdmin can access the website portal:', { email, user_type: userProfile.user_type });
             await supabase.auth.signOut();
-            throw new Error('Access denied. This portal is for administrators only.');
+            throw new Error('This portal is restricted to Administrators only. Responders/Residents must use the mobile application.');
           }
 
           // Block suspended users

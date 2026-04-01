@@ -27,12 +27,19 @@ function App() {
     const checkAuthState = async () => {
       try {
         const currentUser = await authService.getCurrentUser();
-        if (currentUser?.profile?.user_type === 'admin' || currentUser?.profile?.user_type === 'super_admin') {
-          setUser({
-            ...currentUser,
-            type: currentUser.profile.user_type,
-            name: currentUser.profile.full_name || currentUser.profile.username || 'Admin'
-          });
+        if (currentUser) {
+          const userType = currentUser.profile?.user_type;
+          if (userType === 'admin' || userType === 'super_admin') {
+            setUser({
+              ...currentUser,
+              type: userType,
+              name: currentUser.profile.full_name || currentUser.profile.username || 'Admin'
+            });
+          } else {
+            console.warn('⚠️ Non-admin session detected, signing out...');
+            await authService.signOut();
+            setUser(null);
+          }
         }
       } catch (error) {
         console.error('Auth check error:', error);
