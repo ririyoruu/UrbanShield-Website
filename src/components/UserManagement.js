@@ -4,6 +4,15 @@ import {
   RefreshCw,
   Search,
   MoreHorizontal,
+  CheckCircle,
+  AlertCircle,
+  X,
+  Trash2,
+  Check,
+  XCircle,
+  AlertTriangle,
+  SlidersHorizontal,
+  Upload
 } from 'lucide-react';
 import { adminService } from '../config/supabase';
 import UserDetailModal from './UserDetailModal';
@@ -11,12 +20,12 @@ import './UserManagement.css';
 import './ZenithIncidentModeration.css';
 import './ZenithTableModeration.css';
 
-const UserManagement = () => {
+const UserManagement = ({ isSuperAdmin }) => {
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [actionUserId, setActionUserId] = useState(null);
-  const [message, setMessage] = useState({ type: '', text: '' });
+  const [modal, setModal] = useState({ show: false, type: 'success', title: '', message: '', onConfirm: null });
   const [searchTerm, setSearchTerm] = useState('');
   const [filterRole, setFilterRole] = useState('all');
   const [filterStatus, setFilterStatus] = useState('all');
@@ -36,38 +45,81 @@ const UserManagement = () => {
 
   useEffect(() => { loadUsers(); }, []);
 
-  const showMessage = (type, text) => {
-    setMessage({ type, text });
-    setTimeout(() => setMessage({ type: '', text: '' }), 5000);
+  const showMessage = (type, message, title = '') => {
+    setModal({
+      show: true,
+      type,
+      title: title || (type === 'success' ? 'Completed' : type === 'error' ? 'Error' : 'Notification'),
+      message,
+      onConfirm: null
+    });
   };
 
   const loadUsers = async () => {
     try {
       setLoading(true);
       const data = await adminService.getAllUsers();
-      const transformedUsers = data.map(user => ({
-        id: user.id,
-        full_name: user.full_name || user.name || 'Unknown User',
-        email: user.email,
-        phone: user.phone || user.phone_number || '',
-        user_type: user.user_type || 'general_user',
-        is_verified: user.is_verified,
-        verification_status: user.verification_status,
-        created_at: user.created_at,
-        address: user.address || '',
-        department: user.department || null,
-        is_active: user.is_active !== false,
-        updated_at: user.updated_at || user.created_at,
-        verification_documents: user.verification_documents || user.documents || user.id_documents || [],
-        documents: user.verification_documents || user.documents || user.id_documents || [],
-        id_documents: user.verification_documents || user.documents || user.id_documents || [],
-      }));
+      const transformedUsers = data
+        .filter(user => user.user_type === 'resident' || user.user_type === 'general_user' || !user.user_type)
+        .map(user => ({
+          id: user.id,
+          full_name: user.full_name || user.name || 'Unknown User',
+          email: user.email,
+          phone: user.phone || user.phone_number || '',
+          user_type: user.user_type || 'resident',
+          is_verified: user.is_verified,
+          verification_status: user.verification_status,
+          created_at: user.created_at,
+          address: user.address || '',
+          department: user.department || null,
+          is_active: user.is_active !== false,
+          updated_at: user.updated_at || user.created_at,
+          verification_documents: user.verification_documents || user.documents || user.id_documents || [],
+          documents: user.verification_documents || user.documents || user.id_documents || [],
+          id_documents: user.verification_documents || user.documents || user.id_documents || [],
+        }));
       setUsers(transformedUsers);
     } catch (error) {
       console.error('Error loading users:', error);
       showMessage('error', 'Failed to load users');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleBulkDelete = () => {
+    if (!selectedUsers.size) return;
+    const count = selectedUsers.size;
+    
+    setModal({
+      show: true,
+      type: 'confirm',
+      title: 'Delete Residents?',
+      message: `Are you sure you want to permanently delete ${count} selected profile(s)? This action cannot be undone.`,
+      onConfirm: executeBulkDelete
+    });
+  };
+
+  const executeBulkDelete = async () => {
+    const count = selectedUsers.size;
+    const oldUsers = [...users];
+    const userIds = Array.from(selectedUsers);
+    
+    setModal({ show: false }); // Close confirm modal
+    setUsers(prev => prev.filter(u => !selectedUsers.has(u.id)));
+    setSelectedUsers(new Set());
+
+    try {
+      setSaving(true);
+      await adminService.deleteUsers(userIds);
+      showMessage('success', `${count} profile(s) deleted successfully`);
+      await loadUsers();
+    } catch (error) {
+      console.error('Bulk delete error:', error);
+      showMessage('error', `Failed to delete on server: ${error.message || 'Check RLS'}`);
+      setUsers(oldUsers);
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -218,8 +270,32 @@ const UserManagement = () => {
 
   return (
     <div className="zenith-table-moderation user-management-module">
-      {message.text && (
-        <div className={`message ${message.type}`}>{message.text}</div>
+      {/* Zenith Status Modal (Replacement for Alerts/Confirms) */}
+      {modal.show && (
+        <div className="zenith-status-modal-overlay">
+          <div className={`zenith-status-modal ${modal.type}`}>
+            <div className={`status-icon-glow ${modal.type}`}>
+              {modal.type === 'success' && <CheckCircle size={40} className="status-checkmark" />}
+              {modal.type === 'error' && <XCircle size={40} className="status-error" />}
+              {modal.type === 'confirm' && <AlertTriangle size={40} className="status-warning" />}
+            </div>
+            <h3>{modal.title}</h3>
+            <p>{modal.message}</p>
+            
+            {modal.type === 'confirm' ? (
+              <div className="zenith-modal-actions">
+                <button className="zenith-modal-btn cancel" onClick={() => setModal({ show: false })}>
+                  Keep them
+                </button>
+                <button className="zenith-modal-btn confirm-delete" onClick={modal.onConfirm}>
+                  Delete rows
+                </button>
+              </div>
+            ) : (
+              <button className="status-close-btn" onClick={() => setModal({ show: false })}>Done</button>
+            )}
+          </div>
+        </div>
       )}
 
       <div className="zenith-tabs">
@@ -240,23 +316,42 @@ const UserManagement = () => {
         </button>
       </div>
 
+      {/* Bulk Action Bar (Supabase Style) — Super Admin Only */}
+      {isSuperAdmin && selectedUsers.size > 0 && (
+        <div className="zenith-selection-bar active">
+          <div className="selection-info">
+            <span className="selection-count">{selectedUsers.size}</span>
+            <span className="selection-text">Resident{selectedUsers.size > 1 ? 's' : ''} selected</span>
+          </div>
+          <div className="selection-actions">
+            <button className="selection-btn cancel" onClick={() => setSelectedUsers(new Set())}>
+              Clear selection
+            </button>
+            <button className="selection-btn delete" onClick={handleBulkDelete} disabled={saving}>
+              <Trash2 size={16} />
+              {saving ? 'Deleting...' : 'Delete rows'}
+            </button>
+          </div>
+        </div>
+      )}
+
       <div className="zenith-toolbar">
         <div className="zenith-search">
           <Search size={18} />
           <input
             type="text"
-            placeholder="Search users..."
+            placeholder="Search residents..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
           />
         </div>
         <div className="zenith-toolbar-actions">
-          <select value={filterRole} onChange={(e) => setFilterRole(e.target.value)} className="zenith-filter-select um-role-select">
-            <option value="all">All Roles</option>
-            <option value="admin">Admins</option>
-            <option value="responder">Responders</option>
-            <option value="resident">Residents</option>
-          </select>
+          <button className="zenith-toolbar-btn">
+            <SlidersHorizontal size={14} /> Columns
+          </button>
+          <button className="zenith-toolbar-btn">
+            <Upload size={14} /> Export
+          </button>
         </div>
       </div>
 
@@ -356,6 +451,7 @@ const UserManagement = () => {
         onReject={handleRejectUser}
         onSuspend={handleSuspendUser}
         onRestore={handleRestoreUser}
+        isSuperAdmin={isSuperAdmin}
         loading={saving && selectedUser?.id === actionUserId}
       />
     </div>

@@ -1,10 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { useTheme } from '../contexts/ThemeContext';
 import {
-  LogOut,
   AlertTriangle,
-  MapPin,
   Users,
+  Shield,
+  LayoutDashboard,
+  ChevronRight,
+  MapPin,
   Clock,
   CheckCircle,
   Eye,
@@ -20,8 +22,9 @@ import {
   Mail,
   Moon,
   Sun,
-  LayoutDashboard,
-  Shield
+  LogOut,
+  Volume2,
+  VolumeX
 } from 'lucide-react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar, PieChart, Pie, Cell } from 'recharts';
 import MapComponent from './MapComponent';
@@ -35,7 +38,7 @@ import UserReportsManagement from './UserReportsManagement';
 import AnnouncementsManagement from './AnnouncementsManagement';
 import NotificationDropdown from './NotificationDropdown';
 import Settings from './Settings';
-import ResponderManagement from './ResponderManagement';
+import AdminManagement from './AdminManagement';
 import './AdminDashboard.css';
 import './ZenithDashboard.css';
 
@@ -81,6 +84,43 @@ const AdminDashboard = ({ user, onLogout }) => {
   const [adminAvatarUrl, setAdminAvatarUrl] = useState('');
   const [adminName, setAdminName] = useState(user?.name || '');
   const [adminId, setAdminId] = useState(null);
+  const [recentActivity, setRecentActivity] = useState([]);
+  const [isSuperAdmin, setIsSuperAdmin] = useState(false);
+  const [staffFilter, setStaffFilter] = useState('all');
+  const [userManagementOpen, setUserManagementOpen] = useState(false);
+  const [activeMenu, setActiveMenu] = useState(null); // track which main menu is open
+  const [isSoundEnabled, setIsSoundEnabled] = useState(() => {
+    const saved = localStorage.getItem('zenith_sound_enabled');
+    return saved === null ? true : saved === 'true';
+  });
+
+  // Persist sound setting
+  useEffect(() => {
+    localStorage.setItem('zenith_sound_enabled', isSoundEnabled);
+  }, [isSoundEnabled]);
+
+  const playNotificationSound = () => {
+    if (!isSoundEnabled) return;
+    try {
+      // Priority: use the user's custom file if they put it in public/notification.wav
+      // Falling back to the CDN sound for now so it works out of the box
+      const audio = new Audio('/notification.wav');
+      audio.volume = 0.5;
+      audio.play().catch(err => {
+        // If /notification.wav doesn't exist or is blocked, try the fallback CDN link
+        const fallback = new Audio('https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3');
+        fallback.volume = 0.5;
+        fallback.play().catch(e => console.warn('Audio play blocked:', e.message));
+      });
+    } catch (err) {
+      console.error('❌ Error playing notification sound:', err);
+    }
+  };
+
+  // Global Search State
+  const [globalSearchResults, setGlobalSearchResults] = useState({ incidents: [], profiles: [] });
+  const [isSearching, setIsSearching] = useState(false);
+  const [showSearchResults, setShowSearchResults] = useState(false);
 
   // Handle window resize for responsive sidebar
   useEffect(() => {
@@ -94,6 +134,29 @@ const AdminDashboard = ({ user, onLogout }) => {
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
+  // Global Search Effect (Debounced)
+  useEffect(() => {
+    const performSearch = async () => {
+      if (!searchTerm || searchTerm.trim().length < 2) {
+        setGlobalSearchResults({ incidents: [], profiles: [] });
+        return;
+      }
+
+      setIsSearching(true);
+      try {
+        const results = await adminService.globalSearch(searchTerm);
+        setGlobalSearchResults(results);
+      } catch (err) {
+        console.error('Search error:', err);
+      } finally {
+        setIsSearching(false);
+      }
+    };
+
+    const timer = setTimeout(performSearch, 300);
+    return () => clearTimeout(timer);
+  }, [searchTerm]);
+
   // Load admin profile (avatar)
   useEffect(() => {
     const loadAdminProfile = async () => {
@@ -103,18 +166,78 @@ const AdminDashboard = ({ user, onLogout }) => {
         setAdminId(authUser.id);
         const { data: profile } = await supabase
           .from('profiles')
-          .select('full_name, avatar_url')
+          .select('full_name, avatar_url, user_type')
           .eq('id', authUser.id)
           .single();
         if (profile) {
           if (profile.avatar_url) setAdminAvatarUrl(profile.avatar_url);
           if (profile.full_name) setAdminName(profile.full_name);
+          setIsSuperAdmin(profile.user_type === 'super_admin');
         }
       } catch (err) {
         console.error('Error loading admin profile:', err);
       }
     };
     loadAdminProfile();
+  }, [activeTab]);
+
+  // Load recent activity
+  useEffect(() => {
+    const loadRecentActivity = async () => {
+      try {
+        // Get recent incidents
+        const { data: recentIncidents } = await supabase
+          .from('incidents')
+          .select('id, title, created_at, status, reporter:profiles!incidents_user_id_fkey(full_name)')
+          .order('created_at', { ascending: false })
+          .limit(5);
+
+        // Get recent user verifications
+        const { data: recentUsers } = await supabase
+          .from('profiles')
+          .select('id, full_name, created_at, verification_status')
+          .order('created_at', { ascending: false })
+          .limit(5);
+
+        const activities = [];
+
+        // Add incidents
+        recentIncidents?.forEach(incident => {
+          activities.push({
+            id: `incident-${incident.id}`,
+            type: 'incident',
+            action: 'reported',
+            user: incident.reporter?.full_name || 'Unknown',
+            target: incident.title || 'Incident',
+            timestamp: incident.created_at,
+            status: incident.status
+          });
+        });
+
+        // Add users
+        recentUsers?.forEach(user => {
+          activities.push({
+            id: `user-${user.id}`,
+            type: 'user',
+            action: 'registered',
+            user: user.full_name || 'Unknown',
+            target: 'account',
+            timestamp: user.created_at,
+            status: user.verification_status
+          });
+        });
+
+        // Sort by timestamp
+        activities.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+        setRecentActivity(activities.slice(0, 8));
+      } catch (err) {
+        console.error('Error loading recent activity:', err);
+      }
+    };
+
+    if (activeTab === 'overview') {
+      loadRecentActivity();
+    }
   }, [activeTab]);
 
   // Load initial data
@@ -205,6 +328,7 @@ const AdminDashboard = ({ user, onLogout }) => {
     try {
       const data = await adminService.getAllReports();
       console.log('Raw report data:', data);
+      console.log('🔍 Database Schema Columns:', Object.keys(data[0] || {}));
       const cleanHexStrings = (text) => {
         if (!text || typeof text !== 'string') return text;
         const original = text;
@@ -404,13 +528,14 @@ const AdminDashboard = ({ user, onLogout }) => {
 
       if (payload.eventType === 'INSERT') {
         console.log('📝 New incident reported - refreshing all data...');
+        playNotificationSound();
         loadReports();
         loadStats();
         loadAnalytics();
         loadResponseTimeAnalytics();
         loadNotificationCount();
 
-        if (activeTab !== 'reports') {
+        if (activeTab !== 'reports' && activeTab !== 'incidents') {
           setNotificationCount(prev => prev + 1);
         }
 
@@ -489,8 +614,83 @@ const AdminDashboard = ({ user, onLogout }) => {
     }
   };
 
-  const handleAssignResponder = async (incidentId, responder) => {
-    if (!incidentId || !responder) return;
+  const handleSelectSearchResult = (result, type) => {
+    setSearchTerm('');
+    setShowSearchResults(false);
+    
+    if (type === 'incident') {
+      setActiveTab('incidents');
+      setReportsViewMode('list');
+      setSelectedReport(result);
+      setShowReportModal(true);
+    } else if (type === 'profile') {
+      if (result.user_type === 'admin' || result.user_type === 'responder' || result.user_type === 'super_admin') {
+        setActiveTab('admin-management');
+        setStaffFilter(result.user_type === 'admin' ? 'admins' : 'responders');
+      } else {
+        setActiveTab('users');
+      }
+    }
+  };
+
+  const renderSearchResultsArea = () => {
+    if (!searchTerm || searchTerm.length < 2) return null;
+    if (!showSearchResults) return null;
+
+    const hasResults = globalSearchResults.incidents.length > 0 || globalSearchResults.profiles.length > 0;
+
+    return (
+      <div className="search-results-dropdown" onMouseDown={(e) => e.preventDefault()}>
+        {!hasResults && !isSearching && (
+          <div className="search-empty">No results found for "{searchTerm}"</div>
+        )}
+        
+        {isSearching && (
+          <div className="search-empty">Searching...</div>
+        )}
+
+        {globalSearchResults.incidents.length > 0 && (
+          <div className="search-results-section">
+            <div className="search-results-header">Posts & Incidents</div>
+            {globalSearchResults.incidents.map(item => (
+              <div key={item.id} className="search-result-item" onClick={() => handleSelectSearchResult(item, 'incident')}>
+                <div className="search-result-icon"><AlertTriangle size={18} /></div>
+                <div className="search-result-content">
+                  <div className="search-result-title">{item.title}</div>
+                  <div className="search-result-subtitle">{item.address || 'Unknown location'}</div>
+                </div>
+                <div className="search-result-badge">{item.status}</div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {globalSearchResults.profiles.length > 0 && (
+          <div className="search-results-section">
+            <div className="search-results-header">People & Staff</div>
+            {globalSearchResults.profiles.map(item => (
+              <div key={item.id} className="search-result-item" onClick={() => handleSelectSearchResult(item, 'profile')}>
+                <div className="search-result-icon"><User size={18} /></div>
+                <div className="search-result-content">
+                  <div className="search-result-title">{item.full_name}</div>
+                  <div className="search-result-subtitle">{item.email}</div>
+                </div>
+                <div className="search-result-badge">{item.user_type}</div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    );
+  };
+
+  const handleAssignResponder = async (incidentId, responder, options = {}) => {
+    console.log('⚡ Starting Dispatch Reflection Phase...', { incidentId, responderId: responder?.id, options });
+    if (!incidentId || !responder) {
+      console.error('❌ DISPATCH ABORTED: Missing Incident ID or Responder Data', { incidentId, responder });
+      return;
+    }
+    
     try {
       setLoading(true);
       let assignedBy = adminId;
@@ -500,17 +700,30 @@ const AdminDashboard = ({ user, onLogout }) => {
         if (assignedBy) setAdminId(assignedBy);
       }
 
-      await adminService.assignResponder(incidentId, responder.id, {
+      console.log('📡 Calling adminService.assignResponder...', { incidentId, responderId: responder.id, assignedBy });
+      const result = await adminService.assignResponder(incidentId, responder.id, {
         assignedBy,
+        ...options,
         status: 'in_action'
       });
+      
+      console.log('✅ adminService result:', result);
       await loadReports();
+      console.log('🔄 Data refreshed via loadReports()');
+      
       setSelectedReport(prev => (prev && prev.id === incidentId
-        ? { ...prev, assigned_officer: responder.full_name, assigned_officer_id: responder.id }
+        ? { 
+            ...prev, 
+            status: 'in_action',
+            assigned_officer: responder.full_name + (options.additionalResponders?.length ? ` + ${options.additionalResponders.length} others` : ''), 
+            assigned_officer_id: responder.id 
+          }
         : prev));
     } catch (err) {
-      console.error('Error assigning responder:', err);
-      setError('Failed to assign responder');
+      console.error('CRITICAL DISPATCH ERROR:', err);
+      // Show high-visibility alert to find out why DB is rejecting
+      window.alert(`Dispatch Failed: ${err.message || 'Unknown database error'}`);
+      setError('Failed to assign responder: ' + (err.message || ''));
     } finally {
       setLoading(false);
     }
@@ -532,11 +745,9 @@ const AdminDashboard = ({ user, onLogout }) => {
     let matchesStatus = true;
 
     if (filterStatus === 'pending') {
-      matchesStatus = report.is_verified === null || report.is_verified === undefined;
+      matchesStatus = report.is_under_review === true;
     } else if (filterStatus === 'approved') {
-      matchesStatus = report.is_verified === true;
-    } else if (filterStatus === 'rejected') {
-      matchesStatus = report.is_verified === false;
+      matchesStatus = report.is_under_review === false;
     }
 
     const matchesSearch = report.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -562,7 +773,7 @@ const AdminDashboard = ({ user, onLogout }) => {
       await loadStats();
 
       // Update selected report in modal immediately
-      setSelectedReport(prev => (prev && prev.id === reportId ? { ...prev, is_verified: true, status: 'resolved' } : prev));
+      setSelectedReport(prev => (prev && prev.id === reportId ? { ...prev, is_under_review: false, status: 'resolved' } : prev));
 
       setError(null);
       if (showReportModal) {
@@ -621,9 +832,43 @@ const AdminDashboard = ({ user, onLogout }) => {
     }
   };
 
-  const handleIncidentStatusChange = async () => {
+  const handleIncidentStatusChange = async (reportId, newStatus) => {
     await loadReports();
     await loadStats();
+    
+    // Update active modal report if it's the one that changed
+    if (selectedReport?.id === reportId) {
+      const clearAssignment = newStatus === 'pending' || newStatus === 'open';
+      setSelectedReport(prev => ({
+        ...prev,
+        status: newStatus,
+        ...(clearAssignment && { assigned_officer: null, assigned_officer_id: null, assigned_at: null })
+      }));
+    }
+  };
+
+  const handleRevertReport = async (reportId) => {
+    try {
+      setLoading(true);
+      await adminService.updateReportStatus(reportId, 'pending', 'Status reverted to pending');
+      await handleIncidentStatusChange(reportId, 'pending');
+    } catch (err) {
+      setError('Failed to revert report');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleMarkDuplicate = async (reportId) => {
+    try {
+      setLoading(true);
+      await adminService.updateReportStatus(reportId, 'duplicate', 'Marked as duplicate');
+      await handleIncidentStatusChange(reportId, 'duplicate');
+    } catch (err) {
+      setError('Failed to mark duplicate');
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleResetAllToPending = async () => {
@@ -682,27 +927,59 @@ const AdminDashboard = ({ user, onLogout }) => {
         <nav className="sidebar-nav">
           <span className="sidebar-section-label">General</span>
           <button className={`nav-item ${activeTab === 'overview' ? 'active' : ''}`} onClick={() => handleTabChange('overview')}>
-            <LayoutDashboard size={18} /><span>Dashboard</span>
+            <div className="nav-item-content">
+              <LayoutDashboard size={18} /><span>Dashboard</span>
+            </div>
           </button>
           <button className={`nav-item ${activeTab === 'map' ? 'active' : ''}`} onClick={() => handleTabChange('map')}>
-            <MapPin size={18} /><span>Live Map</span>
+            <div className="nav-item-content">
+              <MapPin size={18} /><span>Live Map</span>
+            </div>
           </button>
           <button className={`nav-item ${activeTab === 'incidents' ? 'active' : ''}`} onClick={() => handleTabChange('incidents')}>
-            <AlertTriangle size={18} /><span>Posts</span>
+            <div className="nav-item-content">
+              <AlertTriangle size={18} /><span>Posts</span>
+            </div>
           </button>
-          <button className={`nav-item ${activeTab === 'users' ? 'active' : ''}`} onClick={() => handleTabChange('users')}>
-            <Users size={18} /><span>Users</span>
-          </button>
-          <button className={`nav-item ${activeTab === 'responders' ? 'active' : ''}`} onClick={() => handleTabChange('responders')}>
-            <Shield size={18} /><span>Responders</span>
-          </button>
+          <div className="sidebar-group">
+            <button 
+              className={`nav-item ${['users', 'admin-management'].includes(activeTab) ? 'active' : ''}`} 
+              onClick={() => setUserManagementOpen(!userManagementOpen)}
+            >
+              <div className="nav-item-content">
+                <Users size={18} />
+                <span>User Management</span>
+              </div>
+              <ChevronRight className={`chevron ${userManagementOpen ? 'rotate' : ''}`} size={16} />
+            </button>
+            
+            {userManagementOpen && (
+              <div className="sub-nav">
+                <button className={`nav-sub-item ${activeTab === 'users' ? 'active' : ''}`} onClick={() => handleTabChange('users')}>
+                  <User size={16} /><span>Residents</span>
+                </button>
+                <button className={`nav-sub-item ${(activeTab === 'admin-management' && staffFilter === 'responders') ? 'active' : ''}`} onClick={() => { handleTabChange('admin-management'); setStaffFilter('responders'); }}>
+                  <UserCheck size={16} /><span>Responders</span>
+                </button>
+                {isSuperAdmin && (
+                  <button className={`nav-sub-item ${(activeTab === 'admin-management' && staffFilter === 'admins') ? 'active' : ''}`} onClick={() => { handleTabChange('admin-management'); setStaffFilter('admins'); }}>
+                    <Shield size={16} /><span>Admins</span>
+                  </button>
+                )}
+              </div>
+            )}
+          </div>
 
           <span className="sidebar-section-label">Other</span>
           <button className={`nav-item ${activeTab === 'announcements' ? 'active' : ''}`} onClick={() => handleTabChange('announcements')}>
-            <Bell size={18} /><span>Announcements</span>
+            <div className="nav-item-content">
+              <Bell size={18} /><span>Announcements</span>
+            </div>
           </button>
           <button className={`nav-item ${activeTab === 'profile' ? 'active' : ''}`} onClick={() => handleTabChange('profile')}>
-            <SettingsIcon size={18} /><span>Settings</span>
+            <div className="nav-item-content">
+              <SettingsIcon size={18} /><span>Settings</span>
+            </div>
           </button>
         </nav>
 
@@ -744,8 +1021,10 @@ const AdminDashboard = ({ user, onLogout }) => {
               {activeTab === 'overview' && <span style={{ fontSize: '2em', fontWeight: 'bold' }}>Dashboard</span>}
               {activeTab === 'incidents' && <span style={{ fontSize: '2em', fontWeight: 'bold' }}>Post Management</span>}
               {activeTab === 'reports' && <span style={{ fontSize: '2em', fontWeight: 'bold' }}>Posts Management</span>}
-              {activeTab === 'users' && <span style={{ fontSize: '2em', fontWeight: 'bold' }}>User Management</span>}
-              {activeTab === 'responders' && <span style={{ fontSize: '2em', fontWeight: 'bold' }}>Responder Management</span>}
+              {activeTab === 'users' && <span style={{ fontSize: '2em', fontWeight: 'bold' }}>Residents</span>}
+              {activeTab === 'admin-management' && staffFilter === 'responders' && <span style={{ fontSize: '2em', fontWeight: 'bold' }}>Responders</span>}
+              {activeTab === 'admin-management' && staffFilter === 'admins' && <span style={{ fontSize: '2em', fontWeight: 'bold' }}>Admins</span>}
+              {activeTab === 'admin-management' && staffFilter === 'all' && <span style={{ fontSize: '2em', fontWeight: 'bold' }}>Staff Management</span>}
               {activeTab === 'announcements' && <span style={{ fontSize: '2em', fontWeight: 'bold' }}>Announcements</span>}
               {activeTab === 'profile' && <span style={{ fontSize: '2em', fontWeight: 'bold' }}>Settings</span>}
             </h1>
@@ -755,23 +1034,23 @@ const AdminDashboard = ({ user, onLogout }) => {
               <Search className="search-icon" size={16} />
               <input
                 type="text"
-                placeholder="Search posts..."
+                placeholder="Search UrbanShield..."
                 className="search-input"
                 value={searchTerm}
-                onChange={(e) => {
-                  setSearchTerm(e.target.value);
-                  if (e.target.value.trim()) setActiveTab('incidents');
-                }}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                onFocus={() => setShowSearchResults(true)}
+                onBlur={() => setTimeout(() => setShowSearchResults(false), 200)}
               />
               {searchTerm && (
                 <button
-                  style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#a1a1aa', display: 'flex', alignItems: 'center', padding: '0 4px' }}
+                  className="search-clear-btn"
                   onClick={() => setSearchTerm('')}
                   title="Clear search"
                 >
                   <X size={14} />
                 </button>
               )}
+              {renderSearchResultsArea()}
             </div>
             <div className="notification-container">
               <button className="notification-btn" onClick={() => setShowNotifications(!showNotifications)}>
@@ -791,6 +1070,15 @@ const AdminDashboard = ({ user, onLogout }) => {
                 onNavigateToIncidents={() => { setActiveTab('incidents'); setShowNotifications(false); }}
               />
             </div>
+            
+            <button 
+              className={`sound-btn ${!isSoundEnabled ? 'muted' : ''}`} 
+              onClick={() => setIsSoundEnabled(!isSoundEnabled)}
+              title={isSoundEnabled ? "Mute notification sound" : "Unmute notification sound"}
+            >
+              {isSoundEnabled ? <Volume2 size={18} /> : <VolumeX size={18} />}
+            </button>
+
             <button className="theme-btn" onClick={toggleTheme} title="Toggle theme">
               {isDark ? <Sun size={18} /> : <Moon size={18} />}
             </button>
@@ -823,7 +1111,7 @@ const AdminDashboard = ({ user, onLogout }) => {
                   <div className="zenith-stat-change positive">Registered accounts</div>
                 </div>
                 <div className="zenith-stat-card" onClick={() => setActiveTab('incidents')}>
-                  <div className="zenith-stat-label">Open</div>
+                  <div className="zenith-stat-label">Pending Posts</div>
                   <div className="zenith-stat-value">{stats[1]?.value || '0'}</div>
                   <div className="zenith-stat-change negative">Awaiting moderation</div>
                 </div>
@@ -834,15 +1122,17 @@ const AdminDashboard = ({ user, onLogout }) => {
                 </div>
               </div>
 
-              {/* Zenith-style Charts Grid */}
-              <div className="zenith-charts-grid">
-                <div className="zenith-chart-card">
-                  <div className="zenith-chart-header">
-                    <h3 className="zenith-chart-title">Post Trends</h3>
-                    <p className="zenith-chart-subtitle">Incident reports over the past 6 months</p>
-                  </div>
-                  <ResponsiveContainer width="100%" height={320}>
-                    <BarChart data={analyticsData}>
+              {/* Dashboard Grid Layout */}
+              <div className="dashboard-grid">
+                {/* Main Chart */}
+                <div className="dashboard-main-chart">
+                  <div className="zenith-chart-card">
+                    <div className="zenith-chart-header">
+                      <h3 className="zenith-chart-title">Post Trends</h3>
+                      <p className="zenith-chart-subtitle">Incident reports over the past 6 months</p>
+                    </div>
+                    <ResponsiveContainer width="100%" height={320}>
+                      <LineChart data={analyticsData}>
                       <CartesianGrid strokeDasharray="3 3" stroke={isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)'} vertical={false} />
                       <XAxis 
                         dataKey="name" 
@@ -867,17 +1157,62 @@ const AdminDashboard = ({ user, onLogout }) => {
                         }}
                         cursor={{ fill: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)' }}
                       />
-                      <Bar dataKey="incidents" fill={isDark ? '#71717a' : '#18181b'} radius={[4, 4, 0, 0]} />
-                    </BarChart>
-                  </ResponsiveContainer>
+                        <Line 
+                          type="monotone" 
+                          dataKey="incidents" 
+                          stroke={isDark ? '#ffffff' : '#18181b'} 
+                          strokeWidth={2}
+                          dot={{ fill: isDark ? '#ffffff' : '#18181b', r: 4 }}
+                          activeDot={{ r: 6 }}
+                        />
+                      </LineChart>
+                    </ResponsiveContainer>
+                  </div>
                 </div>
 
-                <div className="zenith-chart-card">
-                  <div className="zenith-chart-header">
-                    <h3 className="zenith-chart-title">Incident Categories</h3>
-                    <p className="zenith-chart-subtitle">Distribution of reported incident types</p>
+                {/* Sidebar with Activity & Category */}
+                <div className="dashboard-sidebar">
+                  {/* Recent Activity - Compact */}
+                  <div className="zenith-chart-card activity-compact">
+                    <div className="zenith-chart-header">
+                      <h3 className="zenith-chart-title">Recent Activity</h3>
+                      <p className="zenith-chart-subtitle">Latest system updates</p>
+                    </div>
+                    <div className="activity-list-compact">
+                      {recentActivity.length === 0 ? (
+                        <div className="activity-empty-compact">
+                          <Clock size={24} style={{ color: 'var(--muted-fg)', opacity: 0.5 }} />
+                          <p style={{ fontSize: '0.8125rem', color: 'var(--muted-fg)', margin: '0.5rem 0 0 0' }}>No recent activity</p>
+                        </div>
+                      ) : (
+                        recentActivity.slice(0, 5).map(activity => (
+                          <div key={activity.id} className="activity-item-compact">
+                            <div className="activity-icon-compact">
+                              {activity.type === 'incident' ? (
+                                <AlertTriangle size={12} style={{ color: '#ef4444' }} />
+                              ) : (
+                                <User size={12} style={{ color: '#3b82f6' }} />
+                              )}
+                            </div>
+                            <div className="activity-content-compact">
+                              <p className="activity-text-compact">
+                                <strong>{activity.user.split(' ')[0]}</strong> {activity.action}
+                              </p>
+                              <span className="activity-time-compact">{formatTimestamp(activity.timestamp)}</span>
+                            </div>
+                          </div>
+                        ))
+                      )}
+                    </div>
                   </div>
-                  <ResponsiveContainer width="100%" height={320}>
+
+                  {/* Category Chart */}
+                  <div className="zenith-chart-card">
+                    <div className="zenith-chart-header">
+                      <h3 className="zenith-chart-title">Incident Categories</h3>
+                      <p className="zenith-chart-subtitle">Distribution by type</p>
+                    </div>
+                    <ResponsiveContainer width="100%" height={280}>
                     <PieChart>
                       <Pie
                         data={incidentTypes}
@@ -914,9 +1249,10 @@ const AdminDashboard = ({ user, onLogout }) => {
                   </div>
                 </div>
               </div>
+            </div>
 
-              {/* Zenith-style Recent Activity */}
-              <div className="zenith-activity-card">
+            {/* Zenith-style Recent Activity */}
+            <div className="zenith-activity-card">
                 <div className="zenith-card-header">
                   <div>
                     <h3 className="zenith-card-title">Recent Posts</h3>
@@ -982,11 +1318,11 @@ const AdminDashboard = ({ user, onLogout }) => {
           )}
 
           {activeTab === 'users' && (
-            <UserManagement />
+            <UserManagement isSuperAdmin={isSuperAdmin} />
           )}
 
-          {activeTab === 'responders' && (
-            <ResponderManagement />
+          {activeTab === 'admin-management' && (
+            <AdminManagement initialTab={staffFilter} isSuperAdmin={isSuperAdmin} />
           )}
 
           {activeTab === 'announcements' && (
@@ -1029,8 +1365,11 @@ const AdminDashboard = ({ user, onLogout }) => {
         onClose={handleCloseModal}
         onApprove={handleApprove}
         onReject={handleReject}
+        onMarkDuplicate={handleMarkDuplicate}
+        onRevertPending={handleRevertReport}
         onAssignResponder={handleAssignResponder}
         onDeleteReport={handleDeleteReport}
+        isSuperAdmin={isSuperAdmin}
         loading={loading}
       />
     </div>

@@ -27,10 +27,10 @@ function App() {
     const checkAuthState = async () => {
       try {
         const currentUser = await authService.getCurrentUser();
-        if (currentUser?.profile?.user_type === 'admin') {
+        if (currentUser?.profile?.user_type === 'admin' || currentUser?.profile?.user_type === 'super_admin') {
           setUser({
             ...currentUser,
-            type: 'admin',
+            type: currentUser.profile.user_type,
             name: currentUser.profile.full_name || currentUser.profile.username || 'Admin'
           });
         }
@@ -46,7 +46,7 @@ function App() {
       const { user: authUser } = await authService.signIn(email, password);
       if (authUser) {
         const currentUser = await authService.getCurrentUser();
-        if (currentUser?.profile?.user_type === 'admin') {
+        if (currentUser?.profile?.user_type === 'admin' || currentUser?.profile?.user_type === 'super_admin') {
           setUser({
             ...currentUser,
             type: currentUser.profile.user_type,
@@ -55,7 +55,7 @@ function App() {
           return { success: true };
         } else {
           await authService.signOut();
-          return { success: false, error: 'Access denied. This portal is for admin accounts only.' };
+          return { success: false, error: 'Access denied. This portal is for administrators only.' };
         }
       }
       return { success: false, error: 'Login failed. Please check your credentials.' };
@@ -93,7 +93,7 @@ function App() {
           {/* Landing page - only show if not logged in */}
           <Route path="/" element={
             user ? (
-              user.type === 'admin' ? (
+              user.type === 'admin' || user.type === 'super_admin' ? (
                 <Navigate to="/dashboard" replace />
               ) : (
                 <div style={{ padding: '2rem', textAlign: 'center', background: '#000', color: '#fff', minHeight: '100vh' }}>
@@ -119,7 +119,7 @@ function App() {
 
           {/* Dashboard */}
           <Route path="/dashboard" element={
-            user && user.type === 'admin' ? (
+            user && (user.type === 'admin' || user.type === 'super_admin') ? (
               <AdminDashboard user={user} onLogout={handleLogout} />
             ) : (
               <Navigate to="/" replace />

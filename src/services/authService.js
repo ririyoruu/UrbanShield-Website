@@ -299,7 +299,7 @@ export const authService = {
           }
 
           // Only allow admin users to login
-          if (userProfile.user_type !== 'admin') {
+          if (userProfile.user_type !== 'admin' && userProfile.user_type !== 'super_admin') {
             console.warn('❌ Non-admin user attempted login:', { email, user_type: userProfile.user_type });
             await supabase.auth.signOut();
             throw new Error('Access denied. This portal is for administrators only.');
@@ -466,7 +466,7 @@ export const authService = {
         throw new Error('No account found with this email address');
       }
       
-      if (profileData.user_type !== 'admin') {
+      if (profileData.user_type !== 'admin' && profileData.user_type !== 'super_admin') {
         console.log('Non-admin user attempted reset:', email, profileData.user_type);
         throw new Error('Only administrators can reset their password');
       }
@@ -601,7 +601,7 @@ export const authService = {
         .single();
 
       if (error) throw error;
-      return data?.user_type === 'admin';
+      return data?.user_type === 'admin' || data?.user_type === 'super_admin';
     } catch (error) {
       console.error('Admin check error:', error);
       return false;

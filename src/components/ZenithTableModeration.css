@@ -19,13 +19,13 @@
 }
 
 .zenith-tab {
-  padding: 0.75rem 1rem;
+  padding: 1.25rem 1.5rem;
   background: none;
   border: none;
-  border-bottom: 2px solid transparent;
+  border-bottom: 3px solid transparent;
   color: var(--muted-fg);
-  font-size: 0.875rem;
-  font-weight: 500;
+  font-size: 1.375rem;
+  font-weight: 600;
   cursor: pointer;
   transition: all 0.15s;
   position: relative;
@@ -45,13 +45,13 @@
 .zenith-toolbar {
   display: flex;
   align-items: center;
-  gap: 0.75rem;
-  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.5rem 0;
 }
 
 .zenith-search {
-  flex: 1;
-  min-width: 250px;
+  flex: 0 1 400px;
   position: relative;
   display: flex;
   align-items: center;
@@ -59,53 +59,182 @@
 
 .zenith-search svg {
   position: absolute;
-  left: 0.875rem;
+  left: 1rem;
   color: var(--muted-fg);
   pointer-events: none;
+  transition: color 0.2s;
+}
+
+.zenith-search:focus-within svg {
+  color: var(--fg);
 }
 
 .zenith-search input {
   width: 100%;
-  padding: 0.625rem 0.875rem 0.625rem 2.5rem;
+  padding: 0.625rem 1rem 0.625rem 2.75rem;
   background: var(--card);
   border: 1px solid var(--border);
-  border-radius: var(--radius);
+  border-radius: 99px;
   color: var(--fg);
   font-size: 0.875rem;
-  transition: border-color 0.15s;
+  font-weight: 500;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .zenith-search input:focus {
   outline: none;
   border-color: var(--fg);
+  box-shadow: 0 0 0 3px rgba(0, 0, 0, 0.05);
+}
+
+[data-theme="dark"] .zenith-search input:focus {
+  box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.05);
 }
 
 .zenith-search input::placeholder {
   color: var(--muted-fg);
+  opacity: 0.7;
 }
 
 .zenith-toolbar-actions {
   display: flex;
-  gap: 0.5rem;
+  align-items: center;
+  gap: 0.625rem;
 }
 
 .zenith-toolbar-btn {
   display: flex;
   align-items: center;
   gap: 0.5rem;
-  padding: 0.625rem 1rem;
+  padding: 0.625rem 1.125rem;
   background: var(--card);
   border: 1px solid var(--border);
-  border-radius: var(--radius);
+  border-radius: 8px;
   color: var(--fg);
   font-size: 0.875rem;
-  font-weight: 500;
+  font-weight: 600;
   cursor: pointer;
-  transition: all 0.15s;
+  transition: all 0.15s ease;
+  white-space: nowrap;
 }
 
 .zenith-toolbar-btn:hover {
   background: var(--muted);
+  border-color: var(--muted-fg);
+}
+
+.zenith-toolbar-btn svg {
+  color: var(--muted-fg);
+}
+
+.zenith-toolbar-btn:hover svg {
+  color: var(--fg);
+}
+
+.zenith-toolbar-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+/* Modal Action Rows (for confirms) */
+.zenith-modal-actions {
+  display: flex;
+  gap: 12px;
+  width: 100%;
+  margin-top: 12px;
+}
+
+.zenith-modal-btn {
+  flex: 1;
+  padding: 14px 20px;
+  border-radius: 12px;
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+  border: none;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.zenith-modal-btn.cancel {
+  background: #f4f4f5;
+  color: #18181b;
+}
+
+[data-theme="dark"] .zenith-modal-btn.cancel {
+  background: #27272a;
+  color: #f4f4f5;
+}
+
+.zenith-modal-btn.confirm-delete {
+  background: #ef4444;
+  color: #fff;
+}
+
+.zenith-modal-btn.confirm-delete:hover {
+  background: #dc2626;
+  box-shadow: 0 4px 12px rgba(239, 68, 68, 0.3);
+}
+
+.zenith-modal-btn.cancel:hover {
+  background: #e4e4e7;
+}
+
+[data-theme="dark"] .zenith-modal-btn.cancel:hover {
+  background: #3f3f46;
+}
+
+.zenith-modal-btn:active {
+  transform: scale(0.98);
+}
+
+/* Bulk Actions */
+.zenith-bulk-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex: 1;
+  flex-wrap: wrap;
+}
+
+.zenith-bulk-count {
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: var(--fg);
+  padding: 0 0.5rem;
+}
+
+.zenith-btn-success {
+  background: rgba(16, 185, 129, 0.1);
+  border-color: #10b981;
+  color: #10b981;
+}
+
+.zenith-btn-success:hover {
+  background: rgba(16, 185, 129, 0.2);
+}
+
+.zenith-btn-warning {
+  background: rgba(245, 158, 11, 0.1);
+  border-color: #f59e0b;
+  color: #f59e0b;
+}
+
+.zenith-btn-warning:hover {
+  background: rgba(245, 158, 11, 0.2);
+}
+
+.zenith-btn-danger {
+  background: rgba(239, 68, 68, 0.1);
+  border-color: #ef4444;
+  color: #ef4444;
+}
+
+.zenith-btn-danger:hover {
+  background: rgba(239, 68, 68, 0.2);
 }
 
 /* Table Container */
@@ -133,9 +262,9 @@
 
 .zenith-data-table th {
   text-align: left;
-  padding: 0.75rem 1rem;
-  font-size: 0.75rem;
-  font-weight: 600;
+  padding: 1.25rem 1rem;
+  font-size: 1.125rem;
+  font-weight: 700;
   color: var(--muted-fg);
   text-transform: uppercase;
   letter-spacing: 0.05em;
@@ -166,8 +295,8 @@
 }
 
 .zenith-data-table td {
-  padding: 1rem;
-  font-size: 0.875rem;
+  padding: 1.5rem 1rem;
+  font-size: 1.25rem;
   color: var(--fg);
   vertical-align: middle;
 }
@@ -200,15 +329,15 @@
 }
 
 .zenith-avatar {
-  width: 36px;
-  height: 36px;
+  width: 48px;
+  height: 48px;
   border-radius: 50%;
   background: var(--muted);
   color: var(--fg);
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 0.875rem;
+  font-size: 1.25rem;
   font-weight: 600;
   flex-shrink: 0;
 }
@@ -221,15 +350,16 @@
 }
 
 .zenith-customer-name {
-  font-weight: 500;
+  font-weight: 700;
   color: var(--fg);
+  font-size: 1.25rem;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
 .zenith-customer-email {
-  font-size: 0.8125rem;
+  font-size: 1.125rem;
   color: var(--muted-fg);
   white-space: nowrap;
   overflow: hidden;
@@ -249,12 +379,21 @@
 .zenith-status-badge {
   display: inline-flex;
   align-items: center;
-  padding: 2px 8px;
+  padding: 8px 16px;
   border-radius: 999px;
-  font-size: 11px;
-  font-weight: 600;
-  line-height: 1.4;
+  font-size: 1rem;
+  font-weight: 700;
+  line-height: 1;
   white-space: nowrap;
+}
+
+/* Small variant for compact tables */
+.zenith-status-badge--small {
+  padding: 0px 1px;
+  font-size: 6px;
+  font-weight: 500;
+  line-height: 1;
+  letter-spacing: 0.02em;
 }
 
 .zenith-status-badge.open {
@@ -281,9 +420,9 @@
 .zenith-role-pill {
   display: inline-flex;
   align-items: center;
-  padding: 0.25rem 0.625rem;
+  padding: 0.5rem 1rem;
   border-radius: 0.375rem;
-  font-size: 0.75rem;
+  font-size: 1.125rem;
   font-weight: 500;
   background: var(--muted);
   color: var(--muted-fg);
@@ -387,6 +526,109 @@
   margin: 0;
 }
 
+/* ── Selection Action Bar (Supabase Style) ── */
+.zenith-selection-bar {
+  position: fixed;
+  bottom: 24px;
+  left: 50%;
+  transform: translateX(-50%) translateY(100%);
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 99px;
+  padding: 8px 12px;
+  display: flex;
+  align-items: center;
+  gap: 24px;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
+  z-index: 500;
+  opacity: 0;
+  transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.zenith-selection-bar.active {
+  transform: translateX(-50%) translateY(0);
+  opacity: 1;
+}
+
+.selection-info {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding-left: 8px;
+}
+
+.selection-count {
+  background: var(--primary);
+  color: #fff;
+  width: 24px;
+  height: 24px;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.75rem;
+  font-weight: 800;
+}
+
+.selection-text {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--fg);
+}
+
+.selection-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  border-left: 1px solid var(--border);
+  padding-left: 20px;
+}
+
+.selection-btn {
+  padding: 8px 16px;
+  border-radius: 99px;
+  font-size: 0.875rem;
+  font-weight: 700;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  transition: all 0.2s;
+}
+
+.selection-btn.cancel {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  color: var(--muted-fg);
+}
+
+.selection-btn.cancel:hover {
+  background: var(--border);
+  color: var(--fg);
+}
+
+.selection-btn.delete {
+  background: #ef4444;
+  border: none;
+  color: #fff;
+}
+
+.selection-btn.delete:hover {
+  background: #dc2626;
+  box-shadow: 0 4px 12px rgba(239, 68, 68, 0.3);
+}
+
+.selection-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+[data-theme="dark"] .zenith-selection-bar {
+  background: #1e1e21;
+  border-color: #2e2e32;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4);
+}
+
 /* Loading State */
 .zenith-loading-state {
   padding: 4rem 2rem;
@@ -454,4 +696,120 @@
   .zenith-data-table {
     min-width: 800px;
   }
+}
+/* Success Modal Styles */
+/* ── Zenith Status & Confirm Modals ── */
+.zenith-modals-container {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.zenith-status-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.4);
+  backdrop-filter: blur(8px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  animation: zenithFadeIn 0.3s ease;
+}
+
+.zenith-status-modal {
+  background: var(--card, #fff);
+  width: 100%;
+  max-width: 400px;
+  border-radius: 24px;
+  padding: 40px 32px;
+  text-align: center;
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.2);
+  border: 1px solid var(--border);
+  animation: zenithPopIn 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+}
+
+[data-theme="dark"] .zenith-status-modal {
+  background: #18181b;
+  border-color: #27272a;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+}
+
+.status-icon-glow {
+  stroke-width: 2.5px;
+}
+
+.zenith-status-modal h3 {
+  font-size: 1.5rem;
+  font-weight: 800;
+  margin: 0;
+  color: var(--fg);
+}
+
+.zenith-status-modal p {
+  font-size: 1.125rem;
+  color: var(--muted-fg);
+  line-height: 1.5;
+  margin: 0 0 0.5rem 0;
+}
+
+.status-close-btn {
+  width: 100%;
+  padding: 1rem;
+  background: var(--primary);
+  color: #ffffff;
+  border: none;
+  border-radius: var(--radius);
+  font-size: 1.125rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s;
+  box-shadow: 0 4px 12px rgba(37, 99, 235, 0.2);
+}
+
+.status-close-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(37, 99, 235, 0.3);
+}
+
+/* Error Toast at top */
+.zenith-toast-error {
+  position: fixed;
+  top: 1.5rem;
+  left: 50%;
+  transform: translate(-50%, 0);
+  background: #ef4444;
+  color: #fff;
+  padding: 1rem 1.5rem;
+  border-radius: 999px;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  box-shadow: 0 10px 20px rgba(239, 68, 68, 0.2);
+  z-index: 2000;
+  animation: slideDownFade 0.3s ease-out;
+  font-weight: 600;
+  font-size: 1.125rem;
+}
+
+@keyframes slideDownFade {
+  from { transform: translate(-50%, -20px); opacity: 0; }
+  to { transform: translate(-50%, 0); opacity: 1; }
+}
+
+.zenith-toast-error button {
+  background: rgba(0,0,0,0.1);
+  border: none;
+  color: #fff;
+  padding: 4px;
+  border-radius: 50%;
+  cursor: pointer;
+  display: flex;
 }

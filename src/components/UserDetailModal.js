@@ -17,23 +17,107 @@ import {
   AlertTriangle,
   ZoomOut,
   Building2,
+  Edit,
+  Save,
 } from 'lucide-react';
+import { adminService, supabase } from '../config/supabase';
 import './UserDetailModal.css';
 
-const UserDetailModal = ({ user, isOpen, onClose, onApprove, onReject, onSuspend, onRestore, loading }) => {
+const UserDetailModal = ({ user, isOpen, onClose, onApprove, onReject, onSuspend, onRestore, loading, isSuperAdmin: propIsSuperAdmin }) => {
   const [currentDocIndex, setCurrentDocIndex] = useState(0);
   const [docZoom, setDocZoom] = useState(false);
+  const [isEditMode, setIsEditMode] = useState(false);
+  const [isSuperAdmin, setIsSuperAdmin] = useState(false);
+  const [editForm, setEditForm] = useState({
+    full_name: '',
+    email: '',
+    phone: '',
+    address: '',
+    department: ''
+  });
+  const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     if (isOpen && user) {
       setCurrentDocIndex(0);
       setDocZoom(false);
+      setIsEditMode(false);
+      setEditForm({
+        full_name: user.full_name || '',
+        email: user.email || '',
+        phone: user.phone || user.phone_number || '',
+        address: user.address || '',
+        department: user.department || ''
+      });
       document.body.style.overflow = 'hidden';
+      
+      if (propIsSuperAdmin !== undefined) {
+        setIsSuperAdmin(propIsSuperAdmin);
+      } else {
+        checkSuperAdmin();
+      }
     } else {
       document.body.style.overflow = '';
     }
     return () => { document.body.style.overflow = ''; };
-  }, [isOpen, user?.id]);
+  }, [isOpen, user?.id, propIsSuperAdmin]);
+
+  const checkSuperAdmin = async () => {
+    try {
+      const { data: { user: authUser } } = await supabase.auth.getUser();
+      if (authUser) {
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('user_type')
+          .eq('id', authUser.id)
+          .single();
+        setIsSuperAdmin(profile?.user_type === 'super_admin');
+      }
+    } catch (error) {
+      console.error('Error checking super admin status:', error);
+    }
+  };
+
+  const handleEditToggle = () => {
+    if (isEditMode) {
+      // Cancel edit - reset form
+      setEditForm({
+        full_name: user.full_name || '',
+        email: user.email || '',
+        phone: user.phone || user.phone_number || '',
+        address: user.address || '',
+        department: user.department || ''
+      });
+    }
+    setIsEditMode(!isEditMode);
+  };
+
+  const handleSaveEdit = async () => {
+    try {
+      const digitsOnly = editForm.phone.replace(/\D/g, '');
+      if (digitsOnly.length !== 11) {
+        alert('Phone number must be exactly 11 digits (e.g., 09123456789)');
+        return;
+      }
+      
+      setSaving(true);
+      await adminService.updateUserProfile(user.id, {
+        full_name: editForm.full_name,
+        email: editForm.email,
+        phone_number: digitsOnly,
+        address: editForm.address,
+        department: editForm.department
+      });
+      setIsEditMode(false);
+      // Refresh user data
+      window.location.reload();
+    } catch (error) {
+      console.error('Error updating user:', error);
+      alert('Failed to update user details');
+    } finally {
+      setSaving(false);
+    }
+  };
 
   if (!isOpen || !user) return null;
 
@@ -98,6 +182,18 @@ const UserDetailModal = ({ user, isOpen, onClose, onApprove, onReject, onSuspend
           <div className="udm-header-info">
             <h2 className="udm-name">{user.full_name || user.name || 'Unknown User'}</h2>
             <span className="udm-email">{user.email}</span>
+            {isSuperAdmin && (
+              <button 
+                className={`udm-edit-toggle ${isEditMode ? 'active' : ''}`}
+                onClick={handleEditToggle}
+              >
+                {isEditMode ? (
+                  <><X size={14} /> Cancel Edit</>
+                ) : (
+                  <><Edit size={14} /> Edit Details</>
+                )}
+              </button>
+            )}
           </div>
           <button className="udm-close" onClick={onClose}><X size={16} /></button>
         </div>
@@ -179,43 +275,112 @@ const UserDetailModal = ({ user, isOpen, onClose, onApprove, onReject, onSuspend
           )}
 
           {/* Details */}
-          <div className="udm-section-label" style={{ marginTop: 4 }}>Details</div>
-          <div className="udm-details-grid">
-            <div className="udm-detail-item">
-              <span className="udm-detail-label">Email</span>
-              <span className="udm-detail-value">{user.email || '—'}</span>
-            </div>
-            <div className="udm-detail-item">
-              <span className="udm-detail-label">Phone</span>
-              <span className="udm-detail-value">{user.phone || user.phone_number || '—'}</span>
-            </div>
-            <div className="udm-detail-item">
-              <span className="udm-detail-label">Joined</span>
-              <span className="udm-detail-value">{formatDate(user.created_at)}</span>
-            </div>
-            <div className="udm-detail-item">
-              <span className="udm-detail-label">Updated</span>
-              <span className="udm-detail-value">{formatDate(user.updated_at)}</span>
-            </div>
-            {user.address && user.address !== 'Not provided' && (
-              <div className="udm-detail-item udm-detail-full">
-                <span className="udm-detail-label">Address</span>
-                <span className="udm-detail-value">{user.address}</span>
+          {isEditMode ? (
+            <div className="udm-edit-form">
+              <div className="udm-edit-stack">
+                <div className="udm-edit-group">
+                  <label>Full Name</label>
+                  <input
+                    type="text"
+                    value={editForm.full_name}
+                    onChange={(e) => setEditForm({...editForm, full_name: e.target.value})}
+                    placeholder="Enter full name"
+                  />
+                </div>
+                <div className="udm-edit-group">
+                  <label>Email Address</label>
+                  <input
+                    type="email"
+                    value={editForm.email}
+                    onChange={(e) => setEditForm({...editForm, email: e.target.value})}
+                    placeholder="Enter email"
+                  />
+                </div>
+                <div className="udm-edit-group">
+                  <label>Phone Number</label>
+                  <input
+                    type="tel"
+                    value={editForm.phone}
+                    onChange={(e) => {
+                      const val = e.target.value.replace(/\D/g, '').slice(0, 11);
+                      setEditForm({...editForm, phone: val});
+                    }}
+                    placeholder="e.g. 09123456789"
+                    maxLength={11}
+                  />
+                </div>
+                <div className="udm-edit-group">
+                  <label>Home Address</label>
+                  <input
+                    type="text"
+                    value={editForm.address}
+                    onChange={(e) => setEditForm({...editForm, address: e.target.value})}
+                    placeholder="Enter address"
+                  />
+                </div>
+                <div className="udm-edit-group">
+                  <label>Department</label>
+                  <input
+                    type="text"
+                    value={editForm.department}
+                    onChange={(e) => setEditForm({...editForm, department: e.target.value})}
+                    placeholder="Enter department"
+                  />
+                </div>
               </div>
-            )}
-            {user.department && (
-              <div className="udm-detail-item udm-detail-full">
-                <span className="udm-detail-label">Department</span>
-                <span className="udm-detail-value">{user.department}</span>
+              <div className="udm-edit-actions">
+                <button className="udm-btn-save" onClick={handleSaveEdit} disabled={saving}>
+                  <Save size={16} />
+                  {saving ? 'Saving...' : 'Save Changes'}
+                </button>
+                <button className="udm-btn-cancel" onClick={handleEditToggle}>
+                  Cancel
+                </button>
               </div>
-            )}
-          </div>
+            </div>
+          ) : (
+            <>
+              <div className="udm-section-label" style={{ marginTop: 4 }}>Details</div>
+              <div className="udm-details-stack">
+                <div className="udm-detail-row">
+                  <span className="udm-detail-label">Full Name</span>
+                  <span className="udm-detail-value">{user.full_name || 'Not provided'}</span>
+                </div>
+                <div className="udm-detail-row">
+                  <span className="udm-detail-label">Email Address</span>
+                  <span className="udm-detail-value">{user.email || 'Not provided'}</span>
+                </div>
+                <div className="udm-detail-row">
+                  <span className="udm-detail-label">Phone Number</span>
+                  <span className="udm-detail-value">{user.phone || user.phone_number || 'Not provided'}</span>
+                </div>
+                <div className="udm-detail-row">
+                  <span className="udm-detail-label">Joined On</span>
+                  <span className="udm-detail-value">{formatDate(user.created_at)}</span>
+                </div>
+                {user.address && (
+                  <div className="udm-detail-row">
+                    <span className="udm-detail-label">Home Address</span>
+                    <span className="udm-detail-value">{user.address}</span>
+                  </div>
+                )}
+                {user.department && (
+                  <div className="udm-detail-row">
+                    <span className="udm-detail-label">Department</span>
+                    <span className="udm-detail-value">{user.department}</span>
+                  </div>
+                )}
+              </div>
+            </>
+          )}
         </div>
 
         {/* ── Footer — context-sensitive buttons ── */}
         <div className="udm-footer">
+          {/* Save button for edit mode - moved to form, remove from footer */}
+          
           {/* PENDING → Reject + Verify user */}
-          {isPending && !isAdmin && (
+          {!isEditMode && isPending && !isAdmin && (
             <div className="udm-footer-actions">
               {!hasDocuments && (
                 <div className="udm-warn">
@@ -248,8 +413,8 @@ const UserDetailModal = ({ user, isOpen, onClose, onApprove, onReject, onSuspend
             </div>
           )}
 
-          {/* VERIFIED → Suspend account */}
-          {isVerified && !isAdmin && !isPending && (
+          {/* VERIFIED → Suspend account (Super Admin Only) */}
+          {!isEditMode && isVerified && !isAdmin && !isPending && isSuperAdmin && (
             <div className="udm-footer-actions">
               <button
                 className="udm-btn udm-btn-suspend"
@@ -258,26 +423,28 @@ const UserDetailModal = ({ user, isOpen, onClose, onApprove, onReject, onSuspend
                 }}
                 disabled={loading}
               >
+                <XCircle size={14} />
                 Suspend account
               </button>
             </div>
           )}
 
-          {/* SUSPENDED → Restore access */}
-          {isSuspended && !isAdmin && (
+          {/* SUSPENDED → Restore access (Super Admin Only) */}
+          {!isEditMode && isSuspended && !isAdmin && isSuperAdmin && (
             <div className="udm-footer-actions">
               <button
                 className="udm-btn udm-btn-restore"
                 onClick={() => onRestore(user.id)}
                 disabled={loading}
               >
+                <CheckCircle size={14} />
                 Restore access
               </button>
             </div>
           )}
 
           {/* UNVERIFIED (REJECTED) → Restore access */}
-          {isRejected && !isAdmin && (
+          {!isEditMode && isRejected && !isAdmin && (
             <div className="udm-footer-actions">
               <button
                 className="udm-btn udm-btn-restore"
@@ -290,7 +457,7 @@ const UserDetailModal = ({ user, isOpen, onClose, onApprove, onReject, onSuspend
           )}
 
           {/* ADMIN → just close */}
-          {isAdmin && (
+          {!isEditMode && isAdmin && (
             <div className="udm-footer-actions">
               <button className="udm-btn udm-btn-close" onClick={onClose}>Close</button>
             </div>

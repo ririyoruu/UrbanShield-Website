@@ -1,37 +1,46 @@
-import React, { useState, useEffect } from 'react';
-import { X, Shield, Building2, CheckCircle, AlertCircle, RefreshCw } from 'lucide-react';
+import React, { useState, useEffect, useMemo } from 'react';
+import { X, Shield, Building2, CheckCircle, Search, Users, Thermometer, Flame, Activity, Heart, HardHat, RefreshCw } from 'lucide-react';
 import { supabase } from '../config/supabase';
 import './AssignResponderModal.css';
 
 const AssignResponderModal = ({ incident, isOpen, onClose, onAssign, loading }) => {
   const [responders, setResponders] = useState([]);
   const [loadingResponders, setLoadingResponders] = useState(false);
-  const [selectedResponder, setSelectedResponder] = useState(null);
+  const [selectedResponders, setSelectedResponders] = useState(new Set());
+  const [selectedDepts, setSelectedDepts] = useState(new Set());
+  const [searchQuery, setSearchQuery] = useState('');
+
+  // Tubigon, Bohol expanded departments
+  const DEPARTMENTS = [
+    { id: 'PNP', label: 'PNP (POLICE)', icon: <Shield size={16} /> },
+    { id: 'BFP', label: 'BFP (FIRE)', icon: <Flame size={16} /> },
+    { id: 'MDRRMC', label: 'MDRRMC (DISASTER)', icon: <Activity size={16} /> },
+    { id: 'RHU', label: 'RHU (MEDICAL)', icon: <Heart size={16} /> },
+    { id: 'MSWDO', label: 'MSWDO (SOCIAL)', icon: <Users size={16} /> },
+    { id: 'ENGR', label: 'ENGINEERING', icon: <HardHat size={16} /> }
+  ];
 
   useEffect(() => {
     if (isOpen) {
       loadAvailableResponders();
+      setSelectedResponders(new Set());
+      setSelectedDepts(new Set());
+      setSearchQuery('');
     }
   }, [isOpen]);
 
   const loadAvailableResponders = async () => {
     try {
       setLoadingResponders(true);
-      
-      // Get all responders who are on duty and active
       const { data, error } = await supabase
         .from('profiles')
         .select('*')
         .eq('user_type', 'responder')
-        .eq('duty_status', 'on_duty')
         .eq('is_active', true)
         .eq('verification_status', 'verified')
         .order('full_name', { ascending: true });
 
       if (error) throw error;
-
-      // Filter out responders already assigned to other incidents
-      // For now, show all on-duty responders
       setResponders(data || []);
     } catch (error) {
       console.error('Error loading responders:', error);
@@ -41,118 +50,160 @@ const AssignResponderModal = ({ incident, isOpen, onClose, onAssign, loading }) 
     }
   };
 
-  const handleAssign = () => {
-    console.log('handleAssign called', { 
-      selectedResponder, 
-      hasOnAssign: !!onAssign, 
-      incidentId: incident?.id,
-      onAssignType: typeof onAssign 
+  const toggleDept = (deptId) => {
+    setSelectedDepts(prev => {
+      const next = new Set(prev);
+      if (next.has(deptId)) next.delete(deptId);
+      else next.add(deptId);
+      return next;
     });
-    
-    if (!selectedResponder) {
-      console.error('No responder selected');
-      return;
+  };
+
+  const toggleResponder = (responderId) => {
+    setSelectedResponders(prev => {
+      const next = new Set(prev);
+      if (next.has(responderId)) next.delete(responderId);
+      else next.add(responderId);
+      return next;
+    });
+  };
+
+  const filteredResponders = useMemo(() => {
+    let list = responders;
+    const query = searchQuery.toLowerCase().trim();
+
+    if (selectedDepts.size > 0) {
+      list = list.filter(r => {
+        const dept = (r.department || '').toUpperCase();
+        // Match specific IDs or similar strings
+        return Array.from(selectedDepts).some(d => 
+          dept.includes(d) || 
+          (d === 'RHU' && (dept.includes('MEDICAL') || dept.includes('HEALTH'))) ||
+          (d === 'PNP' && dept.includes('POLICE')) ||
+          (d === 'BFP' && dept.includes('FIRE'))
+        );
+      });
     }
-    
-    if (!onAssign || typeof onAssign !== 'function') {
-      console.error('onAssign is not a function:', onAssign);
-      alert('Assignment function not available. Please refresh the page.');
-      return;
+
+    if (query) {
+      list = list.filter(r => 
+        r.full_name?.toLowerCase().includes(query) ||
+        r.department?.toLowerCase().includes(query)
+      );
     }
+
+    return list;
+  }, [responders, selectedDepts, searchQuery]);
+
+  const handleDispatch = () => {
+    console.log('📦 MODAL DISPATCH START:', incident?.id, { selectedCount: selectedResponders.size });
+    if (selectedResponders.size === 0) return;
     
-    if (!incident?.id) {
-      console.error('No incident ID');
-      return;
-    }
+    // We send the array of selected responders to onAssign
+    const selectedList = responders.filter(r => selectedResponders.has(r.id));
     
-    console.log('Calling onAssign with:', incident.id, selectedResponder);
-    onAssign(incident.id, selectedResponder);
+    console.log('📦 Dispatching to:', selectedList[0]?.full_name);
+    onAssign(incident.id, selectedList[0], { additionalResponders: selectedList.slice(1) });
     onClose();
   };
 
   if (!isOpen) return null;
 
-  const getInitials = (name) =>
-    (name || '?').split(' ').map(w => w[0]).slice(0, 2).join('').toUpperCase();
-
   return (
     <>
-      <div className="arm-backdrop" onClick={onClose} />
-      <div className="arm-modal">
-        <div className="arm-header">
-          <div>
-            <h3>Assign Responder</h3>
-            <p className="arm-subtitle">Select an on-duty responder for this incident</p>
+      <div className="arm-zenith-backdrop" onClick={onClose} />
+      <div className="arm-zenith-modal">
+        <div className="arm-zenith-header">
+          <div className="arm-zenith-title-area">
+            <div className="arm-zenith-step">TUBIGON BOHOL — DISPATCH ENGINE</div>
+            <h2 className="arm-zenith-title">START ACTION</h2>
           </div>
-          <button className="arm-close" onClick={onClose}>
-            <X size={18} />
+          <button className="arm-zenith-close" onClick={onClose}>
+            <X size={20} />
           </button>
         </div>
 
-        <div className="arm-body">
-          {loadingResponders ? (
-            <div className="arm-loading">
-              <RefreshCw size={32} className="spinning" />
-              <p>Loading available responders...</p>
+        <div className="arm-zenith-body">
+          <div className="arm-zenith-section">
+            <div className="arm-zenith-search-bar">
+              <Search size={16} />
+              <input 
+                type="text" 
+                placeholder="Search department or name..." 
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+              />
             </div>
-          ) : responders.length === 0 ? (
-            <div className="arm-empty">
-              <AlertCircle size={48} />
-              <h4>No Responders Available</h4>
-              <p>There are no responders currently on duty.</p>
+
+            <p className="arm-zenith-subtitle">LOCAL DEPARTMENTS</p>
+            <div className="arm-zenith-chips">
+              {DEPARTMENTS.map(dept => (
+                <button 
+                  key={dept.id}
+                  className={`arm-chip ${selectedDepts.has(dept.id) ? 'active' : ''}`}
+                  onClick={() => toggleDept(dept.id)}
+                >
+                  {dept.id}
+                </button>
+              ))}
             </div>
-          ) : (
-            <div className="arm-responder-list">
-              {responders.map((responder) => {
-                const initials = getInitials(responder.full_name);
-                const isSelected = selectedResponder?.id === responder.id;
-                
-                return (
-                  <div
-                    key={responder.id}
-                    className={`arm-responder-card ${isSelected ? 'selected' : ''}`}
-                    onClick={() => setSelectedResponder(responder)}
-                  >
-                    <div className="arm-responder-avatar" style={{ backgroundColor: '#3b82f6' }}>
-                      {initials}
-                    </div>
-                    <div className="arm-responder-info">
-                      <div className="arm-responder-name">{responder.full_name}</div>
-                      <div className="arm-responder-details">
-                        {responder.department && (
-                          <span className="arm-detail">
-                            <Building2 size={12} />
-                            {responder.department}
-                          </span>
-                        )}
-                        <span className="arm-duty-badge">
-                          <span className="arm-duty-dot"></span>
-                          On Duty
-                        </span>
+          </div>
+
+          <div className="arm-zenith-divider" />
+
+          <div className="arm-zenith-section">
+            <p className="arm-zenith-subtitle">AVAILABLE FOR DISPATCH ({filteredResponders.length})</p>
+            {loadingResponders ? (
+              <div className="arm-zenith-loading">
+                <RefreshCw size={24} className="spinning" />
+                <p>Connecting to Tubigon Emergency Network...</p>
+              </div>
+            ) : filteredResponders.length === 0 ? (
+              <div className="arm-zenith-empty">
+                <Users size={32} />
+                <p>No responders found matching your search</p>
+              </div>
+            ) : (
+              <div className="arm-zenith-list">
+                {filteredResponders.map(responder => {
+                  const isBusy = responder.duty_status === 'busy' || responder.current_incident_id;
+                  const statusLabel = isBusy ? 'BUSY' : 'AVAILABLE';
+                  const isSelected = selectedResponders.has(responder.id);
+                  
+                  return (
+                    <div 
+                      key={responder.id} 
+                      className={`arm-responder-item ${isSelected ? 'active' : ''} ${isBusy ? 'busy' : ''}`}
+                      onClick={() => toggleResponder(responder.id)}
+                    >
+                      <div className="arm-responder-selection">
+                        {isSelected ? <CheckCircle size={18} fill="#000" color="#fff" /> : <div className="arm-check-placeholder" />}
+                      </div>
+                      <div className="arm-responder-info">
+                        <span className="arm-responder-name">{responder.full_name}</span>
+                        <span className="arm-responder-dept">{responder.department || 'GENERAL'}</span>
+                      </div>
+                      <div className={`arm-status-badge ${isBusy ? 'busy' : 'available'}`}>
+                        {statusLabel}
                       </div>
                     </div>
-                    {isSelected && (
-                      <div className="arm-check-icon">
-                        <CheckCircle size={20} />
-                      </div>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-          )}
+                  );
+                })}
+              </div>
+            )}
+          </div>
         </div>
 
-        <div className="arm-footer">
-          <button className="arm-btn arm-btn-cancel" onClick={onClose} disabled={loading}>
-            Cancel
-          </button>
-          <button
-            className="arm-btn arm-btn-assign"
-            onClick={handleAssign}
-            disabled={!selectedResponder || loading}
+        <div className="arm-zenith-footer">
+          <div className="arm-zenith-selection-count">
+            {selectedResponders.size} SELECTED
+          </div>
+          <button 
+            className="arm-zenith-dispatch-btn"
+            disabled={selectedResponders.size === 0}
+            onClick={handleDispatch}
           >
-            {loading ? 'Assigning...' : 'Assign Responder'}
+            DISPATCH RESPONDERS
           </button>
         </div>
       </div>

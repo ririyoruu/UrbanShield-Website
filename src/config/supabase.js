@@ -7,6 +7,40 @@ export const supabase = createClient(supabaseUrl, supabaseKey);
 
 // Database service functions for admin operations
 export const adminService = {
+  // Global search across multiple tables
+  async globalSearch(query) {
+    if (!query || query.trim().length < 2) return { incidents: [], profiles: [] };
+    const q = query.trim();
+    
+    try {
+      // 1. Search incidents (posts)
+      const { data: incidents, error: incError } = await supabase
+        .from('incidents')
+        .select('id, title, address, status, category, severity')
+        .or(`title.ilike.%${q}%,address.ilike.%${q}%,category.ilike.%${q}%`)
+        .limit(5);
+
+      if (incError) console.error('Global search (incidents) error:', incError);
+
+      // 2. Search profiles (users/staff)
+      const { data: profiles, error: profError } = await supabase
+        .from('profiles')
+        .select('id, full_name, email, user_type, verification_status')
+        .or(`full_name.ilike.%${q}%,email.ilike.%${q}%`)
+        .limit(5);
+
+      if (profError) console.error('Global search (profiles) error:', profError);
+
+      return {
+        incidents: incidents || [],
+        profiles: profiles || []
+      };
+    } catch (err) {
+      console.error('CRITICAL SEARCH ERROR:', err);
+      return { incidents: [], profiles: [] };
+    }
+  },
+
   // Reports CRUD operations
   async getAllReports() {
     try {
@@ -317,12 +351,18 @@ export const adminService = {
         updated_at: new Date().toISOString(),
         admin_notes: newNotes
       };
+
+      // Clear assignment when reverting to open
+      if (status === 'pending' || status === 'open') {
+        updateData.assigned_officer = null;
+        updateData.assigned_officer_id = null;
+        updateData.assigned_at = null;
+      }
       
-      const { data, error } = await supabase
+      const { error } = await supabase
         .from('incidents')
         .update(updateData)
-        .eq('id', reportId)
-        .select();
+        .eq('id', reportId);
       
       if (error) {
         console.error('❌ Supabase error details:', {
@@ -334,8 +374,8 @@ export const adminService = {
         throw error;
       }
       
-      console.log('✅ Update successful, returned data:', data);
-      return data[0];
+      console.log('✅ Update successful');
+      return { success: true };
     } catch (error) {
       console.error('❌ Error updating report status:', error);
       throw error;
@@ -343,59 +383,59 @@ export const adminService = {
   },
 
   async assignResponder(incidentId, responderId, options = {}) {
+    console.log('🚀 Sequential Dispatch Initiation...', { incidentId, responderId });
     try {
-      if (!incidentId || !responderId) {
-        throw new Error('Missing incidentId or responderId');
-      }
+      const { additionalResponders = [] } = options;
+      
+      const { data: resp } = await supabase.from('profiles').select('full_name').eq('id', responderId).single();
+      const officerName = resp?.full_name || 'Responder';
+      const display = additionalResponders.length > 0 ? `${officerName} + ${additionalResponders.length}` : officerName;
 
-      const { assignedBy = null, status = 'in_action' } = options;
+      // STAGE 1: Force Unlock & Verification Logic
+      await supabase.from('incidents').update({ 
+        is_under_review: false,
+        updated_at: new Date().toISOString() 
+      }).eq('id', incidentId);
 
-      const { data: responder, error: responderError } = await supabase
-        .from('profiles')
-        .select('id, full_name, department, phone, email')
-        .eq('id', responderId)
-        .single();
-
-      if (responderError) throw responderError;
-
-      // Create automatic activity note
-      const timestamp = new Date().toLocaleString('en-US', { 
-        month: 'short', 
-        day: 'numeric', 
-        year: 'numeric',
-        hour: '2-digit', 
-        minute: '2-digit'
-      });
-      const autoNote = `[${timestamp}] Responder assigned: ${responder.full_name}${responder.department ? ` (${responder.department})` : ''}`;
-
+      // STAGE 2: Status & Personnel Commit
       const updateData = {
-        assigned_officer: responder?.full_name || null,
-        assigned_officer_id: responder?.id || null,
-        assigned_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-        admin_notes: autoNote
+        status: 'in_action',
+        assigned_officer: display,
+        assigned_officer_id: responderId,
+        updated_at: new Date().toISOString()
       };
 
-      if (status) {
-        updateData.status = status;
-      }
-
-      updateData.status_updated_at = new Date().toISOString();
-      if (assignedBy) {
-        updateData.status_updated_by = assignedBy;
-      }
-
-      const { data, error } = await supabase
+      console.log('📡 Committing Dispatch Data:', updateData);
+      const { error } = await supabase
         .from('incidents')
         .update(updateData)
-        .eq('id', incidentId)
-        .select()
-        .single();
+        .eq('id', incidentId);
 
       if (error) throw error;
-      return data;
+      
+      console.log('✅ Sequential Dispatch Confirmed');
+      return { status: 'in_action' };
     } catch (error) {
-      console.error('Error assigning responder:', error);
+      console.error('Sequential Dispatch Failure:', error);
+      throw error;
+    }
+  },
+
+  async setIncidentVerified(reportId, isVerified) {
+    try {
+      console.log('🛡️ Verifying incident:', reportId, isVerified);
+      const { error } = await supabase
+        .from('incidents')
+        .update({
+          is_under_review: !isVerified,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', reportId);
+      
+      if (error) throw error;
+      return { success: true };
+    } catch (error) {
+      console.error('Error verifying incident:', error);
       throw error;
     }
   },
@@ -411,7 +451,7 @@ export const adminService = {
         .from('incidents')
         .update(updateData)
         .eq('id', reportId)
-        .select();
+        
       
       if (error) {
         console.error('❌ Supabase error details:', {
@@ -423,8 +463,8 @@ export const adminService = {
         throw error;
       }
       
-      console.log('✅ Start action successful, returned data:', data);
-      return data[0];
+      console.log('✅ Start action successful');
+      return { success: true };
     } catch (error) {
       console.error('❌ Error starting action:', error);
       throw error;
@@ -469,7 +509,7 @@ export const adminService = {
         .from('incidents')
         .update(updateData)
         .eq('id', reportId)
-        .select();
+        
       
       if (error) {
         console.error('❌ Supabase error details:', {
@@ -481,8 +521,8 @@ export const adminService = {
         throw error;
       }
       
-      console.log('✅ Resolve successful, returned data:', data);
-      return data[0];
+      console.log('✅ Resolve successful');
+      return { success: true };
     } catch (error) {
       console.error('❌ Error resolving incident:', error);
       throw error;
@@ -606,7 +646,7 @@ export const adminService = {
         .from('reports')
         .update(updateData)
         .eq('id', reportId)
-        .select();
+        
       
       if (error) throw error;
       return data[0];
@@ -1100,6 +1140,31 @@ export const adminService = {
     }
   },
 
+  async deleteUsers(userIds) {
+    try {
+      if (!userIds || !userIds.length) return { error: 'No user IDs provided' };
+      console.log('🗑️ Requesting total deletion of users:', userIds);
+      
+      // Use count: 'exact' to see how many were actually deleted
+      const { error, count } = await supabase
+        .from('profiles')
+        .delete({ count: 'exact' })
+        .in('id', userIds);
+        
+      if (error) throw error;
+      
+      if (count === 0) {
+        console.warn('⚠️ No records were deleted. This usually means Row Level Security (RLS) is blocking the delete for your user role.');
+        throw new Error('Database blocked deletion. Please check Row Level Security (RLS) policies in your Supabase dashboard.');
+      }
+      
+      return { success: true, count };
+    } catch (error) {
+      console.error('❌ Error deleting users:', error);
+      throw error;
+    }
+  },
+
   async updateUserVerification(userId, isVerified, verificationStatus = null) {
     try {
       if (!userId) {
@@ -1127,7 +1192,7 @@ export const adminService = {
         .from('profiles')
         .update(updateData)
         .eq('id', userId)
-        .select();
+        
       
       if (error) throw error;
       
@@ -1722,7 +1787,7 @@ export const invitationService = {
       const { data, error } = await supabase
         .from('system_settings')
         .upsert(updates, { onConflict: 'setting_key' })
-        .select();
+        
       
       console.log('Update result:', { data, error });
       

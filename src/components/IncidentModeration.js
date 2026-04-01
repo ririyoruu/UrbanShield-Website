@@ -19,7 +19,8 @@ import {
   Droplet,
   ShieldAlert,
   Activity,
-  MessageSquare
+  MessageSquare,
+  SlidersHorizontal
 } from 'lucide-react';
 import { adminService, supabase } from '../config/supabase';
 import ReportDetailModal from './ReportDetailModal';
@@ -39,6 +40,7 @@ const IncidentModeration = ({ initialSearch = '', onStatusChange, onAssignRespon
   const [showModal, setShowModal] = useState(false);
   const [saving, setSaving] = useState(false);
   const [locationCache, setLocationCache] = useState({});
+  const [isSuperAdmin, setIsSuperAdmin] = useState(false);
   // Resolve modal
   const [showResolveModal, setShowResolveModal] = useState(false);
   const [resolveTarget, setResolveTarget] = useState(null);
@@ -49,6 +51,7 @@ const IncidentModeration = ({ initialSearch = '', onStatusChange, onAssignRespon
   const [duplicateGroups, setDuplicateGroups] = useState({});
   const [refreshKey, setRefreshKey] = useState(0);
   const [selectedIncidents, setSelectedIncidents] = useState(new Set());
+  const [selectAll, setSelectAll] = useState(false);
   const proofInputRef = useRef(null);
 
   const formatDisplayId = useCallback((index, total, prefix = 'POS') => {
@@ -58,7 +61,43 @@ const IncidentModeration = ({ initialSearch = '', onStatusChange, onAssignRespon
 
   useEffect(() => {
     loadIncidents();
+    checkSuperAdmin();
+
+    // Real-time subscription — updates the table instantly on any DB change
+    const channel = supabase
+      .channel('incidents-realtime')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'incidents' }, async (payload) => {
+        await loadIncidents();
+        // If the changed incident is currently open in the modal, refresh it too
+        const changedId = payload.new?.id || payload.old?.id;
+        if (changedId) {
+          setSelectedIncident(prev => {
+            if (!prev || prev.id !== changedId) return prev;
+            // Merge new DB values into open modal so it reflects instantly
+            return { ...prev, ...payload.new, reporter: prev.reporter };
+          });
+        }
+      })
+      .subscribe();
+
+    return () => supabase.removeChannel(channel);
   }, []);
+
+  const checkSuperAdmin = async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('user_type')
+          .eq('id', user.id)
+          .single();
+        setIsSuperAdmin(profile?.user_type === 'super_admin');
+      }
+    } catch (error) {
+      console.error('Error checking super admin status:', error);
+    }
+  };
 
   const formatTimestamp = (timestamp) => {
     if (!timestamp) return 'Unknown';
@@ -107,15 +146,10 @@ const IncidentModeration = ({ initialSearch = '', onStatusChange, onAssignRespon
     if (!fromModal && !window.confirm('Mark this post as a duplicate?')) return;
     try {
       setSaving(true);
-      const result = await adminService.updateReportStatus(incidentId, 'duplicate', 'Marked as duplicate');
-      console.log('✅ Marked duplicate in DB:', result);
-      if (result && result.status) {
-        setSelectedIncident(prev => prev?.id === incidentId ? { ...prev, status: result.status, isDuplicate: true } : prev);
-        setIncidents(prev => prev.map(i => i.id === incidentId ? { ...i, status: result.status, isDuplicate: true } : i));
-      } else {
-        console.error('⚠️ DB returned null/undefined - duplicate mark may have failed');
-        setError('Mark duplicate failed - check database permissions');
-      }
+      await adminService.updateReportStatus(incidentId, 'duplicate', 'Marked as duplicate');
+      // Optimistic update — real-time subscription will confirm
+      setSelectedIncident(prev => prev?.id === incidentId ? { ...prev, status: 'duplicate', isDuplicate: true } : prev);
+      setIncidents(prev => prev.map(i => i.id === incidentId ? { ...i, status: 'duplicate', isDuplicate: true } : i));
     } catch (error) {
       console.error('❌ Error marking duplicate:', error);
       setError('Failed to mark duplicate: ' + error.message);
@@ -124,12 +158,13 @@ const IncidentModeration = ({ initialSearch = '', onStatusChange, onAssignRespon
     }
   };
 
-  // Status: pending → in_action → resolved (or duplicate)
+  // Status mapping — DB uses 'open' for new incidents
   const getStatus = (incident) => {
     if (incident.status === 'duplicate' || incident.isDuplicate) return 'duplicate';
     if (incident.status === 'resolved') return 'resolved';
     if (incident.status === 'in_action') return 'in_action';
-    return 'pending';
+    if (incident.status === 'open' || incident.status === 'pending' || !incident.status) return 'pending';
+    return incident.status;
   };
 
   const getStatusConfig = (status) => {
@@ -429,16 +464,11 @@ const IncidentModeration = ({ initialSearch = '', onStatusChange, onAssignRespon
   const handleStartAction = async (incidentId) => {
     try {
       setSaving(true);
-      const result = await adminService.startAction(incidentId);
-      console.log('✅ Status updated in DB:', result);
-      if (result && result.status) {
-        setSelectedIncident(prev => prev?.id === incidentId ? { ...prev, status: result.status } : prev);
-        setIncidents(prev => prev.map(i => i.id === incidentId ? { ...i, status: result.status } : i));
-      } else {
-        console.error('⚠️ DB returned null/undefined - update may have failed');
-        console.error('This usually means RLS policy is blocking the update');
-        setError('Status update failed - check database permissions');
-      }
+      await adminService.startAction(incidentId);
+      // Optimistic update — real-time subscription will confirm from DB
+      setSelectedIncident(prev => prev?.id === incidentId ? { ...prev, status: 'in_action' } : prev);
+      setIncidents(prev => prev.map(i => i.id === incidentId ? { ...i, status: 'in_action' } : i));
+      onStatusChange?.(incidentId, 'in_action');
     } catch (error) {
       console.error('❌ Error starting action:', error);
       setError('Failed to start action: ' + error.message);
@@ -463,6 +493,136 @@ const IncidentModeration = ({ initialSearch = '', onStatusChange, onAssignRespon
     const reader = new FileReader();
     reader.onloadend = () => setResolveProofPreview(reader.result);
     reader.readAsDataURL(file);
+  };
+
+  // Bulk actions
+  const handleSelectAll = useCallback(() => {
+    if (selectAll || selectedIncidents.size > 0) {
+      setSelectedIncidents(new Set());
+      setSelectAll(false);
+    } else {
+      const allIds = new Set(filteredIncidents.map(i => i.id));
+      setSelectedIncidents(allIds);
+      setSelectAll(true);
+    }
+  }, [selectAll, selectedIncidents.size, filteredIncidents]);
+
+  const handleSelectIncident = useCallback((incidentId) => {
+    setSelectedIncidents(prev => {
+      const newSelected = new Set(prev);
+      if (newSelected.has(incidentId)) {
+        newSelected.delete(incidentId);
+      } else {
+        newSelected.add(incidentId);
+      }
+      return newSelected;
+    });
+  }, []);
+
+  // Update selectAll state when selection changes
+  useEffect(() => {
+    const allCount = filteredIncidents.length;
+    const selectedCount = selectedIncidents.size;
+    if (allCount > 0 && selectedCount === allCount) {
+      setSelectAll(true);
+    } else if (selectedCount === 0) {
+      setSelectAll(false);
+    }
+  }, [selectedIncidents, filteredIncidents.length]);
+
+  const handleBulkDelete = async () => {
+    if (selectedIncidents.size === 0) return;
+    if (!window.confirm(`Delete ${selectedIncidents.size} selected post(s)? This action cannot be undone.`)) return;
+
+    try {
+      setSaving(true);
+      const deletePromises = Array.from(selectedIncidents).map(id => 
+        adminService.deleteReport(id)
+      );
+      await Promise.all(deletePromises);
+      setSelectedIncidents(new Set());
+      setSelectAll(false);
+      await loadIncidents();
+    } catch (error) {
+      console.error('Error deleting posts:', error);
+      setError('Failed to delete selected posts');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleBulkResolve = async () => {
+    if (selectedIncidents.size === 0) return;
+    if (!window.confirm(`Mark ${selectedIncidents.size} selected post(s) as resolved?`)) return;
+
+    try {
+      setSaving(true);
+      const resolvePromises = Array.from(selectedIncidents).map(id => 
+        adminService.resolveIncident(id, { updateText: 'Bulk resolved' })
+      );
+      await Promise.all(resolvePromises);
+      setSelectedIncidents(new Set());
+      setSelectAll(false);
+      await loadIncidents();
+    } catch (error) {
+      console.error('Error resolving posts:', error);
+      setError('Failed to resolve selected posts');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleBulkMarkDuplicate = async () => {
+    if (selectedIncidents.size === 0) return;
+    if (!window.confirm(`Mark ${selectedIncidents.size} selected post(s) as duplicate?`)) return;
+
+    try {
+      setSaving(true);
+      const duplicatePromises = Array.from(selectedIncidents).map(id => 
+        adminService.updateReportStatus(id, 'duplicate', 'Bulk marked as duplicate')
+      );
+      await Promise.all(duplicatePromises);
+      setSelectedIncidents(new Set());
+      setSelectAll(false);
+      await loadIncidents();
+    } catch (error) {
+      console.error('Error marking duplicates:', error);
+      setError('Failed to mark selected posts as duplicate');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleLocalAssignResponder = async (incidentId, responder, options = {}) => {
+    if (!onAssignResponder) return;
+    try {
+      setSaving(true);
+
+      // Optimistic update FIRST — unlock 'Mark Resolved' immediately
+      const officerName = responder?.full_name || 'Responder';
+      const display = options.additionalResponders?.length
+        ? `${officerName} + ${options.additionalResponders.length}`
+        : officerName;
+
+      setSelectedIncident(prev =>
+        prev && prev.id === incidentId
+          ? { ...prev, status: 'in_action', assigned_officer: display }
+          : prev
+      );
+      setIncidents(prev =>
+        prev.map(i =>
+          i.id === incidentId ? { ...i, status: 'in_action', assigned_officer: display } : i
+        )
+      );
+
+      await onAssignResponder(incidentId, responder, options);
+    } catch (error) {
+      console.error('Error in local assign responder:', error);
+      // Revert optimistic update on failure
+      await loadIncidents();
+    } finally {
+      setSaving(false);
+    }
   };
 
   const handleResolve = async () => {
@@ -510,16 +670,11 @@ const IncidentModeration = ({ initialSearch = '', onStatusChange, onAssignRespon
   const handleDirectResolve = async (incident) => {
     try {
       setSaving(true);
-      const result = await adminService.resolveIncident(incident.id, { updateText: '', proofUrl: null });
-      console.log('✅ Resolved in DB:', result);
-      if (result && result.status) {
-        setSelectedIncident(prev => prev?.id === incident.id ? { ...prev, status: result.status } : prev);
-        setIncidents(prev => prev.map(i => i.id === incident.id ? { ...i, status: result.status } : i));
-        onStatusChange?.(incident.id, 'resolved');
-      } else {
-        console.error('⚠️ DB returned null/undefined - resolve may have failed');
-        setError('Resolve failed - check database permissions');
-      }
+      await adminService.resolveIncident(incident.id, { updateText: '', proofUrl: null });
+      // Optimistic update — real-time subscription will confirm
+      setSelectedIncident(prev => prev?.id === incident.id ? { ...prev, status: 'resolved' } : prev);
+      setIncidents(prev => prev.map(i => i.id === incident.id ? { ...i, status: 'resolved' } : i));
+      onStatusChange?.(incident.id, 'resolved');
     } catch (err) {
       console.error('❌ Error resolving:', err);
       setError('Failed to resolve incident: ' + err.message);
@@ -531,16 +686,25 @@ const IncidentModeration = ({ initialSearch = '', onStatusChange, onAssignRespon
   const handleRevertStatus = async (incidentId, newStatus) => {
     try {
       setSaving(true);
-      const result = await adminService.updateReportStatus(incidentId, newStatus, `Status reverted to ${newStatus}`);
-      console.log('✅ Reverted in DB:', result);
-      if (result && result.status) {
-        setSelectedIncident(prev => prev?.id === incidentId ? { ...prev, status: result.status, isDuplicate: result.status === 'duplicate' } : prev);
-        setIncidents(prev => prev.map(i => i.id === incidentId ? { ...i, status: result.status, isDuplicate: result.status === 'duplicate' } : i));
-        onStatusChange?.(incidentId, newStatus);
-      } else {
-        console.error('⚠️ DB returned null/undefined - revert may have failed');
-        setError('Revert failed - check database permissions');
-      }
+      console.log(`🔄 Reverting incident ${incidentId} to ${newStatus}...`);
+      await adminService.updateReportStatus(incidentId, newStatus, `Status reverted to ${newStatus}`);
+      
+      // Clear assignment data when reverting to open
+      const isRevertingToOpen = newStatus === 'pending' || newStatus === 'open';
+      const patch = {
+        status: newStatus,
+        isDuplicate: newStatus === 'duplicate',
+        ...(isRevertingToOpen && { 
+          assigned_officer: null, 
+          assigned_officer_id: null, 
+          assigned_at: null 
+        })
+      };
+      
+      console.log('✅ Applying revert patch to local state:', patch);
+      setSelectedIncident(prev => prev?.id === incidentId ? { ...prev, ...patch } : prev);
+      setIncidents(prev => prev.map(i => i.id === incidentId ? { ...i, ...patch } : i));
+      onStatusChange?.(incidentId, newStatus);
     } catch (err) {
       console.error('❌ Error reverting status:', err);
       setError('Failed to revert status: ' + err.message);
@@ -579,26 +743,12 @@ const IncidentModeration = ({ initialSearch = '', onStatusChange, onAssignRespon
     }
   };
 
-  /* ── Checkbox Selection ── */
-  const handleSelectAll = (e) => {
-    if (e.target.checked) {
-      setSelectedIncidents(new Set(filteredIncidents.map(i => i.id)));
-    } else {
-      setSelectedIncidents(new Set());
-    }
-  };
-
-  const handleSelectIncident = (e, incidentId) => {
-    e.stopPropagation();
-    const newSelected = new Set(selectedIncidents);
-    if (newSelected.has(incidentId)) {
-      newSelected.delete(incidentId);
-    } else {
-      newSelected.add(incidentId);
-    }
-    setSelectedIncidents(newSelected);
-  };
-
+  // Reset selection when filter changes
+  useEffect(() => {
+    setSelectedIncidents(new Set());
+    setSelectAll(false);
+  }, [searchTerm, filterCategory, filterSeverity, filterStatus]);
+  /* ── Checkbox Selection State ── */
   const isAllSelected = filteredIncidents.length > 0 && selectedIncidents.size === filteredIncidents.length;
   const isIndeterminate = selectedIncidents.size > 0 && selectedIncidents.size < filteredIncidents.length;
 
@@ -634,18 +784,57 @@ const IncidentModeration = ({ initialSearch = '', onStatusChange, onAssignRespon
 
       {/* Toolbar */}
       <div className="zenith-toolbar">
-        <div className="zenith-search">
-          <Search size={18} />
-          <input type="text" placeholder="Search posts..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
-        </div>
-        <div className="zenith-toolbar-actions">
-          <button className="zenith-toolbar-btn">
-            <Activity size={16} /> Columns
-          </button>
-          <button className="zenith-toolbar-btn">
-            <Upload size={16} /> Export
-          </button>
-        </div>
+        {selectedIncidents.size > 0 ? (
+          <div className="zenith-bulk-actions">
+            <span className="zenith-bulk-count">
+              {selectedIncidents.size} selected
+            </span>
+            <button 
+              className="zenith-toolbar-btn zenith-btn-success"
+              onClick={handleBulkResolve}
+              disabled={saving}
+            >
+              <CheckCircle size={16} /> Resolve
+            </button>
+            <button 
+              className="zenith-toolbar-btn zenith-btn-warning"
+              onClick={handleBulkMarkDuplicate}
+              disabled={saving}
+            >
+              <Copy size={16} /> Mark Duplicate
+            </button>
+            {isSuperAdmin && (
+              <button 
+                className="zenith-toolbar-btn zenith-btn-danger"
+                onClick={handleBulkDelete}
+                disabled={saving}
+              >
+                <Trash2 size={16} /> Delete
+              </button>
+            )}
+            <button 
+              className="zenith-toolbar-btn"
+              onClick={() => setSelectedIncidents(new Set())}
+            >
+              <X size={16} /> Clear
+            </button>
+          </div>
+        ) : (
+          <>
+            <div className="zenith-search">
+              <Search size={18} />
+              <input type="text" placeholder="Search posts..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
+            </div>
+            <div className="zenith-toolbar-actions">
+              <button className="zenith-toolbar-btn">
+                <SlidersHorizontal size={14} /> Columns
+              </button>
+              <button className="zenith-toolbar-btn">
+                <Upload size={14} /> Export
+              </button>
+            </div>
+          </>
+        )}
       </div>
 
       {/* Table */}
@@ -677,7 +866,11 @@ const IncidentModeration = ({ initialSearch = '', onStatusChange, onAssignRespon
                       type="checkbox"
                       className="zenith-checkbox"
                       checked={isAllSelected}
-                      ref={el => el && (el.indeterminate = isIndeterminate)}
+                      ref={el => {
+                        if (el) {
+                          el.indeterminate = isIndeterminate;
+                        }
+                      }}
                       onChange={handleSelectAll}
                     />
                   </th>
@@ -702,7 +895,7 @@ const IncidentModeration = ({ initialSearch = '', onStatusChange, onAssignRespon
                           type="checkbox"
                           className="zenith-checkbox"
                           checked={selectedIncidents.has(incident.id)}
-                          onChange={(e) => handleSelectIncident(e, incident.id)}
+                          onChange={() => handleSelectIncident(incident.id)}
                         />
                       </td>
                       <td className="zenith-order-cell">
@@ -795,6 +988,7 @@ const IncidentModeration = ({ initialSearch = '', onStatusChange, onAssignRespon
       <ReportDetailModal
         report={selectedIncident}
         isOpen={showModal}
+        isSuperAdmin={isSuperAdmin}
         onClose={() => setShowModal(false)}
         onApprove={handleApprove}
         onReject={handleReject}
@@ -804,7 +998,7 @@ const IncidentModeration = ({ initialSearch = '', onStatusChange, onAssignRespon
         onRevertPending={(id) => handleRevertStatus(id, 'pending')}
         onDeleteReport={handleDelete}
         onSaveNote={handleSaveNote}
-        onAssignResponder={onAssignResponder}
+        onAssignResponder={handleLocalAssignResponder}
         loading={saving}
       />
     </div>

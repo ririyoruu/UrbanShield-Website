@@ -86,6 +86,10 @@ const ResponderDetailModal = ({ responder, isOpen, onClose, onDeactivate, loadin
           <div className="rdm-section-label">Details</div>
           <div className="rdm-details-grid">
             <div className="rdm-detail-item">
+              <span className="rdm-detail-label">Username</span>
+              <span className="rdm-detail-value">{responder.username || '—'}</span>
+            </div>
+            <div className="rdm-detail-item">
               <span className="rdm-detail-label">Email</span>
               <span className="rdm-detail-value">{responder.email || '—'}</span>
             </div>

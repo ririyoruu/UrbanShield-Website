@@ -38,6 +38,14 @@ const SignupModal = ({ onClose, onSignup, onSwitchToLogin }) => {
       return;
     }
 
+    if (formData.phone) {
+      const digitsOnly = formData.phone.replace(/\D/g, '');
+      if (digitsOnly.length !== 11) {
+        setError('Phone number must be exactly 11 digits (e.g., 09123456789)');
+        return;
+      }
+    }
+
     setIsLoading(true);
     
     try {
@@ -64,9 +72,13 @@ const SignupModal = ({ onClose, onSignup, onSwitchToLogin }) => {
   };
 
   const handleChange = (e) => {
+    let value = e.target.value;
+    if (e.target.name === 'phone') {
+      value = value.replace(/\D/g, '').slice(0, 11);
+    }
     setFormData({
       ...formData,
-      [e.target.name]: e.target.value
+      [e.target.name]: value
     });
   };
 
@@ -207,7 +219,8 @@ const SignupModal = ({ onClose, onSignup, onSwitchToLogin }) => {
                 value={formData.phone}
                 onChange={handleChange}
                 className="input-field"
-                placeholder="Enter your phone number"
+                placeholder="e.g. 09123456789 (11 digits)"
+                maxLength={11}
               />
             </div>
           </div>

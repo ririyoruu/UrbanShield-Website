@@ -43,6 +43,7 @@ const ReportDetailModal = ({
   onSaveNote,
   onAssignResponder,
   loading,
+  isSuperAdmin = false,
   isSidePanel = false
 }) => {
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
@@ -245,22 +246,41 @@ const ReportDetailModal = ({
           <div className="post-body-content">
             <div className="post-meta-list">
               <div className="post-meta-list-item">
-                <MapPin size={16} className="meta-icon" />
-                <span>{report.location || report.address || 'Not specified'}</span>
+                <MapPin size={15} className="meta-icon" />
+                <div className="meta-content">
+                  <span className="meta-label">Location</span>
+                  <span className="meta-value">{report.address || report.location || 'Not specified'}</span>
+                </div>
               </div>
               <div className="post-meta-list-item">
-                <User size={16} className="meta-icon" />
-                <span>{report.reporter || report.reporter_name || 'Anonymous'}</span>
+                <User size={15} className="meta-icon" />
+                <div className="meta-content">
+                  <span className="meta-label">Reported by</span>
+                  <span className="meta-value">{report.reporter || report.reporter_name || 'Anonymous'}</span>
+                </div>
               </div>
               <div className="post-meta-list-item">
-                <Clock size={16} className="meta-icon" />
-                <span>{formatRelativeTime(report.created_at)}</span>
+                <Clock size={15} className="meta-icon" />
+                <div className="meta-content">
+                  <span className="meta-label">Date filed</span>
+                  <span className="meta-value">{formatDate(report.created_at)}</span>
+                </div>
+              </div>
+              <div className="post-meta-list-item">
+                <Shield size={15} className="meta-icon" />
+                <div className="meta-content">
+                  <span className="meta-label">Assigned to</span>
+                  <span className="meta-value" style={{ color: report.assigned_officer ? '#3b82f6' : '#6b7280', fontStyle: report.assigned_officer ? 'normal' : 'italic' }}>
+                    {report.assigned_officer || 'Unassigned'}
+                  </span>
+                </div>
               </div>
             </div>
 
             {report.description && (
               <>
                 <hr className="post-divider" />
+                <p className="description-label">Description</p>
                 <p className="post-description-text">{report.description}</p>
               </>
             )}
@@ -276,7 +296,7 @@ const ReportDetailModal = ({
                 onClick={() => setShowAssignModal(true)}
                 disabled={loading || currentStatus !== 'pending'}
               >
-                <Shield size={16} /> Assign Responder
+                <Activity size={20} /> Start Action
               </button>
             ) : (
               <button
@@ -284,7 +304,7 @@ const ReportDetailModal = ({
                 onClick={() => onStartAction?.(report.id)}
                 disabled={loading || currentStatus !== 'pending'}
               >
-                <Activity size={16} /> Mark In Progress
+                <Activity size={20} /> Start Action
               </button>
             )}
             <button
@@ -293,38 +313,41 @@ const ReportDetailModal = ({
               disabled={loading || currentStatus !== 'in_action'}
               title={currentStatus === 'pending' ? 'Assign a responder first' : ''}
             >
-              <CheckCircle size={16} /> Mark Resolved
+              <CheckCircle size={20} /> Mark Resolved
             </button>
             <button 
               className={`aside-btn ${currentStatus === 'duplicate' ? 'gray-solid' : 'outline'}`}
               onClick={() => onMarkDuplicate?.(report.id)} 
               disabled={loading || currentStatus === 'duplicate' || currentStatus === 'resolved'}
             >
-              <Copy size={16} /> Mark Duplicate
+              <Copy size={20} /> Mark Duplicate
             </button>
             <button 
               className={`aside-btn ${['in_action', 'resolved', 'duplicate'].includes(currentStatus) ? 'outline' : 'gray-solid'}`}
               onClick={() => onRevertPending?.(report.id)} 
               disabled={loading || !['in_action', 'resolved', 'duplicate'].includes(currentStatus)}
             >
-              <RotateCcw size={16} /> {currentStatus === 'duplicate' ? 'Remove Duplicate' : 'Revert to Open'}
+              <RotateCcw size={20} /> {currentStatus === 'duplicate' ? 'Remove Duplicate' : 'Revert to Open'}
             </button>
-            <button className="aside-btn outline danger-outline" onClick={() => onDeleteReport?.(report.id)} disabled={loading}>
-              <Trash2 size={16} /> Delete
-            </button>
+            {isSuperAdmin && (
+              <button className="aside-btn outline danger-outline" onClick={() => onDeleteReport?.(report.id)} disabled={loading}>
+                <Trash2 size={20} /> Delete
+              </button>
+            )}
           </div>
 
-          <div className="aside-card">
-            <p className="aside-label">Activity Log</p>
-            <div className="note-display">
+          <div className="activity-log-section">
+            <p className="activity-log-label">Activity Log</p>
+            <div className="activity-log-list">
               {report.admin_notes ? (
-                report.admin_notes.split('\n').map((line, idx) => (
-                  <div key={idx} className="activity-log-item">
-                    {line}
+                report.admin_notes.split('\n').filter(l => l.trim()).map((line, idx) => (
+                  <div key={idx} className="activity-log-entry">
+                    <span className="activity-log-dot" />
+                    <span className="activity-log-text">{line}</span>
                   </div>
                 ))
               ) : (
-                <div className="no-activity">No activity yet</div>
+                <div className="activity-log-empty">No activity yet</div>
               )}
             </div>
           </div>

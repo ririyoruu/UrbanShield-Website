@@ -150,6 +150,14 @@ const AdminProfile = ({ user, onProfileUpdate }) => {
 
   const handleSaveProfile = async () => {
     try {
+      // Validate phone number if provided
+      if (profileData.phone) {
+        const digitsOnly = profileData.phone.replace(/\D/g, '');
+        if (digitsOnly.length !== 11) {
+          throw new Error('Phone number must be exactly 11 digits (e.g., 09123456789)');
+        }
+      }
+      
       setSaving(true);
       
       // Validate email format
@@ -424,8 +432,12 @@ const AdminProfile = ({ user, onProfileUpdate }) => {
                 <input
                   type="tel"
                   value={profileData.phone}
-                  onChange={(e) => setProfileData(prev => ({ ...prev, phone: e.target.value }))}
-                  placeholder="Enter your phone number"
+                  onChange={(e) => {
+                    const val = e.target.value.replace(/\D/g, '').slice(0, 11);
+                    setProfileData(prev => ({ ...prev, phone: val }));
+                  }}
+                  placeholder="e.g. 09123456789"
+                  maxLength={11}
                 />
               </div>
             </div>

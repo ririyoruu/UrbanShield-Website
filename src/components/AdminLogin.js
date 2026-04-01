@@ -74,8 +74,8 @@ const AdminLogin = ({ onLogin, onSignup, initialView = 'login' }) => {
         if (!signupData.invitationCode.trim()) return setSignupError('Invitation code is required');
         
         // Validate phone if provided
-        if (signupData.phone && !/^9\d{10}$/.test(signupData.phone)) {
-            return setSignupError('Phone number must be 11 digits starting with 9 (e.g., 9171234567)');
+        if (signupData.phone && signupData.phone.length !== 11) {
+            return setSignupError('Phone number must be exactly 11 digits (e.g., 09123456789)');
         }
         setSignupLoading(true);
         const phoneWithPrefix = signupData.phone ? `+63${signupData.phone}` : '';

@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import Map, { Marker, Popup, NavigationControl, FullscreenControl, ScaleControl } from 'react-map-gl/mapbox';
-import { MapPin, AlertTriangle, Clock, X, Tag, User, ChevronRight, Moon, Sun, Map as MapIcon, Flame, Droplets, Car, Zap, ShieldAlert, HelpCircle, Search } from 'lucide-react';
+import { MapPin, AlertTriangle, Clock, X, Tag, User, ChevronRight, Flame, Droplets, Car, Zap, ShieldAlert, HelpCircle, Search } from 'lucide-react';
 import { MAPBOX_CONFIG } from '../config/mapbox';
 import 'mapbox-gl/dist/mapbox-gl.css';
 import './MapComponent.css';
@@ -11,8 +11,6 @@ const MapComponent = ({
   onMarkerClick,
   isDark = false
 }) => {
-  const DARK_STYLE = 'mapbox://styles/mapbox/dark-v11';
-  const LIGHT_STYLE = 'mapbox://styles/mapbox/light-v11';
   const STREET_STYLE = 'mapbox://styles/mapbox/streets-v12';
   const [viewState, setViewState] = useState({
     longitude: 124.05, // Tubigon, Bohol
@@ -21,26 +19,10 @@ const MapComponent = ({
   });
   const [selectedMarker, setSelectedMarker] = useState(null);
   const [highlightedMarker, setHighlightedMarker] = useState(null);
-  const [hoveredMarker, setHoveredMarker] = useState(null);
-  const [mapStyle, setMapStyle] = useState(MAPBOX_CONFIG.DEFAULT_STYLE);
+  const [mapStyle] = useState(STREET_STYLE);
   const [pins, setPins] = useState([]);
   const [incidentSearch, setIncidentSearch] = useState('');
   const mapRef = useRef(null);
-
-  // Sync map style with site theme
-  useEffect(() => {
-    setMapStyle((prev) => {
-      const isThemeStyle = prev === DARK_STYLE || prev === STREET_STYLE;
-      const themeStyle = isDark ? DARK_STYLE : STREET_STYLE;
-      if (isThemeStyle && prev !== themeStyle) {
-        return themeStyle;
-      }
-      if (!isThemeStyle && !prev) {
-        return themeStyle;
-      }
-      return prev;
-    });
-  }, [isDark]);
 
   // Geocode address to coordinates using Nominatim (OpenStreetMap)
   const geocodeAddress = async (address) => {
@@ -116,7 +98,7 @@ const MapComponent = ({
               _lng: coords.lng,
               _type: incident.category || 'General',
               _severity: incident.severity || 'medium',
-              _status: incident.status || 'pending',
+              _status: incident.status === 'open' ? 'pending' : (incident.status || 'pending'),
               _address: incident.address || null,
             };
           }
@@ -139,7 +121,7 @@ const MapComponent = ({
             _lng: coords.lng,
             _type: incident.category || 'General',
             _severity: incident.severity || 'medium',
-            _status: incident.status || 'pending',
+            _status: incident.status === 'open' ? 'pending' : (incident.status || 'pending'),
             _address: incident.address,
             _geocoded: true, // Mark as geocoded
           });
@@ -183,7 +165,8 @@ const MapComponent = ({
   const getMarkerColor = (status) => {
     // Color based on status only
     const statusColors = {
-      pending: '#f59e0b',    // Orange for open
+      open: '#f59e0b',       // Orange — same as pending
+      pending: '#f59e0b',    // Orange for open/pending
       in_action: '#3b82f6',  // Blue for in progress
       resolved: '#10b981',   // Green for resolved
       duplicate: '#8b5cf6'   // Purple for duplicate
@@ -203,6 +186,7 @@ const MapComponent = ({
 
   const statusInfo = (status) => {
     const statusMap = {
+      open: { label: 'Open', color: '#f59e0b' },
       pending: { label: 'Open', color: '#f59e0b' },
       in_action: { label: 'In Progress', color: '#3b82f6' },
       resolved: { label: 'Resolved', color: '#10b981' },
@@ -262,32 +246,9 @@ const MapComponent = ({
 
   return (
     <div className="map-container">
-      {/* Map Controls */}
+      {/* Map Controls - Removed style switcher, always uses street view */}
       <div className="map-controls">
-        {/* Map Style Switcher - Horizontal Icon Only */}
-        <div className="map-style-switcher">
-          <button
-            className={`style-icon-btn ${mapStyle === 'mapbox://styles/mapbox/dark-v11' ? 'active' : ''}`}
-            onClick={() => setMapStyle('mapbox://styles/mapbox/dark-v11')}
-            title="Dark"
-          >
-            <Moon size={14} />
-          </button>
-          <button
-            className={`style-icon-btn ${mapStyle === 'mapbox://styles/mapbox/light-v11' ? 'active' : ''}`}
-            onClick={() => setMapStyle('mapbox://styles/mapbox/light-v11')}
-            title="Light"
-          >
-            <Sun size={14} />
-          </button>
-          <button
-            className={`style-icon-btn ${mapStyle === STREET_STYLE ? 'active' : ''}`}
-            onClick={() => setMapStyle(STREET_STYLE)}
-            title="Street"
-          >
-            <MapIcon size={14} />
-          </button>
-        </div>
+        {/* Placeholder for future controls */}
       </div>
 
       {/* Posts Panel - Right Side */}
