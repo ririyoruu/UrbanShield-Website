@@ -1,4 +1,18 @@
+import { createClient } from '@supabase/supabase-js';
 import { supabase } from '../config/supabase';
+
+// Extract the URL and Key to create a secondary 'creation' client
+// This prevents the Super Admin session from being hijacked/logged out when creating a new user
+const supabaseUrl = 'https://efiswsdjscypiujrvawp.supabase.co';
+const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVmaXN3c2Rqc2N5cGl1anJ2YXdwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ2MDk4MTQsImV4cCI6MjA5MDE4NTgxNH0.WATfKs11i3ViCtC3i0cPNr2FHZGUqk6iP3GLsSgF_mo';
+
+const creationClient = createClient(supabaseUrl, supabaseKey, {
+  auth: {
+    persistSession: false,
+    autoRefreshToken: false,
+    detectSessionInUrl: false
+  }
+});
 
 /**
  * Super Admin Service
@@ -45,8 +59,9 @@ export const superAdminService = {
         department 
       } = staffData;
 
-      // 1. Create auth user
-      const { data: authData, error: authError } = await supabase.auth.signUp({
+      // 1. Create auth user using the creation client (not the main one)
+      // This prevents the session from switching to the new user on the website
+      const { data: authData, error: authError } = await creationClient.auth.signUp({
         email,
         password,
         options: {
@@ -64,6 +79,7 @@ export const superAdminService = {
         user_type,
         full_name,
         verification_status: 'verified',
+        is_verified: true, // Explicitly set for automatic verification
         is_active: true,
         updated_at: new Date().toISOString()
       };
