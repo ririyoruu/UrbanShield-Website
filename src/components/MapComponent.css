@@ -184,17 +184,27 @@
   background: #3f3f46;
 }
 
+[data-theme="dark"] .map-incident-id {
+  color: #fafafa !important;
+  opacity: 1 !important;
+}
+
 [data-theme="dark"] .map-incident-card {
   background: #09090b;
+  border-bottom-color: #18181b;
 }
 
 [data-theme="dark"] .map-incident-card:hover {
-  background: #27272a;
-  border-color: #fafafa;
+  background: #18181b;
 }
 
 [data-theme="dark"] .map-incident-card.selected {
   background: #27272a;
+  border-left-color: #fafafa;
+}
+
+[data-theme="dark"] .map-incident-meta {
+  color: #a1a1aa;
 }
 
 /* ─── Controls overlay ───────────────────────── */
@@ -690,19 +700,19 @@
 }
 
 [data-theme="dark"] .hover-preview-modal-time {
-  color: #71717a;
-}
-
-[data-theme="dark"] .hover-preview-modal-description {
   color: #a1a1aa;
 }
 
+[data-theme="dark"] .hover-preview-modal-description {
+  color: #d4d4d8;
+}
+
 [data-theme="dark"] .hover-preview-meta-item {
-  color: #71717a;
+  color: #a1a1aa;
 }
 
 [data-theme="dark"] .hover-preview-meta-item svg {
-  color: #52525b;
+  color: #71717a;
 }
 
 [data-theme="dark"] .hover-preview-modal-footer {
@@ -863,6 +873,10 @@
 }
 
 [data-theme="dark"] .popup-row span {
+  color: #fafafa;
+}
+
+[data-theme="dark"] .popup-row svg {
   color: #a1a1aa;
 }
 

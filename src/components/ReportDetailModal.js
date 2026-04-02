@@ -270,7 +270,7 @@ const ReportDetailModal = ({
                 <Shield size={15} className="meta-icon" />
                 <div className="meta-content">
                   <span className="meta-label">Assigned to</span>
-                  <span className="meta-value" style={{ color: report.assigned_officer ? '#3b82f6' : '#6b7280', fontStyle: report.assigned_officer ? 'normal' : 'italic' }}>
+                  <span className={`meta-value ${!report.assigned_officer ? 'unassigned-value' : ''}`}>
                     {report.assigned_officer || 'Unassigned'}
                   </span>
                 </div>
