@@ -592,7 +592,7 @@ const AdminDashboard = ({ user, onLogout }) => {
   const handleSelectSearchResult = (result, type) => {
     setSearchTerm('');
     setShowSearchResults(false);
-    
+
     if (type === 'incident') {
       setActiveTab('incidents');
       setReportsViewMode('list');
@@ -619,7 +619,7 @@ const AdminDashboard = ({ user, onLogout }) => {
         {!hasResults && !isSearching && (
           <div className="search-empty">No results found for "{searchTerm}"</div>
         )}
-        
+
         {isSearching && (
           <div className="search-empty">Searching...</div>
         )}
@@ -665,7 +665,7 @@ const AdminDashboard = ({ user, onLogout }) => {
       console.error('❌ DISPATCH ABORTED: Missing Incident ID or Responder Data', { incidentId, responder });
       return;
     }
-    
+
     try {
       setLoading(true);
       let assignedBy = adminId;
@@ -681,27 +681,27 @@ const AdminDashboard = ({ user, onLogout }) => {
         ...options,
         status: 'in_action'
       });
-      
+
       console.log('✅ adminService result:', result);
-      
+
       // Optimistic update for reports list (for map and main dashboard)
-      setReports(prev => prev.map(r => r.id === incidentId ? { 
-        ...r, 
-        status: 'in_action', 
+      setReports(prev => prev.map(r => r.id === incidentId ? {
+        ...r,
+        status: 'in_action',
         assigned_officer_id: responder.id,
         assigned_officer: responder.full_name
       } : r));
-      
+
       await loadReports();
       console.log('🔄 Data refreshed via loadReports()');
-      
+
       setSelectedReport(prev => (prev && prev.id === incidentId
-        ? { 
-            ...prev, 
-            status: 'in_action',
-            assigned_officer: responder.full_name + (options.additionalResponders?.length ? ` + ${options.additionalResponders.length} others` : ''), 
-            assigned_officer_id: responder.id 
-          }
+        ? {
+          ...prev,
+          status: 'in_action',
+          assigned_officer: responder.full_name + (options.additionalResponders?.length ? ` + ${options.additionalResponders.length} others` : ''),
+          assigned_officer_id: responder.id
+        }
         : prev));
     } catch (err) {
       console.error('CRITICAL DISPATCH ERROR:', err);
@@ -753,10 +753,10 @@ const AdminDashboard = ({ user, onLogout }) => {
     try {
       setLoading(true);
       await adminService.setIncidentVerified(reportId, true);
-      
+
       // Optimistic update
       setReports(prev => prev.map(r => r.id === reportId ? { ...r, status: 'approved', is_under_review: false } : r));
-      
+
       await loadReports();
       await loadStats();
 
@@ -783,10 +783,10 @@ const AdminDashboard = ({ user, onLogout }) => {
       if (reason) {
         console.log('Rejection reason:', reason);
       }
-      
+
       // Optimistic update
       setReports(prev => prev.map(r => r.id === reportId ? { ...r, status: 'rejected', is_verified: false } : r));
-      
+
       await loadReports();
       await loadStats();
 
@@ -810,13 +810,13 @@ const AdminDashboard = ({ user, onLogout }) => {
     try {
       setLoading(true);
       await adminService.startAction(reportId);
-      
+
       // Optimistic update
       setReports(prev => prev.map(r => r.id === reportId ? { ...r, status: 'in_action' } : r));
       if (selectedReport?.id === reportId) {
         setSelectedReport(prev => ({ ...prev, status: 'in_action' }));
       }
-      
+
       await loadStats();
       setError(null);
     } catch (err) {
@@ -832,13 +832,13 @@ const AdminDashboard = ({ user, onLogout }) => {
       setLoading(true);
       const reportId = typeof report === 'object' ? report.id : report;
       await adminService.resolveIncident(reportId);
-      
+
       // Optimistic update
       setReports(prev => prev.map(r => r.id === reportId ? { ...r, status: 'resolved' } : r));
       if (selectedReport?.id === reportId) {
         setSelectedReport(prev => ({ ...prev, status: 'resolved' }));
       }
-      
+
       await loadStats();
       setError(null);
     } catch (err) {
@@ -870,7 +870,7 @@ const AdminDashboard = ({ user, onLogout }) => {
   const handleIncidentStatusChange = async (reportId, newStatus) => {
     await loadReports();
     await loadStats();
-    
+
     // Update active modal report if it's the one that changed
     if (selectedReport?.id === reportId) {
       const clearAssignment = newStatus === 'pending' || newStatus === 'open';
@@ -886,10 +886,10 @@ const AdminDashboard = ({ user, onLogout }) => {
     try {
       setLoading(true);
       await adminService.updateReportStatus(reportId, 'pending', 'Status reverted to pending');
-      
+
       // Optimistic update
       setReports(prev => prev.map(r => r.id === reportId ? { ...r, status: 'pending', assigned_officer: null, assigned_officer_id: null } : r));
-      
+
       await handleIncidentStatusChange(reportId, 'pending');
     } catch (err) {
       setError('Failed to revert report');
@@ -1010,8 +1010,8 @@ const AdminDashboard = ({ user, onLogout }) => {
             </div>
           </button>
           <div className="sidebar-group">
-            <button 
-              className={`nav-item ${['users', 'admin-management'].includes(activeTab) ? 'active' : ''}`} 
+            <button
+              className={`nav-item ${['users', 'admin-management'].includes(activeTab) ? 'active' : ''}`}
               onClick={() => setUserManagementOpen(!userManagementOpen)}
             >
               <div className="nav-item-content">
@@ -1020,7 +1020,7 @@ const AdminDashboard = ({ user, onLogout }) => {
               </div>
               <ChevronRight className={`chevron ${userManagementOpen ? 'rotate' : ''}`} size={16} />
             </button>
-            
+
             {userManagementOpen && (
               <div className="sub-nav">
                 <button className={`nav-sub-item ${activeTab === 'users' ? 'active' : ''}`} onClick={() => handleTabChange('users')}>
@@ -1138,19 +1138,19 @@ const AdminDashboard = ({ user, onLogout }) => {
                 reports={reports}
                 isOpen={showNotifications}
                 onClose={() => setShowNotifications(false)}
-                onNavigateToIncidents={(id) => { 
+                onNavigateToIncidents={(id) => {
                   if (id) handleViewNotification(id);
-                  setActiveTab('incidents'); 
-                  setShowNotifications(false); 
+                  setActiveTab('incidents');
+                  setShowNotifications(false);
                 }}
                 onViewNotification={handleViewNotification}
                 onClearAll={handleClearAllNotifications}
                 viewedNotifications={viewedNotifications}
               />
             </div>
-            
-            <button 
-              className={`sound-btn ${!isSoundEnabled ? 'muted' : ''}`} 
+
+            <button
+              className={`sound-btn ${!isSoundEnabled ? 'muted' : ''}`}
               onClick={() => setIsSoundEnabled(!isSoundEnabled)}
               title={isSoundEnabled ? "Mute notification sound" : "Unmute notification sound"}
             >
@@ -1211,34 +1211,34 @@ const AdminDashboard = ({ user, onLogout }) => {
                     </div>
                     <ResponsiveContainer width="100%" height={320}>
                       <LineChart data={analyticsData}>
-                      <CartesianGrid strokeDasharray="3 3" stroke={isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)'} vertical={false} />
-                      <XAxis 
-                        dataKey="name" 
-                        stroke={isDark ? '#71717a' : '#a1a1aa'}
-                        tick={{ fontSize: 12, fill: isDark ? '#71717a' : '#a1a1aa' }}
-                        axisLine={false}
-                        tickLine={false}
-                      />
-                      <YAxis 
-                        stroke={isDark ? '#71717a' : '#a1a1aa'}
-                        tick={{ fontSize: 12, fill: isDark ? '#71717a' : '#a1a1aa' }}
-                        axisLine={false}
-                        tickLine={false}
-                      />
-                      <Tooltip
-                        contentStyle={{
-                          backgroundColor: isDark ? '#18181b' : '#ffffff',
-                          border: 'none',
-                          borderRadius: '8px',
-                          boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)',
-                          fontSize: '13px'
-                        }}
-                        cursor={{ fill: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)' }}
-                      />
-                        <Line 
-                          type="monotone" 
-                          dataKey="incidents" 
-                          stroke={isDark ? '#ffffff' : '#18181b'} 
+                        <CartesianGrid strokeDasharray="3 3" stroke={isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)'} vertical={false} />
+                        <XAxis
+                          dataKey="name"
+                          stroke={isDark ? '#71717a' : '#a1a1aa'}
+                          tick={{ fontSize: 12, fill: isDark ? '#71717a' : '#a1a1aa' }}
+                          axisLine={false}
+                          tickLine={false}
+                        />
+                        <YAxis
+                          stroke={isDark ? '#71717a' : '#a1a1aa'}
+                          tick={{ fontSize: 12, fill: isDark ? '#71717a' : '#a1a1aa' }}
+                          axisLine={false}
+                          tickLine={false}
+                        />
+                        <Tooltip
+                          contentStyle={{
+                            backgroundColor: isDark ? '#18181b' : '#ffffff',
+                            border: 'none',
+                            borderRadius: '8px',
+                            boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)',
+                            fontSize: '13px'
+                          }}
+                          cursor={{ fill: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)' }}
+                        />
+                        <Line
+                          type="monotone"
+                          dataKey="incidents"
+                          stroke={isDark ? '#ffffff' : '#18181b'}
                           strokeWidth={2}
                           dot={{ fill: isDark ? '#ffffff' : '#18181b', r: 4 }}
                           activeDot={{ r: 6 }}
@@ -1291,46 +1291,46 @@ const AdminDashboard = ({ user, onLogout }) => {
                       <p className="zenith-chart-subtitle">Distribution by type</p>
                     </div>
                     <ResponsiveContainer width="100%" height={280}>
-                    <PieChart>
-                      <Pie
-                        data={incidentTypes}
-                        cx="50%"
-                        cy="50%"
-                        innerRadius={70}
-                        outerRadius={110}
-                        paddingAngle={2}
-                        dataKey="value"
-                      >
-                        {incidentTypes.map((entry, index) => (
-                          <Cell key={`cell-${index}`} fill={entry.color} />
-                        ))}
-                      </Pie>
-                      <Tooltip
-                        contentStyle={{
-                          backgroundColor: isDark ? '#18181b' : '#ffffff',
-                          border: 'none',
-                          borderRadius: '8px',
-                          boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)',
-                          fontSize: '13px'
-                        }}
-                      />
-                    </PieChart>
-                  </ResponsiveContainer>
-                  <div className="zenith-legend">
-                    {incidentTypes.map((entry, index) => (
-                      <div key={index} className="zenith-legend-item">
-                        <div className="zenith-legend-color" style={{ backgroundColor: entry.color }}></div>
-                        <span className="zenith-legend-label">{entry.name}</span>
-                        <span className="zenith-legend-value">{entry.value}</span>
-                      </div>
-                    ))}
+                      <PieChart>
+                        <Pie
+                          data={incidentTypes}
+                          cx="50%"
+                          cy="50%"
+                          innerRadius={70}
+                          outerRadius={110}
+                          paddingAngle={2}
+                          dataKey="value"
+                        >
+                          {incidentTypes.map((entry, index) => (
+                            <Cell key={`cell-${index}`} fill={entry.color} />
+                          ))}
+                        </Pie>
+                        <Tooltip
+                          contentStyle={{
+                            backgroundColor: isDark ? '#18181b' : '#ffffff',
+                            border: 'none',
+                            borderRadius: '8px',
+                            boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)',
+                            fontSize: '13px'
+                          }}
+                        />
+                      </PieChart>
+                    </ResponsiveContainer>
+                    <div className="zenith-legend">
+                      {incidentTypes.map((entry, index) => (
+                        <div key={index} className="zenith-legend-item">
+                          <div className="zenith-legend-color" style={{ backgroundColor: entry.color }}></div>
+                          <span className="zenith-legend-label">{entry.name}</span>
+                          <span className="zenith-legend-value">{entry.value}</span>
+                        </div>
+                      ))}
+                    </div>
                   </div>
                 </div>
               </div>
-            </div>
 
-            {/* Zenith-style Recent Activity */}
-            <div className="zenith-activity-card">
+              {/* Zenith-style Recent Activity */}
+              <div className="zenith-activity-card">
                 <div className="zenith-card-header">
                   <div>
                     <h3 className="zenith-card-title">Recent Posts</h3>

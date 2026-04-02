@@ -686,7 +686,8 @@ body {
 .search-input {
   background: var(--muted);
   border: 1px solid transparent;
-  border-radius: 9999px; /* Pill shape */
+  border-radius: 9999px;
+  /* Pill shape */
   padding: .5rem 1rem .5rem 2.5rem;
   color: var(--fg);
   font-size: .875rem;
@@ -1734,15 +1735,22 @@ body {
 }
 
 @keyframes dropdownIn {
-  from { opacity: 0; transform: translateY(-10px); }
-  to { opacity: 1; transform: translateY(0); }
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 .search-results-section {
   padding: 8px 0;
 }
 
-.search-results-section + .search-results-section {
+.search-results-section+.search-results-section {
   border-top: 1px solid var(--border);
 }
 
@@ -1825,4 +1833,4 @@ body {
   box-shadow: 0 20px 40px -10px rgba(0, 0, 0, 0.5);
   background: #18181b;
   border-color: #27272a;
-}
+}

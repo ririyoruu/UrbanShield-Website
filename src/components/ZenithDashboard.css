@@ -606,15 +606,15 @@
   .zenith-stats-grid {
     grid-template-columns: repeat(2, 1fr);
   }
-  
+
   .zenith-charts-grid {
     grid-template-columns: 1fr;
   }
-  
+
   .dashboard-grid {
     grid-template-columns: 1fr;
   }
-  
+
   .quick-actions-grid {
     grid-template-columns: repeat(2, 1fr);
   }
@@ -624,19 +624,19 @@
   .zenith-stats-grid {
     grid-template-columns: 1fr;
   }
-  
+
   .zenith-stat-value {
     font-size: 1.875rem;
   }
-  
+
   .zenith-chart-title {
     font-size: 1rem;
   }
-  
+
   .quick-actions-grid {
     grid-template-columns: 1fr;
   }
-  
+
   .activity-item {
     padding: 0.875rem 1rem;
   }
@@ -646,7 +646,7 @@
   .zenith-stats-grid {
     grid-template-columns: repeat(2, 1fr);
   }
-  
+
   .zenith-charts-grid {
     grid-template-columns: 1fr;
   }
@@ -656,19 +656,19 @@
   .zenith-stats-grid {
     grid-template-columns: 1fr;
   }
-  
+
   .zenith-title {
     font-size: 1.5rem;
   }
-  
+
   .zenith-stat-value {
     font-size: 1.875rem;
   }
-  
+
   .zenith-table {
     overflow-x: scroll;
   }
-  
+
   .zenith-table table {
     min-width: 600px;
   }
