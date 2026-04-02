@@ -240,47 +240,7 @@ const LandingPage = ({ onLoginClick, onSignupClick }) => {
                 </div>
             </section>
 
-            {/* Features Grid ... Existing code ... */}
 
-            {/* Documentation Mockup Section */}
-            <section id="documentation" className="landing-docs-section">
-                <div className="container">
-                    <motion.div 
-                        className="section-header"
-                        initial="hidden"
-                        whileInView="visible"
-                        viewport={{ once: false, amount: 0.3 }}
-                        variants={fadeInUp}
-                    >
-                        <h2 className="section-title">Knowledge Base</h2>
-                        <p className="section-subtitle">Comprehensive guides to master the UrbanShield ecosystem.</p>
-                    </motion.div>
-
-                    <div className="docs-grid">
-                        {[
-                            { icon: <Shield size={32} />, title: "Getting Started", desc: "A complete step-by-step guide for first-time administrators and agencies." },
-                            { icon: <Smartphone size={32} />, title: "Mobile Integration", desc: "Setting up citizen reporting tools and incident notification systems." },
-                            { icon: <Zap size={32} />, title: "API Reference", desc: "Technical documentation for building custom integrations and data exports." },
-                            { icon: <MapPin size={32} />, title: "Map Management", desc: "Advanced geographical tools for real-time situational tracking and analysis." }
-                        ].map((doc, i) => (
-                            <motion.div 
-                                key={i}
-                                className="docs-card"
-                                whileHover={{ x: 10, backgroundColor: "rgba(37, 99, 235, 0.1)" }}
-                            >
-                                <div className="docs-icon">{doc.icon}</div>
-                                <div className="docs-info">
-                                    <h3>{doc.title}</h3>
-                                    <p>{doc.desc}</p>
-                                    <span className="docs-link">Explore Article <ArrowRight size={14} /></span>
-                                </div>
-                            </motion.div>
-                        ))}
-                    </div>
-                </div>
-            </section>
-
-            {/* App Promotion Section ... Existing code ... */}
             <section id="app" className="landing-app-section">
                 <div className="container">
                     <div className="app-grid">
@@ -354,7 +314,7 @@ const LandingPage = ({ onLoginClick, onSignupClick }) => {
                             </div>
                             <div>
                                 <h4>Support</h4>
-                                <a href="#documentation" onClick={(e) => { e.preventDefault(); alert('Documentation Portal coming soon!'); }}>Documentation</a>
+                                <a href="#">Documentation</a>
                                 <a href="mailto:ninamarieantonio13@gmail.com,urbanshield.ad@gmail.com?subject=UrbanShield Support Request">Contact Us</a>
                                 <a href="https://www.redcross.org/get-help/how-to-prepare-for-emergencies.html" target="_blank" rel="noopener noreferrer">Safety Resources</a>
                             </div>
