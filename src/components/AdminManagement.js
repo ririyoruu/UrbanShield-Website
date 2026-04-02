@@ -536,9 +536,6 @@ const AdminManagement = ({ initialTab = 'all', isSuperAdmin }) => {
               )}
 
               <div className="drawer-section">
-                <div className="section-title" style={{ color: '#000000', fontWeight: '900', textTransform: 'uppercase' }}>
-                  {selectedStaff.user_type === 'responder' ? 'Responder Details' : 'Admin Details'}
-                </div>
                 <div className="details-stack-zenith">
                   <div className="detail-field-row">
                     <label>Full Name</label>
