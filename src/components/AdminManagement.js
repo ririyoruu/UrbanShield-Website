@@ -242,6 +242,20 @@ const AdminManagement = ({ initialTab = 'all', isSuperAdmin }) => {
     } finally { setSaving(false); }
   };
 
+  const handlePromoteToSuperAdmin = async (e, user) => {
+    e?.stopPropagation();
+    if (!window.confirm(`Are you sure you want to promote ${user.full_name} to Super Admin? This will give them full system control.`)) return;
+    setSaving(true);
+    try {
+      await superAdminService.updateStaffRole(user.id, 'super_admin');
+      showFlash(`${user.full_name} promoted to Super Admin`);
+      await loadStaff(true);
+      setShowDetailDrawer(false);
+    } catch (err) {
+      showFlash('Promotion failed', 'error');
+    } finally { setSaving(false); }
+  };
+
   const handleAddStaff = async (e) => {
     e.preventDefault();
 
@@ -522,7 +536,9 @@ const AdminManagement = ({ initialTab = 'all', isSuperAdmin }) => {
               )}
 
               <div className="drawer-section">
-                <div className="section-title">Personnel Details</div>
+                <div className="section-title" style={{ color: '#000000', fontWeight: '900', textTransform: 'uppercase' }}>
+                  {selectedStaff.user_type === 'responder' ? 'Responder Details' : 'Admin Details'}
+                </div>
                 <div className="details-stack-zenith">
                   <div className="detail-field-row">
                     <label>Full Name</label>
@@ -604,6 +620,11 @@ const AdminManagement = ({ initialTab = 'all', isSuperAdmin }) => {
                   <div className="danger-zone-title">Account Management</div>
                   <p>Manage this personnel's access to the UrbanShield platform.</p>
                   <div className="danger-zone-actions">
+                    {isSuperAdmin && selectedStaff.user_type === 'admin' && (
+                      <button type="button" className="status-btn-zenith activate" style={{ background: 'var(--primary)', marginBottom: '0.5rem' }} onClick={(e) => handlePromoteToSuperAdmin(e, selectedStaff)}>
+                        <Crown size={16} /> Promote to Super Admin
+                      </button>
+                    )}
                     <button type="button" className={`status-btn-zenith ${isActive(selectedStaff) ? 'deactivate' : 'activate'}`} onClick={(e) => handleToggleActive(e, selectedStaff)}>
                       {isActive(selectedStaff) ? 'Suspend Personnel' : 'Reactivate Personnel'}
                     </button>
@@ -646,14 +667,14 @@ const AdminManagement = ({ initialTab = 'all', isSuperAdmin }) => {
             <form onSubmit={handleAddStaff} className="drawer-scrollable">
               {/* ... existing fields ... */}
               <div className="drawer-section">
-                <div className="section-title">Login Credentials</div>
+                <div className="section-title" style={{ color: '#000000', fontWeight: '900', textTransform: 'uppercase' }}>Login Credentials</div>
                 <div className="form-item"><label>Email</label><input type="email" required value={addFormData.email} onChange={e => setAddFormData({ ...addFormData, email: e.target.value })} /></div>
                 <div className="form-item"><label>Username</label><input type="text" required value={addFormData.username} onChange={e => setAddFormData({ ...addFormData, username: e.target.value })} /></div>
                 <div className="form-item"><label>Password</label><div className="pass-wrap"><input type={showPassword ? 'text' : 'password'} required value={addFormData.password} onChange={e => setAddFormData({ ...addFormData, password: e.target.value })} /><button type="button" onClick={() => setShowPassword(!showPassword)}>{showPassword ? <EyeOff size={18} /> : <Eye size={18} />}</button></div></div>
               </div>
 
               <div className="drawer-section">
-                <div className="section-title">Staff Details</div>
+                <div className="section-title" style={{ color: '#000000', fontWeight: '900', textTransform: 'uppercase' }}>Staff Details</div>
                 <div className="form-item"><label>Full Name</label><input type="text" required value={addFormData.full_name} onChange={e => setAddFormData({ ...addFormData, full_name: e.target.value })} /></div>
                 {!isResponderMode ? (
                   <div className="form-item">

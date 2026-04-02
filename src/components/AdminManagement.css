@@ -418,6 +418,26 @@
   color: var(--border);
 }
 
+.drawer-section {
+  margin-top: 2rem;
+}
+
+.admin-management-module .section-title {
+  font-size: 1.125rem;
+  font-weight: 900;
+  color: #000000 !important;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  padding-bottom: 0.75rem;
+  border-bottom: 2px solid var(--border);
+  margin-bottom: 1.5rem;
+  display: block;
+}
+
+[data-theme="dark"] .admin-management-module .section-title {
+  color: #ffffff !important;
+}
+
 .alert-card-zenith {
   display: flex;
   align-items: flex-start;
