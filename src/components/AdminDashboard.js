@@ -24,9 +24,10 @@ import {
   Sun,
   LogOut,
   Volume2,
-  VolumeX
+  VolumeX,
+  Activity
 } from 'lucide-react';
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar, PieChart, Pie, Cell } from 'recharts';
+import { AreaChart, Area, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar, PieChart, Pie, Cell } from 'recharts';
 import MapComponent from './MapComponent';
 import { adminService, supabase } from '../config/supabase';
 import InvitationManager from './InvitationManager';
@@ -100,29 +101,14 @@ const AdminDashboard = ({ user, onLogout }) => {
     const saved = localStorage.getItem('zenith_sound_enabled');
     return saved === null ? true : saved === 'true';
   });
+  const [mapFilter, setMapFilter] = useState('all');
 
   // Persist sound setting
   useEffect(() => {
     localStorage.setItem('zenith_sound_enabled', isSoundEnabled);
   }, [isSoundEnabled]);
 
-  const playNotificationSound = () => {
-    if (!isSoundEnabled) return;
-    try {
-      // Priority: use the user's custom file if they put it in public/notification.wav
-      // Falling back to the CDN sound for now so it works out of the box
-      const audio = new Audio('/notification.wav');
-      audio.volume = 0.5;
-      audio.play().catch(err => {
-        // If /notification.wav doesn't exist or is blocked, try the fallback CDN link
-        const fallback = new Audio('https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3');
-        fallback.volume = 0.5;
-        fallback.play().catch(e => console.warn('Audio play blocked:', e.message));
-      });
-    } catch (err) {
-      console.error('❌ Error playing notification sound:', err);
-    }
-  };
+
 
   // Global Search State
   const [globalSearchResults, setGlobalSearchResults] = useState({ incidents: [], profiles: [] });
@@ -507,6 +493,20 @@ const AdminDashboard = ({ user, onLogout }) => {
       });
     }
   };
+
+  // Play notification sound
+  const playNotificationSound = useCallback(() => {
+    if (!isSoundEnabled) return;
+    
+    try {
+      // Use a professional, mission-critical alert sound
+      const audio = new Audio('https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3');
+      audio.volume = 0.5;
+      audio.play().catch(e => console.log('Audio playback prevented by browser:', e));
+    } catch (error) {
+      console.error('Error playing notification sound:', error);
+    }
+  }, [isSoundEnabled]);
 
   // Setup real-time subscriptions
   const setupRealtimeSubscription = () => {
@@ -1044,6 +1044,11 @@ const AdminDashboard = ({ user, onLogout }) => {
               <Bell size={18} /><span>Announcements</span>
             </div>
           </button>
+          <button className={`nav-item ${activeTab === 'logs' ? 'active' : ''}`} onClick={() => handleTabChange('logs')}>
+            <div className="nav-item-content">
+              <Activity size={18} /><span>Audit Logs</span>
+            </div>
+          </button>
           <button className={`nav-item ${activeTab === 'profile' ? 'active' : ''}`} onClick={() => handleTabChange('profile')}>
             <div className="nav-item-content">
               <SettingsIcon size={18} /><span>Settings</span>
@@ -1094,6 +1099,7 @@ const AdminDashboard = ({ user, onLogout }) => {
               {activeTab === 'admin-management' && staffFilter === 'admins' && <span style={{ fontSize: '2em', fontWeight: 'bold' }}>Admins</span>}
               {activeTab === 'admin-management' && staffFilter === 'all' && <span style={{ fontSize: '2em', fontWeight: 'bold' }}>Staff Management</span>}
               {activeTab === 'announcements' && <span style={{ fontSize: '2em', fontWeight: 'bold' }}>Announcements</span>}
+              {activeTab === 'logs' && <span style={{ fontSize: '2em', fontWeight: 'bold' }}>Audit Logs</span>}
               {activeTab === 'profile' && <span style={{ fontSize: '2em', fontWeight: 'bold' }}>Settings</span>}
             </h1>
           </div>
@@ -1171,6 +1177,8 @@ const AdminDashboard = ({ user, onLogout }) => {
               userType="admin"
               onMarkerClick={(incident) => handleViewReport(incident)}
               isDark={isDark}
+              statusFilter={mapFilter}
+              setStatusFilter={setMapFilter}
             />
           )}
 
@@ -1178,7 +1186,7 @@ const AdminDashboard = ({ user, onLogout }) => {
             <div className="overview-content">
               {/* Zenith-style Stat Cards */}
               <div className="zenith-stats-grid">
-                <div className="zenith-stat-card" onClick={() => setActiveTab('incidents')}>
+                <div className="zenith-stat-card" onClick={() => { setActiveTab('map'); setMapFilter('all'); }}>
                   <div className="zenith-stat-label">Total Posts</div>
                   <div className="zenith-stat-value">{stats[0]?.value || '0'}</div>
                   <div className="zenith-stat-change positive">All reported incidents</div>
@@ -1188,12 +1196,12 @@ const AdminDashboard = ({ user, onLogout }) => {
                   <div className="zenith-stat-value">{stats[3]?.value || '0'}</div>
                   <div className="zenith-stat-change positive">Registered accounts</div>
                 </div>
-                <div className="zenith-stat-card" onClick={() => setActiveTab('incidents')}>
+                <div className="zenith-stat-card" onClick={() => { setActiveTab('map'); setMapFilter('pending'); }}>
                   <div className="zenith-stat-label">Pending Posts</div>
                   <div className="zenith-stat-value">{stats[1]?.value || '0'}</div>
                   <div className="zenith-stat-change negative">Awaiting moderation</div>
                 </div>
-                <div className="zenith-stat-card" onClick={() => setActiveTab('incidents')}>
+                <div className="zenith-stat-card" onClick={() => { setActiveTab('map'); setMapFilter('resolved'); }}>
                   <div className="zenith-stat-label">Resolved Today</div>
                   <div className="zenith-stat-value">{stats[2]?.value || '0'}</div>
                   <div className="zenith-stat-change positive">Handled today</div>
@@ -1202,15 +1210,22 @@ const AdminDashboard = ({ user, onLogout }) => {
 
               {/* Dashboard Grid Layout */}
               <div className="dashboard-grid">
-                {/* Main Chart */}
+                {/* Main Charts Column */}
                 <div className="dashboard-main-chart">
-                  <div className="zenith-chart-card">
+                  {/* Post Trends - Area Chart Upgrade */}
+                  <div className="zenith-chart-card" style={{ marginBottom: '1.5rem' }}>
                     <div className="zenith-chart-header">
                       <h3 className="zenith-chart-title">Post Trends</h3>
-                      <p className="zenith-chart-subtitle">Incident reports over the past 6 months</p>
+                      <p className="zenith-chart-subtitle">Incident reporting volume over the past 6 months</p>
                     </div>
                     <ResponsiveContainer width="100%" height={320}>
-                      <LineChart data={analyticsData}>
+                      <AreaChart data={analyticsData}>
+                        <defs>
+                          <linearGradient id="colorIncidents" x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="5%" stopColor={isDark ? "#3b82f6" : "#2563eb"} stopOpacity={0.3}/>
+                            <stop offset="95%" stopColor={isDark ? "#3b82f6" : "#2563eb"} stopOpacity={0}/>
+                          </linearGradient>
+                        </defs>
                         <CartesianGrid strokeDasharray="3 3" stroke={isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)'} vertical={false} />
                         <XAxis
                           dataKey="name"
@@ -1233,17 +1248,63 @@ const AdminDashboard = ({ user, onLogout }) => {
                             boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)',
                             fontSize: '13px'
                           }}
-                          cursor={{ fill: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)' }}
                         />
-                        <Line
+                        <Area
                           type="monotone"
                           dataKey="incidents"
-                          stroke={isDark ? '#ffffff' : '#18181b'}
-                          strokeWidth={2}
-                          dot={{ fill: isDark ? '#ffffff' : '#18181b', r: 4 }}
-                          activeDot={{ r: 6 }}
+                          stroke={isDark ? '#60a5fa' : '#2563eb'}
+                          strokeWidth={3}
+                          fillOpacity={1}
+                          fill="url(#colorIncidents)"
+                          animationDuration={1500}
                         />
-                      </LineChart>
+                      </AreaChart>
+                    </ResponsiveContainer>
+                  </div>
+
+                  {/* Resolution Performance - Bar Chart Addition */}
+                  <div className="zenith-chart-card">
+                    <div className="zenith-chart-header">
+                      <h3 className="zenith-chart-title">Resolution Velocity</h3>
+                      <p className="zenith-chart-subtitle">Comparing reported vs resolved incidents</p>
+                    </div>
+                    <ResponsiveContainer width="100%" height={320}>
+                      <BarChart data={analyticsData}>
+                        <CartesianGrid strokeDasharray="3 3" stroke={isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)'} vertical={false} />
+                        <XAxis
+                          dataKey="name"
+                          stroke={isDark ? '#71717a' : '#a1a1aa'}
+                          tick={{ fontSize: 12, fill: isDark ? '#71717a' : '#a1a1aa' }}
+                          axisLine={false}
+                          tickLine={false}
+                        />
+                        <YAxis
+                          stroke={isDark ? '#71717a' : '#a1a1aa'}
+                          tick={{ fontSize: 12, fill: isDark ? '#71717a' : '#a1a1aa' }}
+                          axisLine={false}
+                          tickLine={false}
+                        />
+                        <Tooltip
+                          contentStyle={{
+                            backgroundColor: isDark ? '#18181b' : '#ffffff',
+                            border: 'none',
+                            borderRadius: '12px',
+                            boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1)',
+                          }}
+                        />
+                        <Bar 
+                          dataKey="incidents" 
+                          fill={isDark ? "#3f3f46" : "#e4e4e7"} 
+                          radius={[4, 4, 0, 0]} 
+                          barSize={20}
+                        />
+                        <Bar 
+                          dataKey="resolved" 
+                          fill={isDark ? "#10b981" : "#059669"} 
+                          radius={[4, 4, 0, 0]} 
+                          barSize={20}
+                        />
+                      </BarChart>
                     </ResponsiveContainer>
                   </div>
                 </div>
@@ -1254,7 +1315,7 @@ const AdminDashboard = ({ user, onLogout }) => {
                   <div className="zenith-chart-card activity-compact">
                     <div className="zenith-chart-header">
                       <h3 className="zenith-chart-title">Recent Activity</h3>
-                      <p className="zenith-chart-subtitle">Latest system updates</p>
+                      <button className="zenith-view-all" onClick={() => handleTabChange('logs')}>View all</button>
                     </div>
                     <div className="activity-list-compact">
                       {recentActivity.length === 0 ? (
@@ -1263,7 +1324,7 @@ const AdminDashboard = ({ user, onLogout }) => {
                           <p style={{ fontSize: '0.8125rem', color: 'var(--muted-fg)', margin: '0.5rem 0 0 0' }}>No recent activity</p>
                         </div>
                       ) : (
-                        recentActivity.slice(0, 5).map(activity => (
+                        recentActivity.slice(0, 10).map(activity => (
                           <div key={activity.id} className="activity-item-compact">
                             <div className="activity-icon-compact">
                               {activity.type === 'incident' ? (
@@ -1284,20 +1345,20 @@ const AdminDashboard = ({ user, onLogout }) => {
                     </div>
                   </div>
 
-                  {/* Category Chart */}
+                  {/* Category Chart - Increased height to fill gap naturally */}
                   <div className="zenith-chart-card">
                     <div className="zenith-chart-header">
                       <h3 className="zenith-chart-title">Incident Categories</h3>
                       <p className="zenith-chart-subtitle">Distribution by type</p>
                     </div>
-                    <ResponsiveContainer width="100%" height={280}>
+                    <ResponsiveContainer width="100%" height={380}>
                       <PieChart>
                         <Pie
                           data={incidentTypes}
                           cx="50%"
                           cy="50%"
-                          innerRadius={70}
-                          outerRadius={110}
+                          innerRadius={80}
+                          outerRadius={120}
                           paddingAngle={2}
                           dataKey="value"
                         >
@@ -1316,12 +1377,12 @@ const AdminDashboard = ({ user, onLogout }) => {
                         />
                       </PieChart>
                     </ResponsiveContainer>
-                    <div className="zenith-legend">
-                      {incidentTypes.map((entry, index) => (
+                    <div className="zenith-legend" style={{ gridTemplateColumns: 'repeat(2, 1fr)', marginTop: '1rem' }}>
+                      {incidentTypes.slice(0, 8).map((entry, index) => (
                         <div key={index} className="zenith-legend-item">
                           <div className="zenith-legend-color" style={{ backgroundColor: entry.color }}></div>
-                          <span className="zenith-legend-label">{entry.name}</span>
-                          <span className="zenith-legend-value">{entry.value}</span>
+                          <span className="zenith-legend-label" style={{ fontSize: '0.8125rem' }}>{entry.name}</span>
+                          <span className="zenith-legend-value" style={{ fontSize: '0.8125rem' }}>{entry.value}</span>
                         </div>
                       ))}
                     </div>
@@ -1432,6 +1493,56 @@ const AdminDashboard = ({ user, onLogout }) => {
               </div>
               {settingsSubTab === 'settings' && <Settings user={user} onAvatarChange={(url, name) => { if (url) setAdminAvatarUrl(url); if (name) setAdminName(name); }} />}
               {settingsSubTab === 'invitations' && <InvitationManager user={user} />}
+            </div>
+          )}
+
+          {activeTab === 'logs' && (
+            <div className="logs-content">
+              <div className="zenith-activity-card">
+                <div className="zenith-card-header" style={{ padding: '1.5rem' }}>
+                  <div>
+                    <h3 className="zenith-card-title">Full System Activity</h3>
+                    <p className="zenith-card-description">Complete audit trail of recent platform events</p>
+                  </div>
+                </div>
+                <div className="activity-details-list" style={{ padding: '0 1.5rem 1.5rem 1.5rem' }}>
+                  {recentActivity.length === 0 ? (
+                    <p style={{ textAlign: 'center', padding: '3rem', color: 'var(--muted-fg)' }}>No active logs recorded.</p>
+                  ) : (
+                    recentActivity.map(activity => (
+                      <div key={activity.id} style={{ 
+                        display: 'flex', 
+                        gap: '1rem', 
+                        padding: '1.25rem 0', 
+                        borderBottom: `1px solid ${isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)'}` 
+                      }}>
+                        <div style={{ 
+                          width: '40px', 
+                          height: '40px', 
+                          borderRadius: '10px', 
+                          background: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          flexShrink: 0
+                        }}>
+                          {activity.type === 'incident' ? <AlertTriangle size={18} color="#ef4444" /> : <User size={18} color="#3b82f6" />}
+                        </div>
+                        <div style={{ flex: 1 }}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.25rem' }}>
+                            <span style={{ fontWeight: '600', fontSize: '0.9375rem' }}>{activity.user}</span>
+                            <span style={{ fontSize: '0.75rem', color: 'var(--muted-fg)' }}>{new Date(activity.timestamp).toLocaleString()}</span>
+                          </div>
+                          <p style={{ fontSize: '0.875rem', color: 'var(--muted-fg)', margin: 0 }}>
+                            Successfully <span style={{ color: 'var(--fg)', fontWeight: '500' }}>{activity.action}</span> a new {activity.type === 'incident' ? 'Incident Report' : 'User Profile'}: 
+                            <strong style={{ marginLeft: '4px', color: 'var(--fg)' }}>{activity.target}</strong>
+                          </p>
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </div>
             </div>
           )}
         </div>

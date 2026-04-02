@@ -9,7 +9,9 @@ const MapComponent = ({
   incidents = [],
   userType = 'tourist',
   onMarkerClick,
-  isDark = false
+  isDark = false,
+  statusFilter = 'all', 
+  setStatusFilter = () => {}
 }) => {
   const STREET_STYLE = 'mapbox://styles/mapbox/streets-v12';
   const [viewState, setViewState] = useState({
@@ -22,7 +24,6 @@ const MapComponent = ({
   const [mapStyle] = useState(STREET_STYLE);
   const [pins, setPins] = useState([]);
   const [incidentSearch, setIncidentSearch] = useState('');
-  const [statusFilter, setStatusFilter] = useState('all'); // 'all', 'pending', 'in_action', 'resolved'
   const mapRef = useRef(null);
 
   // Geocode address to coordinates using Nominatim (OpenStreetMap)
@@ -318,8 +319,10 @@ const MapComponent = ({
         <FullscreenControl position="top-right" />
         <ScaleControl position="bottom-left" />
 
-        {/* Markers */}
-        {pins.map(pin => (
+        {/* Markers filtered by status */}
+        {pins
+          .filter(pin => statusFilter === 'all' || pin._status === statusFilter)
+          .map(pin => (
           <Marker
             key={pin.id}
             longitude={pin._lng}

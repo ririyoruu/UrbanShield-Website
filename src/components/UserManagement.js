@@ -222,17 +222,33 @@ const UserManagement = ({ isSuperAdmin }) => {
 
   /* ── Filters ── */
   const filteredUsers = useMemo(() => {
-    return users.filter(user => {
+    let result = users.filter(user => {
       const s = searchTerm.toLowerCase();
       const matchesSearch = !s ||
         user.full_name.toLowerCase().includes(s) ||
         user.email.toLowerCase().includes(s);
-      const matchesRole = filterRole === 'all' ||
-        user.user_type === filterRole;
+      
       const statusKey = getStatusInfo(user).key;
       const matchesStatus = filterStatus === 'all' || statusKey === filterStatus;
-      return matchesSearch && matchesRole && matchesStatus;
+      
+      // Document Filter
+      const docs = user.verification_documents || user.documents || [];
+      const hasDocs = Array.isArray(docs) && docs.filter(d => d && d.trim()).length > 0;
+      const matchesDocs = filterRole === 'all' || 
+        (filterRole === 'with_docs' && hasDocs) || 
+        (filterRole === 'no_docs' && !hasDocs);
+
+      return matchesSearch && matchesStatus && matchesDocs;
     });
+
+    // Sort By Newest/Oldest (using sortingState if you want, but simple for now)
+    if (filterRole === 'oldest') {
+      result.sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
+    } else {
+      result.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+    }
+
+    return result;
   }, [users, searchTerm, filterRole, filterStatus]);
 
   const stats = useMemo(() => {
@@ -345,13 +361,18 @@ const UserManagement = ({ isSuperAdmin }) => {
             onChange={(e) => setSearchTerm(e.target.value)}
           />
         </div>
-        <div className="zenith-toolbar-actions">
-          <button className="zenith-toolbar-btn">
-            <SlidersHorizontal size={14} /> Columns
-          </button>
-          <button className="zenith-toolbar-btn">
-            <Upload size={14} /> Export
-          </button>
+        <div className="zenith-toolbar-actions" style={{ display: 'flex', gap: '0.75rem' }}>
+          {/* Document Filter */}
+          <select 
+            className="zenith-toolbar-select" 
+            value={filterRole} 
+            onChange={(e) => setFilterRole(e.target.value)}
+          >
+            <option value="all">Recent (Newest)</option>
+            <option value="oldest">Oldest First</option>
+            <option value="with_docs">Has Documents</option>
+            <option value="no_docs">No Documents</option>
+          </select>
         </div>
       </div>
 

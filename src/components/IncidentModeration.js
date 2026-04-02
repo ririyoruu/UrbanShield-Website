@@ -828,12 +828,22 @@ const IncidentModeration = ({ initialSearch = '', onStatusChange, onAssignRespon
               <input type="text" placeholder="Search posts..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
             </div>
             <div className="zenith-toolbar-actions">
-              <button className="zenith-toolbar-btn">
-                <SlidersHorizontal size={14} /> Columns
-              </button>
-              <button className="zenith-toolbar-btn">
-                <Upload size={14} /> Export
-              </button>
+              {/* Category Filter */}
+              <div className="zenith-filter-group" style={{ display: 'flex', gap: '0.5rem' }}>
+                <select 
+                  className="zenith-toolbar-select" 
+                  value={filterCategory} 
+                  onChange={(e) => setFilterCategory(e.target.value)}
+                >
+                  <option value="all">All Categories</option>
+                  <option value="earthquake">Earthquake</option>
+                  <option value="fire">Fire</option>
+                  <option value="flood">Flood</option>
+                  <option value="accident">Accident</option>
+                  <option value="rescue">Rescue</option>
+                  <option value="General">General</option>
+                </select>
+              </div>
             </div>
           </>
         )}
