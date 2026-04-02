@@ -28,7 +28,7 @@ import './IncidentModeration.css';
 import './ZenithIncidentModeration.css';
 import './ZenithTableModeration.css';
 
-const IncidentModeration = ({ initialSearch = '', onStatusChange, onAssignResponder }) => {
+const IncidentModeration = ({ initialSearch = '', onStatusChange, onAssignResponder, isSuperAdmin: propIsSuperAdmin }) => {
   const [incidents, setIncidents] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
@@ -40,7 +40,7 @@ const IncidentModeration = ({ initialSearch = '', onStatusChange, onAssignRespon
   const [showModal, setShowModal] = useState(false);
   const [saving, setSaving] = useState(false);
   const [locationCache, setLocationCache] = useState({});
-  const [isSuperAdmin, setIsSuperAdmin] = useState(false);
+  const [isSuperAdmin, setIsSuperAdmin] = useState(propIsSuperAdmin || false);
   // Resolve modal
   const [showResolveModal, setShowResolveModal] = useState(false);
   const [resolveTarget, setResolveTarget] = useState(null);
@@ -61,7 +61,9 @@ const IncidentModeration = ({ initialSearch = '', onStatusChange, onAssignRespon
 
   useEffect(() => {
     loadIncidents();
-    checkSuperAdmin();
+    if (propIsSuperAdmin === undefined) {
+      checkSuperAdmin();
+    }
 
     // Real-time subscription — updates the table instantly on any DB change
     const channel = supabase

@@ -247,6 +247,37 @@ export const adminService = {
         .single();
       
       if (error) throw error;
+
+      // 📣 Broadcast notification to mobile app users
+      try {
+        const alertEmoji = {
+          critical: '🔴',
+          warning: '🟡',
+          info: '🔵',
+          notice: '⚫'
+        }[announcement.alert_level] || '📢';
+
+        await supabase
+          .from('notifications')
+          .insert([{
+            type: 'announcement',
+            title: `${alertEmoji} ${announcement.title}`,
+            message: announcement.content,
+            data: {
+              announcement_id: data.id,
+              alert_level: announcement.alert_level || 'info',
+              alert_type: announcement.alert_type || null,
+              areas: announcement.areas || null,
+            },
+            is_read: false,
+            created_at: new Date().toISOString(),
+          }]);
+        console.log('📣 Notification sent to users for announcement:', data.id);
+      } catch (notifError) {
+        // Non-fatal — announcement was still created
+        console.warn('⚠️ Could not insert notification (non-fatal):', notifError.message);
+      }
+
       return data;
     } catch (error) {
       console.error('❌ Error creating announcement:', error);

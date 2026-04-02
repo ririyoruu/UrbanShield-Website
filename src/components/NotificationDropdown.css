@@ -101,6 +101,26 @@
   cursor: not-allowed;
 }
 
+/* Clear all button */
+.nd-clear-btn {
+  width: 26px;
+  height: 26px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: none;
+  border-radius: 6px;
+  color: #10b981;
+  cursor: pointer;
+  transition: background .12s, color .12s;
+}
+
+.nd-clear-btn:hover {
+  background: rgba(16, 185, 129, 0.1);
+  color: #059669;
+}
+
 /* ── Summary chips ── */
 .nd-summary {
   display: flex;
@@ -193,6 +213,25 @@
 
 .nd-item:hover {
   background: #fafafa;
+}
+
+/* Viewed notification item */
+.nd-item.viewed {
+  opacity: 0.6;
+  background: transparent;
+}
+
+.nd-item.viewed:hover {
+  opacity: 0.8;
+  background: #fafafa;
+}
+
+.nd-item.viewed .nd-item-title {
+  color: #71717a;
+}
+
+.nd-item.viewed .nd-dot {
+  opacity: 0.4;
 }
 
 /* Severity dot */

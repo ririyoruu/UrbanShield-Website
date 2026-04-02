@@ -1,9 +1,10 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import {
     Eye, EyeOff, Mail, Lock, ArrowLeft,
-    AlertTriangle, CheckCircle, X, Key, User, Phone
+    AlertTriangle, CheckCircle, X, Key, User
 } from 'lucide-react';
 import { authService } from '../services/authService';
+import { supabase } from '../config/supabase';
 import EmailDomainSuggestions from './EmailDomainSuggestions';
 import TermsAndConditions from './TermsAndConditions';
 import './AdminLogin.css';
@@ -33,7 +34,7 @@ const AdminLogin = ({ onLogin, onSignup, initialView = 'login' }) => {
 
     /* ── Signup state ── */
     const [signupData, setSignupData] = useState({
-        name: '', email: '', password: '', confirmPassword: '', invitationCode: '', phone: '', termsAccepted: false
+        name: '', email: '', password: '', confirmPassword: '', invitationCode: '', termsAccepted: false
     });
     const [showTerms, setShowTerms] = useState(false);
     const [showSignupPassword, setShowSignupPassword] = useState(false);
@@ -41,6 +42,10 @@ const AdminLogin = ({ onLogin, onSignup, initialView = 'login' }) => {
     const [signupError, setSignupError] = useState('');
     const [signupSuccess, setSignupSuccess] = useState('');
     const [passwordErrors, setPasswordErrors] = useState([]);
+    const [invitationStatus, setInvitationStatus] = useState('empty'); // 'empty', 'checking', 'valid', 'invalid'
+    const invitationTimeoutRef = useRef(null);
+    const [invitationValid, setInvitationValid] = useState(null); // null = unchecked, true = valid, false = invalid
+    const [invitationChecking, setInvitationChecking] = useState(false);
 
     /* ── Forgot password state ── */
     const [forgotEmail, setForgotEmail] = useState('');
@@ -73,14 +78,9 @@ const AdminLogin = ({ onLogin, onSignup, initialView = 'login' }) => {
         
         if (!signupData.invitationCode.trim()) return setSignupError('Invitation code is required');
         
-        // Validate phone if provided
-        if (signupData.phone && signupData.phone.length !== 11) {
-            return setSignupError('Phone number must be exactly 11 digits (e.g., 09123456789)');
-        }
         setSignupLoading(true);
-        const phoneWithPrefix = signupData.phone ? `+63${signupData.phone}` : '';
         const result = await onSignup(signupData.email, signupData.password, {
-            name: signupData.name, userType: 'admin', phone: phoneWithPrefix, invitationCode: signupData.invitationCode
+            name: signupData.name, userType: 'admin', invitationCode: signupData.invitationCode
         });
         if (result.success || result.requiresEmailVerification) {
             setSignupSuccess(result.message || 'Account created! Please check your email.');
@@ -112,6 +112,47 @@ const AdminLogin = ({ onLogin, onSignup, initialView = 'login' }) => {
             else setResetError(result.error || 'Reset failed');
         } catch (err) { setResetError(err.message || 'An error occurred'); }
         setResetLoading(false);
+    };
+
+    // Check invitation code against database in real-time
+    const checkInvitationCode = async (code) => {
+        if (!code || code.length < 4) {
+            setInvitationStatus('empty');
+            return;
+        }
+        
+        setInvitationStatus('checking');
+        try {
+            const { data, error } = await supabase
+                .from('invitation_codes')
+                .select('code, is_used, expires_at')
+                .eq('code', code)
+                .eq('is_used', false)
+                .gt('expires_at', new Date().toISOString())
+                .single();
+            
+            if (error || !data) {
+                setInvitationStatus('invalid');
+            } else {
+                setInvitationStatus('valid');
+            }
+        } catch (err) {
+            setInvitationStatus('invalid');
+        }
+    };
+
+    // Debounced invitation code handler
+    const handleInvitationChange = (e) => {
+        const value = e.target.value;
+        setSignupData({ ...signupData, invitationCode: value });
+        
+        if (invitationTimeoutRef.current) {
+            clearTimeout(invitationTimeoutRef.current);
+        }
+        
+        invitationTimeoutRef.current = setTimeout(() => {
+            checkInvitationCode(value);
+        }, 500);
     };
 
     return (
@@ -236,7 +277,12 @@ const AdminLogin = ({ onLogin, onSignup, initialView = 'login' }) => {
                                     </button>
                                 </div>
                                 {passwordErrors.length > 0 && signupData.password && (
-                                    <p className="al-field-hint">Missing: {passwordErrors.join(', ')}</p>
+                                    <>
+                                        <p className="al-field-error">Password must contain: {passwordErrors.join(', ')}</p>
+                                    </>
+                                )}
+                                {passwordErrors.length === 0 && signupData.password && signupData.password.length >= 8 && (
+                                    <p className="al-field-success">✓ Password meets all requirements</p>
                                 )}
                             </div>
 
@@ -257,25 +303,19 @@ const AdminLogin = ({ onLogin, onSignup, initialView = 'login' }) => {
 
                             <div className="al-field">
                                 <label>Invitation Code <span className="al-required">*</span></label>
-                                <div className="al-input-wrap">
+                                <div className={`al-input-wrap ${invitationStatus === 'invalid' ? 'error' : invitationStatus === 'valid' ? 'success' : ''}`}>
                                     <input type="text" required placeholder="Enter invitation code"
                                         value={signupData.invitationCode}
-                                        onChange={e => setSignupData({ ...signupData, invitationCode: e.target.value })} />
+                                        onChange={handleInvitationChange} />
                                 </div>
-                            </div>
-
-                            <div className="al-field">
-                                <label>Phone Number</label>
-                                <div className="al-input-wrap">
-                                    <input type="tel" placeholder="9171234567 (11 digits, no 0)"
-                                        value={signupData.phone}
-                                        onChange={e => {
-                                            const value = e.target.value.replace(/\D/g, '');
-                                            if (value.length <= 11) setSignupData({ ...signupData, phone: value });
-                                        }} />
-                                </div>
-                                {signupData.phone && (
-                                    <p className="al-field-hint">Will be saved as: +63{signupData.phone}</p>
+                                {invitationStatus === 'checking' && (
+                                    <p className="al-field-hint">Checking...</p>
+                                )}
+                                {invitationStatus === 'invalid' && (
+                                    <p className="al-field-error">Invalid or expired invitation code</p>
+                                )}
+                                {invitationStatus === 'valid' && (
+                                    <p className="al-field-success">✓ Valid invitation code</p>
                                 )}
                             </div>
 

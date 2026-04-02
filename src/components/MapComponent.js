@@ -22,6 +22,7 @@ const MapComponent = ({
   const [mapStyle] = useState(STREET_STYLE);
   const [pins, setPins] = useState([]);
   const [incidentSearch, setIncidentSearch] = useState('');
+  const [statusFilter, setStatusFilter] = useState('all'); // 'all', 'pending', 'in_action', 'resolved'
   const mapRef = useRef(null);
 
   // Geocode address to coordinates using Nominatim (OpenStreetMap)
@@ -268,6 +269,9 @@ const MapComponent = ({
         <div className="map-incidents-list">
           {pins
             .filter(pin => {
+              // Filter by status
+              if (statusFilter !== 'all' && pin._status !== statusFilter) return false;
+              // Filter by search
               if (!incidentSearch) return true;
               const search = incidentSearch.toLowerCase();
               return (
@@ -342,23 +346,39 @@ const MapComponent = ({
 
       {/* Stats Bar */}
       <div className="map-stats">
-        <div className="stat-item">
+        <div 
+          className={`stat-item ${statusFilter === 'all' ? 'active' : ''}`}
+          onClick={() => setStatusFilter('all')}
+          style={{ cursor: 'pointer' }}
+        >
           <span className="stat-label">Total</span>
           <span className="stat-value">{pins.length}</span>
         </div>
-        <div className="stat-item">
+        <div 
+          className={`stat-item ${statusFilter === 'pending' ? 'active' : ''}`}
+          onClick={() => setStatusFilter('pending')}
+          style={{ cursor: 'pointer' }}
+        >
           <span className="stat-label">Open</span>
           <span className="stat-value" style={{ color: '#f59e0b' }}>
             {pins.filter(p => p._status === 'pending').length}
           </span>
         </div>
-        <div className="stat-item">
+        <div 
+          className={`stat-item ${statusFilter === 'in_action' ? 'active' : ''}`}
+          onClick={() => setStatusFilter('in_action')}
+          style={{ cursor: 'pointer' }}
+        >
           <span className="stat-label">In Progress</span>
           <span className="stat-value" style={{ color: '#3b82f6' }}>
             {pins.filter(p => p._status === 'in_action').length}
           </span>
         </div>
-        <div className="stat-item">
+        <div 
+          className={`stat-item ${statusFilter === 'resolved' ? 'active' : ''}`}
+          onClick={() => setStatusFilter('resolved')}
+          style={{ cursor: 'pointer' }}
+        >
           <span className="stat-label">Resolved</span>
           <span className="stat-value" style={{ color: '#10b981' }}>
             {pins.filter(p => p._status === 'resolved').length}

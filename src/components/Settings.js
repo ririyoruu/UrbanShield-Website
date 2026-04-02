@@ -115,32 +115,71 @@ const Settings = ({ user, onAvatarChange }) => {
       // Upload avatar if changed
       const newAvatarUrl = await uploadAvatar(authUser.id);
 
-      // Update profiles table
-      const { error: profileError } = await supabase
-        .from('profiles')
-        .update({
-          full_name: fullName,
-          avatar_url: newAvatarUrl,
-          updated_at: new Date().toISOString()
-        })
-        .eq('id', authUser.id);
-
-      if (profileError) throw profileError;
+      // Check if email is being changed
+      const isEmailChanging = email !== authUser.email;
+      let emailUpdateSuccess = false;
 
       // Update email in Supabase Auth if changed
-      if (email !== authUser.email) {
-        const { error: emailError } = await supabase.auth.updateUser({ email });
-        if (emailError) throw emailError;
+      if (isEmailChanging) {
+        // Validate email format
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        if (!emailRegex.test(email)) {
+          throw new Error('Please enter a valid email address');
+        }
 
-        // Also update email in profiles table
-        await supabase
-          .from('profiles')
-          .update({ email })
-          .eq('id', authUser.id);
+        const { error: emailError, data: emailData } = await supabase.auth.updateUser({ email });
+        if (emailError) {
+          console.error('Email update error:', emailError);
+          throw new Error(emailError.message || 'Failed to update email. This email may already be in use.');
+        }
+        emailUpdateSuccess = true;
+        console.log('Email update initiated:', emailData);
+      }
 
+      // Update profiles table (always update name and avatar, update email only if changed)
+      const profileUpdates = {
+        full_name: fullName,
+        avatar_url: newAvatarUrl,
+        updated_at: new Date().toISOString()
+      };
+      
+      // Only update email in profiles if it was successfully changed in auth
+      if (isEmailChanging && emailUpdateSuccess) {
+        profileUpdates.email = email;
+      }
+
+      const { error: profileError, data: updatedProfile } = await supabase
+        .from('profiles')
+        .update(profileUpdates)
+        .eq('id', authUser.id)
+        .select()
+        .single();
+
+      if (profileError) {
+        console.error('Profile update error:', profileError);
+        throw new Error(`Failed to update profile: ${profileError.message}`);
+      }
+
+      console.log('Profile updated successfully:', updatedProfile);
+
+      // Also update Supabase Auth user metadata
+      const { error: authUpdateError } = await supabase.auth.updateUser({
+        data: { 
+          full_name: fullName,
+          avatar_url: newAvatarUrl
+        }
+      });
+
+      if (authUpdateError) {
+        console.warn('Auth metadata update warning:', authUpdateError);
+        // Don't throw - auth metadata is secondary
+      }
+
+      // Set appropriate success message
+      if (isEmailChanging && emailUpdateSuccess) {
         setProfileMessage({
           type: 'success',
-          text: 'Profile updated! Check your new email for a confirmation link.'
+          text: 'Profile updated! Please check your NEW email inbox for a confirmation link to complete the email change.'
         });
       } else {
         setProfileMessage({ type: 'success', text: 'Profile updated successfully!' });
@@ -149,14 +188,17 @@ const Settings = ({ user, onAvatarChange }) => {
       setAvatarUrl(newAvatarUrl);
       setAvatarFile(null);
       setAvatarPreview('');
-      // Notify parent (AdminDashboard) to update sidebar avatar
+      
+      // Notify parent (AdminDashboard) to update sidebar avatar and name
       if (onAvatarChange) onAvatarChange(newAvatarUrl, fullName);
+      
+      // Force reload profile to ensure state is synced
+      await loadProfile();
     } catch (err) {
       console.error('Profile save error:', err);
       setProfileMessage({ type: 'error', text: err.message || 'Failed to update profile' });
     } finally {
       setProfileLoading(false);
-      setTimeout(() => setProfileMessage({ type: '', text: '' }), 5000);
     }
   };
 

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { X, Shield, Eye, EyeOff, Mail, Lock, User, Phone, Key } from 'lucide-react';
+import { X, Shield, Eye, EyeOff, Mail, Lock, User, Key } from 'lucide-react';
 import EmailDomainSuggestions from './EmailDomainSuggestions';
 import './ModernAuth.css';
 
@@ -10,7 +10,6 @@ const ModernSignupModal = ({ onClose, onSignup, onSwitchToLogin }) => {
     password: '',
     confirmPassword: '',
     userType: 'admin',
-    phone: '',
     invitationCode: ''
   });
   const [showPassword, setShowPassword] = useState(false);
@@ -39,21 +38,12 @@ const ModernSignupModal = ({ onClose, onSignup, onSwitchToLogin }) => {
       return;
     }
 
-    if (formData.phone) {
-      const digitsOnly = formData.phone.replace(/\D/g, '');
-      if (digitsOnly.length !== 11) {
-        setError('Phone number must be exactly 11 digits (e.g., 09123456789)');
-        return;
-      }
-    }
-
     setIsLoading(true);
     
     try {
       const result = await onSignup(formData.email, formData.password, {
         name: formData.name,
         userType: formData.userType,
-        phone: formData.phone,
         invitationCode: formData.invitationCode
       });
       
@@ -81,13 +71,9 @@ const ModernSignupModal = ({ onClose, onSignup, onSwitchToLogin }) => {
   };
 
   const handleChange = (e) => {
-    let value = e.target.value;
-    if (e.target.name === 'phone') {
-      value = value.replace(/\D/g, '').slice(0, 11);
-    }
     setFormData({
       ...formData,
-      [e.target.name]: value
+      [e.target.name]: e.target.value
     });
   };
 
@@ -215,19 +201,6 @@ const ModernSignupModal = ({ onClose, onSignup, onSwitchToLogin }) => {
                 required
               />
               <Key className="auth-input-icon" size={20} />
-            </div>
-
-            <div className="auth-input-group">
-              <input
-                type="tel"
-                name="phone"
-                value={formData.phone}
-                onChange={handleChange}
-                className="auth-input"
-                placeholder="e.g. 09123456789"
-                maxLength={11}
-              />
-              <Phone className="auth-input-icon" size={20} />
             </div>
 
             <div className="auth-notice">

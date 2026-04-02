@@ -12,7 +12,7 @@ import {
 import { adminService } from '../config/supabase';
 import './NotificationDropdown.css';
 
-const NotificationDropdown = ({ user, reports = [], isOpen, onClose, onNavigateToIncidents }) => {
+const NotificationDropdown = ({ user, reports = [], isOpen, onClose, onNavigateToIncidents, onViewNotification, onClearAll, viewedNotifications = new Set() }) => {
   const dropdownRef = useRef(null);
 
   // ── Close on outside click ──
@@ -72,7 +72,9 @@ const NotificationDropdown = ({ user, reports = [], isOpen, onClose, onNavigateT
   });
 
   const handleItemClick = (notif) => {
-    if (onNavigateToIncidents) onNavigateToIncidents();
+    // Mark this notification as viewed
+    if (onViewNotification) onViewNotification(notif.id);
+    if (onNavigateToIncidents) onNavigateToIncidents(notif.id);
     onClose();
   };
 
@@ -87,6 +89,8 @@ const NotificationDropdown = ({ user, reports = [], isOpen, onClose, onNavigateT
   const pendingCount = notifications.filter(n => n.status === 'pending').length;
   const inActionCount = notifications.filter(n => n.status === 'in_action').length;
 
+  const isViewed = (id) => viewedNotifications.has(id);
+
   return (
     <div className="nd-dropdown" ref={dropdownRef}>
 
@@ -96,10 +100,15 @@ const NotificationDropdown = ({ user, reports = [], isOpen, onClose, onNavigateT
           <Bell size={15} />
           <span>Notifications</span>
           {notifications.length > 0 && (
-            <span className="nd-count">{notifications.length}</span>
+            <span className="nd-count">{notifications.filter(n => !isViewed(n.id)).length}</span>
           )}
         </div>
         <div className="nd-header-right">
+          {notifications.filter(n => !isViewed(n.id)).length > 0 && (
+            <button className="nd-clear-btn" onClick={onClearAll} title="Mark all as read">
+              <CheckCircle size={13} />
+            </button>
+          )}
           <button className="nd-icon-btn" onClick={onClose} title="Close">
             <X size={13} />
           </button>
@@ -134,7 +143,7 @@ const NotificationDropdown = ({ user, reports = [], isOpen, onClose, onNavigateT
           notifications.map(notif => (
             <div
               key={notif.id}
-              className="nd-item"
+              className={`nd-item ${isViewed(notif.id) ? 'viewed' : ''}`}
               onClick={() => handleItemClick(notif)}
             >
               {/* Left: severity dot */}

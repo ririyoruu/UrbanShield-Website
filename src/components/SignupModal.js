@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { X, Shield, Eye, EyeOff, User, Lock, Mail, Phone, Key } from 'lucide-react';
+import { X, Shield, Eye, EyeOff, User, Lock, Mail, Key } from 'lucide-react';
 import './Modal.css';
 
 const SignupModal = ({ onClose, onSignup, onSwitchToLogin }) => {
@@ -9,7 +9,6 @@ const SignupModal = ({ onClose, onSignup, onSwitchToLogin }) => {
     password: '',
     confirmPassword: '',
     userType: 'admin', // Always admin for this system
-    phone: '',
     invitationCode: ''
   });
   const [showPassword, setShowPassword] = useState(false);
@@ -17,6 +16,13 @@ const SignupModal = ({ onClose, onSignup, onSwitchToLogin }) => {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+  
+  // Real-time field validation errors
+  const [fieldErrors, setFieldErrors] = useState({
+    password: '',
+    confirmPassword: '',
+    invitationCode: ''
+  });
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -38,21 +44,12 @@ const SignupModal = ({ onClose, onSignup, onSwitchToLogin }) => {
       return;
     }
 
-    if (formData.phone) {
-      const digitsOnly = formData.phone.replace(/\D/g, '');
-      if (digitsOnly.length !== 11) {
-        setError('Phone number must be exactly 11 digits (e.g., 09123456789)');
-        return;
-      }
-    }
-
     setIsLoading(true);
     
     try {
       const result = await onSignup(formData.email, formData.password, {
         name: formData.name,
         userType: formData.userType,
-        phone: formData.phone,
         invitationCode: formData.invitationCode
       });
       
@@ -71,14 +68,56 @@ const SignupModal = ({ onClose, onSignup, onSwitchToLogin }) => {
     }
   };
 
+  const validatePassword = (password) => {
+    if (password.length === 0) return '';
+    if (password.length < 6) return 'Password must be at least 6 characters';
+    if (!/[A-Z]/.test(password)) return 'Password must contain at least one uppercase letter';
+    if (!/[a-z]/.test(password)) return 'Password must contain at least one lowercase letter';
+    if (!/[0-9]/.test(password)) return 'Password must contain at least one number';
+    return '';
+  };
+
+  const validateConfirmPassword = (password, confirmPassword) => {
+    if (confirmPassword.length === 0) return '';
+    if (password !== confirmPassword) return 'Passwords do not match';
+    return '';
+  };
+
+  const validateInvitationCode = (code) => {
+    if (code.length === 0) return '';
+    if (code.length < 4) return 'Code must be at least 4 characters';
+    return '';
+  };
+
   const handleChange = (e) => {
     let value = e.target.value;
-    if (e.target.name === 'phone') {
-      value = value.replace(/\D/g, '').slice(0, 11);
+    const name = e.target.name;
+    
+    // Real-time validation
+    let fieldError = '';
+    if (name === 'password') {
+      fieldError = validatePassword(value);
+      // Also validate confirm password if it has a value
+      if (formData.confirmPassword) {
+        setFieldErrors(prev => ({
+          ...prev,
+          confirmPassword: validateConfirmPassword(value, formData.confirmPassword)
+        }));
+      }
+    } else if (name === 'confirmPassword') {
+      fieldError = validateConfirmPassword(formData.password, value);
+    } else if (name === 'invitationCode') {
+      fieldError = validateInvitationCode(value);
     }
+    
+    setFieldErrors(prev => ({
+      ...prev,
+      [name]: fieldError
+    }));
+    
     setFormData({
       ...formData,
-      [e.target.name]: value
+      [name]: value
     });
   };
 
@@ -144,7 +183,7 @@ const SignupModal = ({ onClose, onSignup, onSwitchToLogin }) => {
 
           <div className="form-group">
             <label htmlFor="password">Password</label>
-            <div className="input-wrapper">
+            <div className={`input-wrapper ${fieldErrors.password ? 'error' : ''}`}>
               <Lock className="input-icon" />
               <input
                 type={showPassword ? 'text' : 'password'}
@@ -164,11 +203,14 @@ const SignupModal = ({ onClose, onSignup, onSwitchToLogin }) => {
                 {showPassword ? <Eye size={20} /> : <EyeOff size={20} />}
               </button>
             </div>
+            {fieldErrors.password && (
+              <div className="field-error">{fieldErrors.password}</div>
+            )}
           </div>
 
           <div className="form-group">
             <label htmlFor="confirmPassword">Confirm Password</label>
-            <div className="input-wrapper">
+            <div className={`input-wrapper ${fieldErrors.confirmPassword ? 'error' : ''}`}>
               <Lock className="input-icon" />
               <input
                 type={showConfirmPassword ? 'text' : 'password'}
@@ -188,12 +230,15 @@ const SignupModal = ({ onClose, onSignup, onSwitchToLogin }) => {
                 {showConfirmPassword ? <Eye size={20} /> : <EyeOff size={20} />}
               </button>
             </div>
+            {fieldErrors.confirmPassword && (
+              <div className="field-error">{fieldErrors.confirmPassword}</div>
+            )}
           </div>
 
 
           <div className="form-group">
             <label htmlFor="invitationCode">Invitation Code</label>
-            <div className="input-wrapper">
+            <div className={`input-wrapper ${fieldErrors.invitationCode ? 'error' : ''}`}>
               <Key className="input-icon" />
               <input
                 type="text"
@@ -206,23 +251,9 @@ const SignupModal = ({ onClose, onSignup, onSwitchToLogin }) => {
                 required
               />
             </div>
-          </div>
-
-          <div className="form-group">
-            <label htmlFor="phone">Phone Number (Optional)</label>
-            <div className="input-wrapper">
-              <Phone className="input-icon" />
-              <input
-                type="tel"
-                id="phone"
-                name="phone"
-                value={formData.phone}
-                onChange={handleChange}
-                className="input-field"
-                placeholder="e.g. 09123456789 (11 digits)"
-                maxLength={11}
-              />
-            </div>
+            {fieldErrors.invitationCode && (
+              <div className="field-error">{fieldErrors.invitationCode}</div>
+            )}
           </div>
 
           <div className="form-group">

@@ -224,6 +224,28 @@
     color: #52525b;
 }
 
+/* Error state for input wrapper */
+.al-input-wrap.error input {
+    border-color: rgba(239, 68, 68, 0.5);
+    background: rgba(239, 68, 68, 0.05);
+}
+
+.al-input-wrap.error input:focus {
+    border-color: rgba(239, 68, 68, 0.7);
+    background: rgba(239, 68, 68, 0.08);
+}
+
+/* Success state for input wrapper */
+.al-input-wrap.success input {
+    border-color: rgba(16, 185, 129, 0.5);
+    background: rgba(16, 185, 129, 0.05);
+}
+
+.al-input-wrap.success input:focus {
+    border-color: rgba(16, 185, 129, 0.7);
+    background: rgba(16, 185, 129, 0.08);
+}
+
 .al-toggle-pw {
     position: absolute;
     right: 12px;

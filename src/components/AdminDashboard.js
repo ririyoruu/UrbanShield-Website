@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { useTheme } from '../contexts/ThemeContext';
 import {
   AlertTriangle,
@@ -71,8 +71,15 @@ const AdminDashboard = ({ user, onLogout }) => {
   const [realtimeSubscription, setRealtimeSubscription] = useState(null);
   const [userReportsSubscription, setUserReportsSubscription] = useState(null);
   const [profilesSubscription, setProfilesSubscription] = useState(null);
-  const [notificationCount, setNotificationCount] = useState(0);
   const [showNotifications, setShowNotifications] = useState(false);
+  const [viewedNotifications, setViewedNotifications] = useState(() => {
+    try {
+      const stored = localStorage.getItem('urbanshield_viewed_notifications');
+      return stored ? new Set(JSON.parse(stored)) : new Set();
+    } catch {
+      return new Set();
+    }
+  });
   const [realtimeStatus, setRealtimeStatus] = useState('connecting'); // 'connecting', 'connected', 'error'
   const [sidebarCollapsed, setSidebarCollapsed] = useState(true);
   const [newReportsAvailable, setNewReportsAvailable] = useState(false);
@@ -85,7 +92,7 @@ const AdminDashboard = ({ user, onLogout }) => {
   const [adminName, setAdminName] = useState(user?.name || '');
   const [adminId, setAdminId] = useState(null);
   const [recentActivity, setRecentActivity] = useState([]);
-  const [isSuperAdmin, setIsSuperAdmin] = useState(false);
+  const [isSuperAdmin, setIsSuperAdmin] = useState(user?.type === 'super_admin');
   const [staffFilter, setStaffFilter] = useState('all');
   const [userManagementOpen, setUserManagementOpen] = useState(false);
   const [activeMenu, setActiveMenu] = useState(null); // track which main menu is open
@@ -244,7 +251,6 @@ const AdminDashboard = ({ user, onLogout }) => {
   useEffect(() => {
     loadDashboardData();
     setupRealtimeSubscription();
-    loadNotificationCount();
 
     // Cleanup all subscriptions on unmount
     return () => {
@@ -309,18 +315,6 @@ const AdminDashboard = ({ user, onLogout }) => {
     setLoading(false);
   };
 
-  const loadNotificationCount = async () => {
-    try {
-      const incidents = await adminService.getAllReports();
-      const pendingCount = incidents.filter(incident =>
-        !incident.status || incident.status === 'pending'
-      ).length;
-      setNotificationCount(pendingCount);
-    } catch (error) {
-      console.error('Error loading notification count:', error);
-      setNotificationCount(0);
-    }
-  };
 
 
   // Load reports from database
@@ -533,11 +527,6 @@ const AdminDashboard = ({ user, onLogout }) => {
         loadStats();
         loadAnalytics();
         loadResponseTimeAnalytics();
-        loadNotificationCount();
-
-        if (activeTab !== 'reports' && activeTab !== 'incidents') {
-          setNotificationCount(prev => prev + 1);
-        }
 
         setNewReportsAvailable(true);
         setTimeout(() => {
@@ -549,21 +538,12 @@ const AdminDashboard = ({ user, onLogout }) => {
         loadStats();
         loadAnalytics();
         loadResponseTimeAnalytics();
-        loadNotificationCount();
-
-        // If status changed to resolved, show notification
-        if (payload.old?.status !== payload.new?.status && payload.new?.status === 'resolved') {
-          if (activeTab !== 'reports') {
-            setNotificationCount(prev => prev + 1);
-          }
-        }
       } else if (payload.eventType === 'DELETE') {
         console.log('🗑️ Incident deleted - refreshing data...');
         loadReports();
         loadStats();
         loadAnalytics();
         loadResponseTimeAnalytics();
-        loadNotificationCount();
       }
     });
 
@@ -574,12 +554,9 @@ const AdminDashboard = ({ user, onLogout }) => {
       if (payload.eventType === 'INSERT') {
         console.log('📝 New user report submitted - refreshing...');
         loadReports(); // Refresh reports data
-        loadNotificationCount();
-        setNotificationCount(prev => prev + 1);
       } else if (payload.eventType === 'UPDATE') {
         console.log('✏️ User report updated - refreshing...');
         loadReports(); // Refresh reports data
-        loadNotificationCount();
       }
     });
 
@@ -590,14 +567,12 @@ const AdminDashboard = ({ user, onLogout }) => {
       if (payload.eventType === 'INSERT') {
         console.log('👤 New user registered - refreshing stats...');
         loadStats();
-        loadNotificationCount();
       } else if (payload.eventType === 'UPDATE') {
         console.log('✏️ User profile updated - refreshing...');
         loadStats();
       } else if (payload.eventType === 'DELETE') {
         console.log('🗑️ User deleted - refreshing...');
         loadStats();
-        loadNotificationCount();
       }
     });
 
@@ -972,6 +947,35 @@ const AdminDashboard = ({ user, onLogout }) => {
     setSidebarCollapsed(!sidebarCollapsed);
   };
 
+  // Calculate notification count (open/pending posts not yet viewed)
+  const notificationCount = useMemo(() => {
+    return reports.filter(r => {
+      const isPending = !r.status || r.status === 'pending';
+      const isNotViewed = !viewedNotifications.has(r.id);
+      return isPending && isNotViewed;
+    }).length;
+  }, [reports, viewedNotifications]);
+
+  // Mark a notification as viewed
+  const handleViewNotification = useCallback((notificationId) => {
+    setViewedNotifications(prev => {
+      const newSet = new Set(prev);
+      newSet.add(notificationId);
+      localStorage.setItem('urbanshield_viewed_notifications', JSON.stringify([...newSet]));
+      return newSet;
+    });
+  }, []);
+
+  // Clear all notifications (mark all current as viewed)
+  const handleClearAllNotifications = useCallback(() => {
+    const allIds = reports.filter(r => !r.status || r.status === 'pending').map(r => r.id);
+    setViewedNotifications(prev => {
+      const newSet = new Set([...prev, ...allIds]);
+      localStorage.setItem('urbanshield_viewed_notifications', JSON.stringify([...newSet]));
+      return newSet;
+    });
+  }, [reports]);
+
   return (
     <div className="admin-dashboard">
       {/* Sidebar */}
@@ -1058,7 +1062,7 @@ const AdminDashboard = ({ user, onLogout }) => {
             </div>
             <div className="user-details">
               <h3>{adminName || user.name}</h3>
-              <p>Administrator</p>
+              <p>{isSuperAdmin ? 'Super Administrator' : 'Administrator'}</p>
             </div>
           </button>
           <button className="logout-btn" onClick={handleLogout}>
@@ -1117,7 +1121,10 @@ const AdminDashboard = ({ user, onLogout }) => {
               {renderSearchResultsArea()}
             </div>
             <div className="notification-container">
-              <button className="notification-btn" onClick={() => setShowNotifications(!showNotifications)}>
+              <button
+                className="notification-btn"
+                onClick={() => setShowNotifications(!showNotifications)}
+              >
                 <Bell size={18} />
                 {notificationCount > 0 && (
                   <span className="notification-badge">{notificationCount}</span>
@@ -1131,7 +1138,14 @@ const AdminDashboard = ({ user, onLogout }) => {
                 reports={reports}
                 isOpen={showNotifications}
                 onClose={() => setShowNotifications(false)}
-                onNavigateToIncidents={() => { setActiveTab('incidents'); setShowNotifications(false); }}
+                onNavigateToIncidents={(id) => { 
+                  if (id) handleViewNotification(id);
+                  setActiveTab('incidents'); 
+                  setShowNotifications(false); 
+                }}
+                onViewNotification={handleViewNotification}
+                onClearAll={handleClearAllNotifications}
+                viewedNotifications={viewedNotifications}
               />
             </div>
             
@@ -1378,6 +1392,7 @@ const AdminDashboard = ({ user, onLogout }) => {
               initialSearch={searchTerm}
               onStatusChange={handleIncidentStatusChange}
               onAssignResponder={handleAssignResponder}
+              isSuperAdmin={isSuperAdmin}
             />
           )}
 

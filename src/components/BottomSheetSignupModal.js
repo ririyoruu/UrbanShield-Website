@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { X, Shield, Eye, EyeOff, User, Lock, Mail, Phone, Key } from 'lucide-react';
+import { X, Shield, Eye, EyeOff, User, Lock, Mail, Key } from 'lucide-react';
 import './BottomSheetModal.css';
 
 const BottomSheetSignupModal = ({ onClose, onSignup, onSwitchToLogin }) => {
@@ -9,7 +9,6 @@ const BottomSheetSignupModal = ({ onClose, onSignup, onSwitchToLogin }) => {
     password: '',
     confirmPassword: '',
     userType: 'admin',
-    phone: '',
     invitationCode: ''
   });
   const [showPassword, setShowPassword] = useState(false);
@@ -38,21 +37,12 @@ const BottomSheetSignupModal = ({ onClose, onSignup, onSwitchToLogin }) => {
       return;
     }
 
-    if (formData.phone) {
-      const digitsOnly = formData.phone.replace(/\D/g, '');
-      if (digitsOnly.length !== 11) {
-        setError('Phone number must be exactly 11 digits (e.g., 09123456789)');
-        return;
-      }
-    }
-
     setIsLoading(true);
     
     try {
       const result = await onSignup(formData.email, formData.password, {
         name: formData.name,
         userType: formData.userType,
-        phone: formData.phone,
         invitationCode: formData.invitationCode
       });
       
@@ -72,13 +62,9 @@ const BottomSheetSignupModal = ({ onClose, onSignup, onSwitchToLogin }) => {
   };
 
   const handleChange = (e) => {
-    let value = e.target.value;
-    if (e.target.name === 'phone') {
-      value = value.replace(/\D/g, '').slice(0, 11);
-    }
     setFormData({
       ...formData,
-      [e.target.name]: value
+      [e.target.name]: e.target.value
     });
   };
 
@@ -205,23 +191,6 @@ const BottomSheetSignupModal = ({ onClose, onSignup, onSwitchToLogin }) => {
                 className="input-field"
                 placeholder="Enter your invitation code"
                 required
-              />
-            </div>
-          </div>
-
-          <div className="form-group">
-            <label htmlFor="phone">Phone Number (Optional)</label>
-            <div className="input-wrapper">
-              <Phone className="input-icon" />
-              <input
-                type="tel"
-                id="phone"
-                name="phone"
-                value={formData.phone}
-                onChange={handleChange}
-                className="input-field"
-                placeholder="e.g. 09123456789"
-                maxLength={11}
               />
             </div>
           </div>
