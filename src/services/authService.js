@@ -557,21 +557,14 @@ export const authService = {
         .update({ used: true })
         .eq('id', codeData.id);
       
-      // Use Supabase's built-in password reset flow
-      // First, send a reset email to the user
-      const { error: resetError } = await supabase.auth.resetPasswordForEmail(email, {
-        redirectTo: `${window.location.origin}/reset-password?code=${code}&new_password=${encodeURIComponent(newPassword)}`
+      // Update password directly using our secure Edge Function
+      const { data: updateData, error: updateError } = await supabase.functions.invoke('reset-admin-password', {
+        body: { email, newPassword }
       });
       
-      if (resetError) {
-        console.log('Reset email failed, trying direct approach');
-        // If email fails, we can't directly reset without admin permissions
-        // So we'll return a message that they need to use the reset link
-        return {
-          success: false,
-          message: 'Password reset requires email confirmation. Please check your email for the reset link.',
-          requiresEmailReset: true
-        };
+      if (updateError || (updateData && !updateData.success)) {
+        console.error('Password update failed:', updateError || updateData?.error);
+        throw new Error(updateData?.error || updateError?.message || 'Failed to update password');
       }
       
       console.log('Password reset email sent successfully');
