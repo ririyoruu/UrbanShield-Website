@@ -141,7 +141,7 @@ const AdminManagement = ({ initialTab = 'all', isSuperAdmin }) => {
     const count = selectedStaffIds.size;
     const oldUsers = [...users];
     const staffIds = Array.from(selectedStaffIds);
-    
+
     setModal({ show: false });
     setUsers(prev => prev.filter(u => !selectedStaffIds.has(u.id)));
     setSelectedStaffIds(new Set());
@@ -334,7 +334,7 @@ const AdminManagement = ({ initialTab = 'all', isSuperAdmin }) => {
             </div>
             <h3>{modal.title}</h3>
             <p>{modal.message}</p>
-            
+
             {modal.type === 'confirm' ? (
               <div className="zenith-modal-actions">
                 <button className="zenith-modal-btn cancel" onClick={() => setModal({ show: false })}>
