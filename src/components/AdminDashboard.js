@@ -508,6 +508,44 @@ const AdminDashboard = ({ user, onLogout }) => {
     }
   }, [isSoundEnabled]);
 
+  // Request browser notification permission
+  const requestNotificationPermission = useCallback(async () => {
+    if (!('Notification' in window)) {
+      console.warn('This browser does not support desktop notifications');
+      return;
+    }
+
+    if (Notification.permission === 'default') {
+      const permission = await Notification.requestPermission();
+      console.log('Notification permission:', permission);
+    }
+  }, []);
+
+  // Display browser notification
+  const showBrowserNotification = useCallback((title, options = {}) => {
+    if (Notification.permission === 'granted') {
+      const notification = new Notification(title, {
+        icon: '/logourb.png',
+        badge: '/logourb.png',
+        ...options
+      });
+
+      notification.onclick = () => {
+        window.focus();
+        if (options.data?.id) {
+          setActiveTab('incidents');
+          setReportsViewMode('list');
+          // Handle logic to open this specific report if possible
+        }
+      };
+    }
+  }, []);
+
+  // Request permission on mount
+  useEffect(() => {
+    requestNotificationPermission();
+  }, [requestNotificationPermission]);
+
   // Setup real-time subscriptions
   const setupRealtimeSubscription = () => {
     // Subscribe to incidents table
@@ -523,6 +561,14 @@ const AdminDashboard = ({ user, onLogout }) => {
       if (payload.eventType === 'INSERT') {
         console.log('📝 New incident reported - refreshing all data...');
         playNotificationSound();
+        
+        // Show browser notification
+        showBrowserNotification(`New ${payload.new.category || 'Incident'} Reported`, {
+          body: payload.new.title || payload.new.address || 'Check the dashboard for details.',
+          tag: 'new-incident',
+          data: { id: payload.new.id }
+        });
+
         loadReports();
         loadStats();
         loadAnalytics();
