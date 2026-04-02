@@ -1319,7 +1319,7 @@ export const adminService = {
       const profileUpdateData = {
         email: newEmail,
         full_name: otherData.full_name,
-        phone_number: otherData.phone_number,
+        phone: otherData.phone_number,
         updated_at: new Date().toISOString()
       };
       
@@ -1573,11 +1573,8 @@ export const invitationService = {
   async getInvitationsByAdmin(adminId) {
     try {
       const { data, error } = await supabase
-        .from('invitation_codes')
-        .select(`
-          *,
-          used_by_profile:profiles!invitation_codes_used_by_fkey(full_name, email)
-        `)
+        .from('admin_invitations')
+        .select('*')
         .eq('created_by', adminId)
         .order('created_at', { ascending: false });
 

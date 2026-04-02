@@ -60,7 +60,7 @@ export const authService = {
             full_name: userData.name,
             username: userData.name + '_' + Date.now(), // Make unique
             user_type: 'admin', // This portal ONLY creates admin accounts via invitation
-            phone_number: userData.phone || null
+            phone: userData.phone || null
           }
         }
       });
@@ -98,7 +98,7 @@ export const authService = {
             verification_status: 'verified',
             is_verified: true,
             email: email,
-            phone_number: userData.phone || null
+            phone: userData.phone || null
           };
           
           console.log('Profile data to insert:', profileData);
@@ -149,9 +149,6 @@ export const authService = {
                 admin_id: data.user.id,
                 email: email,
                 full_name: userData.name,
-                user_type: 'admin',
-                is_staff: true,
-                is_active: true,
                 department: userData.department || null,
                 position: userData.position || 'Administrator',
                 phone: userData.phone || null,
@@ -371,7 +368,7 @@ export const authService = {
               full_name: user.email.split('@')[0],
               username: user.email.split('@')[0],
               user_type: 'admin',
-              phone_number: null,
+              phone: null,
               created_at: new Date().toISOString(),
               updated_at: new Date().toISOString()
             };

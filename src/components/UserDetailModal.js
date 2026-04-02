@@ -104,7 +104,7 @@ const UserDetailModal = ({ user, isOpen, onClose, onApprove, onReject, onSuspend
       await adminService.updateUserProfile(user.id, {
         full_name: editForm.full_name,
         email: editForm.email,
-        phone_number: digitsOnly,
+        phone: digitsOnly,
         address: editForm.address,
         department: editForm.department
       });

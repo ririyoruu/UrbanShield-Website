@@ -228,7 +228,7 @@ const AdminProfile = ({ user, onProfileUpdate }) => {
       // Update email in all database tables (profiles and admin_profiles)
       await adminService.updateUserEmailInAllTables(user.id, profileData.email, {
         full_name: profileData.full_name,
-        phone_number: profileData.phone,
+        phone: profileData.phone,
         // Note: department and position are only stored in admin_profiles table
       });
       

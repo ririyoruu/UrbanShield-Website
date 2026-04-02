@@ -16,13 +16,19 @@ const InvitationManager = ({ user }) => {
   }, []);
 
   const loadInvitations = async () => {
+    if (!user || !user.id) {
+      console.warn('InvitationManager: No user ID available yet');
+      return;
+    }
+
     try {
       setLoading(true);
+      setError('');
       const data = await invitationService.getInvitationsByAdmin(user.id);
-      setInvitations(data);
+      setInvitations(data || []);
     } catch (err) {
       console.error('Error loading invitations:', err);
-      setError('Failed to load invitations');
+      setError(`Failed to load invitations: ${err.message || 'Unknown error'}`);
     } finally {
       setLoading(false);
     }
@@ -154,7 +160,13 @@ const InvitationManager = ({ user }) => {
                   {invitation.is_used && (
                     <div className="detail-row">
                       <User size={16} />
-                      <span>Used: {formatDate(invitation.used_at)}</span>
+                      <span>Used by: {invitation.used_by_name || invitation.used_by_email || 'Verified User'}</span>
+                    </div>
+                  )}
+                  {invitation.is_used && (
+                    <div className="detail-row">
+                      <Clock size={16} />
+                      <span>At: {formatDate(invitation.used_at)}</span>
                     </div>
                   )}
                 </div>
