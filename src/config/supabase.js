@@ -11,7 +11,7 @@ export const adminService = {
   async globalSearch(query) {
     if (!query || query.trim().length < 2) return { incidents: [], profiles: [] };
     const q = query.trim();
-    
+
     try {
       // 1. Search incidents (posts)
       const { data: incidents, error: incError } = await supabase
@@ -56,13 +56,13 @@ export const adminService = {
           )
         `)
         .order('created_at', { ascending: false });
-      
+
       if (error) throw error;
-      
+
       // Process location data
       const processedData = (data || []).map(incident => {
         const processed = { ...incident };
-        
+
         // Log ALL fields to find where coordinates live
         console.log(`📍 Incident ${incident.id} raw fields:`, {
           location: incident.location,
@@ -74,7 +74,7 @@ export const adminService = {
           city: incident.city,
           all_keys: Object.keys(incident)
         });
-        
+
         // Extract coordinates from PostGIS geography if available
         if (incident.location && typeof incident.location === 'string') {
           console.log(`🔍 Parsing location for ${incident.id}:`, incident.location);
@@ -87,10 +87,10 @@ export const adminService = {
             console.warn(`⚠️ Could not parse location for incident ${incident.id}:`, incident.location.substring(0, 60));
           }
         }
-        
+
         return processed;
       });
-      
+
       // Log all incidents
       console.log(`✅ Successfully fetched ${processedData?.length || 0} incidents from database`);
       if (processedData && processedData.length > 0) {
@@ -111,7 +111,7 @@ export const adminService = {
       } else {
         console.warn('⚠️ No incidents found in database');
       }
-      
+
       return processedData;
     } catch (error) {
       console.error('❌ Error fetching reports:', error);
@@ -167,13 +167,13 @@ export const adminService = {
     try {
       if (!hex || typeof hex !== 'string') return null;
       const clean = hex.replace(/[^0-9A-Fa-f]/g, '');
-      
+
       // Determine offset based on WKB header
       let offset = -1;
       if (clean.startsWith('0101000020E6100000')) offset = 18;      // geography SRID 4326 (fixed offset)
       else if (clean.startsWith('0101000000')) offset = 10;          // geometry
       if (offset < 0 || clean.length < offset + 32) return null;
-      
+
       // Read little-endian IEEE 754 double from hex (16 chars = 8 bytes)
       const readLE = (h) => {
         const buf = new ArrayBuffer(8);
@@ -183,11 +183,11 @@ export const adminService = {
         }
         return dv.getFloat64(0, true);
       };
-      
+
       // WKB Point stores X (longitude) first, then Y (latitude)
       const x = readLE(clean.substring(offset, offset + 16));
       const y = readLE(clean.substring(offset + 16, offset + 32));
-      
+
       // x = longitude, y = latitude in standard WKB
       // Validate and return
       if (y >= -90 && y <= 90 && x >= -180 && x <= 180) {
@@ -211,9 +211,9 @@ export const adminService = {
         .select('*')
         .order('is_pinned', { ascending: false })
         .order('created_at', { ascending: false });
-      
+
       if (error) throw error;
-      
+
       // Normalize data to match frontend expectations
       return (data || []).map(ann => ({
         ...ann,
@@ -250,7 +250,7 @@ export const adminService = {
         .insert([payload])
         .select()
         .single();
-      
+
       if (error) {
         console.warn('⚠️ Advanced insert failed, retrying with minimal payload...', error.message);
         // RETRY with ONLY the columns you provided in your SQL: title/content/alert_level
@@ -259,14 +259,14 @@ export const adminService = {
           .insert([{
             title: announcement.title,
             content: announcement.content,
-            alert_level: announcement.alert_level || 'info', 
+            alert_level: announcement.alert_level || 'info',
           }])
           .select()
           .single();
-        
+
         if (retryError) {
-           console.error('📋 RETRY FAILED:', retryError.message);
-           throw retryError;
+          console.error('📋 RETRY FAILED:', retryError.message);
+          throw retryError;
         }
         return { success: true, data: retryData };
       }
@@ -325,7 +325,7 @@ export const adminService = {
         .eq('id', id)
         .select()
         .single();
-      
+
       if (error) {
         console.error('❌ Announcement Update Details:', {
           message: error.message,
@@ -348,7 +348,7 @@ export const adminService = {
         .from('announcements')
         .delete()
         .eq('id', id);
-      
+
       if (error) throw error;
       return true;
     } catch (error) {
@@ -369,7 +369,7 @@ export const adminService = {
         `)
         .eq('status', status)
         .order('created_at', { ascending: false });
-      
+
       if (error) throw error;
       return data;
     } catch (error) {
@@ -387,7 +387,7 @@ export const adminService = {
       };
 
       // Ensure assignment state is cleared on revert
-      if (['pending', 'open'].includes(status)) {
+      if (status === 'open') {
         updateData.status_updated_by = null;
         updateData.status_updated_by_name = null;
         updateData.dispatched_departments = [];
@@ -403,19 +403,40 @@ export const adminService = {
 
       if (error) throw error;
 
-      // 📣 MANDATORY: Notify Reporter of the new status
+      // 📣 SILENT NOTIFICATION: Notify Reporter
       try {
-        const { data: incident } = await supabase.from('incidents').select('reporter_id').eq('id', reportId).single();
-        if (incident && incident.reporter_id) {
+        const { data: reportMeta } = await supabase.from('incidents').select('reporter_id').eq('id', reportId).single();
+
+        // 📜 Handle Activity Log (Reset slate if reverting)
+        const { data: { user } } = await supabase.auth.getUser();
+        
+        if (status === 'open') {
+          console.log(`🧹 Clearing previous activity logs for incident ${reportId} (REVERT)`);
+          await supabase.from('incident_activity_log').delete().eq('incident_id', reportId);
+        }
+
+        const adminName = user?.user_metadata?.full_name || user?.email || 'Administrator';
+
+        await supabase.from('incident_activity_log').insert([{
+          incident_id: reportId,
+          action: status === 'open' ? 'status_change' : (status === 'in_progress' ? 'start_action' : (status === 'resolved' ? 'resolved' : 'status_change')),
+          performed_by: user?.id,
+          details: {
+            new_status: status,
+            message: status === 'open' ? `Incident reverted back to open by ${adminName}` : `Status updated to ${status} by ${adminName}`
+          }
+        }]);
+
+        if (reportMeta?.reporter_id) {
           const config = {
-            'in_action': { type: 'status_update', title: 'Incident In Progress', message: 'Your incident is now being handled' },
+            'in_progress': { type: 'status_update', title: 'Incident In Progress', message: 'Your incident is now being handled' },
             'resolved': { type: 'resolved', title: 'Incident Resolved', message: 'Your incident has been resolved' },
-            'pending': { type: 'status_update', title: 'Incident Reverted', message: 'Your incident has been moved back to pending status' }
+            'open': { type: 'status_update', title: 'Incident Reverted', message: 'Your incident has been moved back to open status' }
           }[status];
 
           if (config) {
             await supabase.from('notifications').insert([{
-              user_id: incident.reporter_id,
+              user_id: reportMeta.reporter_id,
               type: config.type,
               title: config.title,
               message: config.message,
@@ -426,7 +447,7 @@ export const adminService = {
           }
         }
       } catch (notifErr) {
-        console.warn('⚠️ Notification skipped:', notifErr.message);
+        console.warn('⚠️ Notification/Log Engine Skipped:', notifErr.message);
       }
 
       return { success: true, data };
@@ -440,10 +461,10 @@ export const adminService = {
     console.log('🚀 Executing Specialized Dispatch Phase:', { incidentId, responderId, options });
     try {
       const { additionalResponders = [], departments = [], action_started_at } = options;
-      
+
       let display = 'Action Started';
       const responderIds = responderId ? [responderId, ...(additionalResponders.map(r => r.id || r))] : [];
-      
+
       if (responderId) {
         const { data: resp } = await supabase.from('profiles').select('full_name').eq('id', responderId).single();
         display = additionalResponders.length > 0 ? `${resp?.full_name || 'Responder'} + ${additionalResponders.length}` : (resp?.full_name || 'Responder');
@@ -455,7 +476,7 @@ export const adminService = {
       const { error: updateError } = await supabase
         .from('incidents')
         .update({
-          status: 'in_action',
+          status: 'in_progress',
           status_updated_by: responderId || null,
           status_updated_by_name: display,
           dispatched_departments: departments,
@@ -467,10 +488,16 @@ export const adminService = {
 
       if (updateError) throw updateError;
 
-      // 📣 STAGE 2: MULTI-RESPONDER ASSIGNMENT LOOP
+      // 📜 LOG ACTION
+      await this.addActivityLog(incidentId, 'start_action', { 
+        message: `Dispatched ${display} to incident`,
+        details: { departments, responders: responderIds } 
+      });
+
+      // 📣 SILENT NOTIFICATION: Multi-Responder Assignment Loop
       try {
-        const { data: incident } = await supabase.from('incidents').select('reporter_id, title, category').eq('id', incidentId).single();
-        if (!incident) throw new Error('Incident not found for notifications');
+        const { data: reportMeta } = await supabase.from('incidents').select('reporter_id, title, category').eq('id', incidentId).single();
+        if (!reportMeta) throw new Error('Metadata fetch failed');
 
         const notificationBatch = [];
 
@@ -490,9 +517,9 @@ export const adminService = {
         }
 
         // B. Notify Reporter (In Progress)
-        if (incident.reporter_id) {
+        if (reportMeta.reporter_id) {
           notificationBatch.push({
-            user_id: incident.reporter_id,
+            user_id: reportMeta.reporter_id,
             type: 'status_update',
             title: 'Incident In Progress',
             message: 'Your incident is now being handled',
@@ -504,10 +531,9 @@ export const adminService = {
 
         if (notificationBatch.length > 0) {
           await supabase.from('notifications').insert(notificationBatch);
-          console.log(`📣 Successfully dispatched ${notificationBatch.length} coordination alerts.`);
         }
       } catch (notifErr) {
-        console.warn('⚠️ Dispatch notification failure (non-fatal):', notifErr.message);
+        console.warn('⚠️ Dispatch notification Engine Skipped:', notifErr.message);
       }
 
       return { success: true };
@@ -527,7 +553,7 @@ export const adminService = {
           updated_at: new Date().toISOString()
         })
         .eq('id', reportId);
-      
+
       if (error) throw error;
       return { success: true };
     } catch (error) {
@@ -538,42 +564,107 @@ export const adminService = {
 
   async startAction(reportId) {
     // 💡 Reuse the unified logic for consistency
-    return this.updateReportStatus(reportId, 'in_action');
+    return this.updateReportStatus(reportId, 'in_progress');
   },
 
-  async resolveIncident(reportId, { updateText, proofUrl } = {}) {
-    console.log('🔄 Resolving incident via specialized logic:', reportId);
+  async resolveIncident(reportId, options = {}) {
+    const { updateText, proofUrl } = options;
+    console.log('🔄 Resolving incident:', reportId);
+
     try {
-      // 1. Unified state update via helper
-      await this.updateReportStatus(reportId, 'resolved');
+      // 1. Primary Update: This MUST succeed
+      const { error: updateError } = await supabase
+        .from('incidents')
+        .update({
+          status: 'resolved',
+          resolved_at: new Date().toISOString(),
+          admin_notes: updateText || 'Incident resolved.',
+          proof_url: proofUrl || null,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', reportId);
 
-      // 2. Additional resolution-specific data (notes/proof)
-      const updateData = { 
-        resolved_at: new Date().toISOString(),
-        admin_notes: updateText || 'Incident resolved successfully.' 
-      };
-      if (proofUrl) updateData.proof_url = proofUrl;
+      if (updateError) throw updateError;
+      
+      // 📜 LOG ACTION
+      await this.addActivityLog(reportId, 'resolved', { 
+        message: `Incident marked as resolved by Administrator`,
+        admin_notes: updateText 
+      });
 
-      await supabase.from('incidents').update(updateData).eq('id', reportId);
+      // 2. Secondary Notification: This can fail silently
+      try {
+        const { data: incident } = await supabase.from('incidents').select('reporter_id').eq('id', reportId).single();
+        if (incident?.reporter_id) {
+          await supabase.from('notifications').insert([{
+            user_id: incident.reporter_id,
+            type: 'resolved',
+            title: 'Incident Resolved',
+            message: 'Your incident has been resolved',
+            incident_id: reportId,
+            is_read: false,
+            created_at: new Date().toISOString()
+          }]);
+        }
+      } catch (e) {
+        console.warn('⚠️ Notification skipped');
+      }
+
       return { success: true };
     } catch (error) {
-      console.error('❌ Error resolving incident:', error);
+      console.error('❌ Resolve failed:', error);
       throw error;
     }
   },
 
+  async addActivityLog(incidentId, action, details = {}) {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      const { error } = await supabase.from('incident_activity_log').insert([{
+        incident_id: incidentId,
+        action: action,
+        performed_by: user?.id,
+        details: {
+          ...details,
+          message: details.message || `Admin action: ${action}`
+        }
+      }]);
+      if (error) throw error;
+    } catch (err) {
+      console.warn('⚠️ Log entry failed:', err.message);
+    }
+  },
   async deleteReport(reportId) {
     try {
       const { error } = await supabase
         .from('incidents')
         .delete()
         .eq('id', reportId);
-      
+
       if (error) throw error;
       return true;
     } catch (error) {
       console.error('Error deleting report:', error);
       throw error;
+    }
+  },
+
+  async getIncidentActivityLog(incidentId) {
+    try {
+      const { data, error } = await supabase
+        .from('incident_activity_log')
+        .select(`
+          *,
+          performer:profiles(full_name, email)
+        `)
+        .eq('incident_id', incidentId)
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+      return data || [];
+    } catch (err) {
+      console.error('Error fetching activity log:', err);
+      return [];
     }
   },
 
@@ -586,19 +677,19 @@ export const adminService = {
         .from('reports')
         .select('*')
         .order('created_at', { ascending: false });
-      
+
       if (error) {
         console.error('Database error fetching reports:', error);
         // Return empty array instead of throwing - don't show errors to user
         return [];
       }
-      
+
       // Try to enrich with reporter and incident data separately if needed
       if (data && data.length > 0) {
         // Get unique reporter IDs and incident IDs
         const reporterIds = [...new Set(data.map(r => r.reporter_id).filter(Boolean))];
         const incidentIds = [...new Set(data.map(r => r.incident_id).filter(Boolean))];
-        
+
         // Fetch reporter names
         let reportersMap = {};
         if (reporterIds.length > 0) {
@@ -607,7 +698,7 @@ export const adminService = {
               .from('profiles')
               .select('id, full_name, email')
               .in('id', reporterIds);
-            
+
             if (reporters) {
               reporters.forEach(r => {
                 reportersMap[r.id] = r;
@@ -617,7 +708,7 @@ export const adminService = {
             console.warn('Could not fetch reporter info:', e);
           }
         }
-        
+
         // Fetch incident details
         let incidentsMap = {};
         if (incidentIds.length > 0) {
@@ -626,7 +717,7 @@ export const adminService = {
               .from('incidents')
               .select('id, title, description, location, category, severity')
               .in('id', incidentIds);
-            
+
             if (incidents) {
               incidents.forEach(i => {
                 incidentsMap[i.id] = i;
@@ -636,18 +727,18 @@ export const adminService = {
             console.warn('Could not fetch incident info:', e);
           }
         }
-        
+
         // Enrich reports with fetched data
         const enrichedData = data.map(report => ({
           ...report,
           reporter: reportersMap[report.reporter_id] || null,
           incident: incidentsMap[report.incident_id] || null
         }));
-        
+
         console.log(`✅ Successfully fetched ${enrichedData.length} reports from database`);
         return enrichedData;
       }
-      
+
       return data || [];
     } catch (error) {
       console.error('Error fetching user reports:', error);
@@ -658,15 +749,15 @@ export const adminService = {
 
   async updateUserReportStatus(reportId, status, adminNotes = null, reviewedBy = null) {
     try {
-      const updateData = { 
+      const updateData = {
         status: status,
         updated_at: new Date().toISOString()
       };
-      
+
       if (adminNotes) {
         updateData.admin_notes = adminNotes;
       }
-      
+
       // If resolving or dismissing, set reviewed_at and reviewed_by
       if (status === 'resolved' || status === 'dismissed' || status === 'reviewed') {
         updateData.reviewed_at = new Date().toISOString();
@@ -674,13 +765,13 @@ export const adminService = {
           updateData.reviewed_by = reviewedBy;
         }
       }
-      
+
       const { data, error } = await supabase
         .from('reports')
         .update(updateData)
         .eq('id', reportId)
-        
-      
+
+
       if (error) throw error;
       return data[0];
     } catch (error) {
@@ -693,12 +784,12 @@ export const adminService = {
     try {
       const { data, error } = await supabase
         .from('incidents')
-        .update({ 
+        .update({
           is_verified: null,
           updated_at: new Date().toISOString()
         })
         .neq('id', '00000000-0000-0000-0000-000000000000'); // Update all records
-      
+
       if (error) throw error;
       return data;
     } catch (error) {
@@ -711,7 +802,7 @@ export const adminService = {
   async getAnalyticsData() {
     try {
       console.log('Fetching analytics data...');
-      
+
       // Get monthly incident data for the last 6 months
       const { data: monthlyData, error: monthlyError } = await supabase
         .from('incidents')
@@ -742,7 +833,7 @@ export const adminService = {
       // Process monthly data
       const monthlyStats = this.processMonthlyData(monthlyData || []);
       console.log('Processed monthly stats:', monthlyStats);
-      
+
       // Process type distribution
       const typeDistribution = this.processTypeDistribution(typeData || []);
       console.log('Processed type distribution:', typeDistribution);
@@ -760,7 +851,7 @@ export const adminService = {
   async getResponseTimeAnalytics() {
     try {
       console.log('Fetching response time analytics...');
-      
+
       // Get all incidents that have been resolved
       const { data: incidents, error } = await supabase
         .from('incidents')
@@ -786,11 +877,11 @@ export const adminService = {
       const responseTimes = incidents
         .map(incident => {
           const created = new Date(incident.created_at);
-          const resolved = incident.resolved_at ? new Date(incident.resolved_at) : 
-                          incident.updated_at ? new Date(incident.updated_at) : null;
-          
+          const resolved = incident.resolved_at ? new Date(incident.resolved_at) :
+            incident.updated_at ? new Date(incident.updated_at) : null;
+
           if (!resolved) return null;
-          
+
           const diffMs = resolved - created;
           return diffMs / (1000 * 60); // Convert to minutes
         })
@@ -807,7 +898,7 @@ export const adminService = {
       // Calculate metrics
       const averageResponseTime = responseTimes.reduce((sum, time) => sum + time, 0) / responseTimes.length;
       const fastestResponse = Math.min(...responseTimes);
-      
+
       // Resolution rate is 100% since we only fetch resolved incidents
       const resolutionRate = 100;
 
@@ -829,7 +920,7 @@ export const adminService = {
 
   processMonthlyData(data) {
     console.log('Processing monthly data:', data);
-    
+
     // Build the last 6 months labels dynamically ending with current month
     const now = new Date();
     const buckets = [];
@@ -871,20 +962,20 @@ export const adminService = {
 
   processTypeDistribution(data) {
     console.log('Processing type distribution data:', data);
-    
+
     // Count incidents per type; normalize empty values
     const typeCount = {};
     data.forEach(report => {
       console.log('Processing report for type distribution:', report);
-      
+
       // Use category field specifically for incident types
       const categoryValue = report.category;
-      
+
       console.log('Category value found:', categoryValue);
-      
+
       const key = (categoryValue && String(categoryValue).trim()) || 'Uncategorized';
       console.log('Using key:', key);
-      
+
       typeCount[key] = (typeCount[key] || 0) + 1;
       console.log('Type count updated:', typeCount);
     });
@@ -903,7 +994,7 @@ export const adminService = {
 
     const entries = Object.entries(typeCount);
     console.log('Type distribution entries:', entries);
-    
+
     if (entries.length === 0) {
       console.log('No type distribution entries found, returning empty array');
       return [];
@@ -914,7 +1005,7 @@ export const adminService = {
       value: count,
       color: palette[idx % palette.length]
     }));
-    
+
     console.log('Final type distribution result:', result);
     return result;
   },
@@ -924,18 +1015,18 @@ export const adminService = {
       const { data: totalData, error: totalError } = await supabase
         .from('incidents')
         .select('id, status, created_at, updated_at, reporter_id');
-      
+
       if (totalError) throw totalError;
 
       const totalReports = totalData?.length || 0;
-      
-      // Pending reports (status = 'pending')
-      const { data: pendingData, error: pendingError } = await supabase
+
+      // Open reports (status = 'open')
+      const { data: openData, error: openError } = await supabase
         .from('incidents')
         .select('id')
-        .eq('status', 'pending');
-      
-      const pendingReports = pendingError ? 0 : (pendingData?.length || 0);
+        .eq('status', 'open');
+
+      const openReports = openError ? 0 : (openData?.length || 0);
 
       // Resolved today (status = 'resolved' and resolved_at today)
       const today = new Date().toISOString().split('T')[0];
@@ -944,19 +1035,19 @@ export const adminService = {
         .select('id')
         .eq('status', 'resolved')
         .gte('resolved_at', today);
-      
+
       const resolvedToday = resolvedError ? 0 : (resolvedData?.length || 0);
 
       // Active users = total number of users in the system
       const { data: usersData, error: usersError } = await supabase
         .from('profiles')
         .select('id', { count: 'exact' });
-      
+
       const activeUsers = usersError ? 0 : (usersData?.length || 0);
 
       return {
         totalReports,
-        pendingReports,
+        openReports,
         resolvedToday,
         activeUsers
       };
@@ -965,7 +1056,7 @@ export const adminService = {
       // Fallback to zeros so UI still renders
       return {
         totalReports: 0,
-        pendingReports: 0,
+        openReports: 0,
         resolvedToday: 0,
         activeUsers: 0
       };
@@ -979,29 +1070,29 @@ export const adminService = {
       const { data: incidents, error: incidentsError } = await supabase
         .from('incidents')
         .select('id, status, created_at, updated_at');
-      
+
       if (incidentsError) throw incidentsError;
 
       const incidentsData = Array.isArray(incidents) ? incidents : [];
-      
+
       // Total reports filed
       const totalReports = incidentsData.length;
-      
+
       // Issues resolved (status = 'resolved')
       const resolvedReports = incidentsData.filter(i => i.status === 'resolved').length;
-      
+
       // Active users count
       const { data: usersData, error: usersError } = await supabase
         .from('profiles')
         .select('id');
-      
+
       const activeUsers = usersError ? 0 : (usersData?.length || 0);
-      
+
       // Average response time (calculate from resolved incidents using resolved_at)
-      const resolvedIncidents = incidentsData.filter(i => 
+      const resolvedIncidents = incidentsData.filter(i =>
         i.status === 'resolved' && i.resolved_at && i.created_at
       );
-      
+
       let avgResponseTime = 0;
       if (resolvedIncidents.length > 0) {
         const responseTimes = resolvedIncidents.map(incident => {
@@ -1010,13 +1101,13 @@ export const adminService = {
           const diffMs = resolved - created;
           return diffMs / (1000 * 60); // Convert to minutes
         }).filter(time => time >= 0);
-        
+
         if (responseTimes.length > 0) {
           const sum = responseTimes.reduce((a, b) => a + b, 0);
           avgResponseTime = Math.round((sum / responseTimes.length) * 10) / 10;
         }
       }
-      
+
       return {
         totalReports,
         resolvedReports,
@@ -1038,12 +1129,12 @@ export const adminService = {
   subscribeToReports(callback) {
     return supabase
       .channel('incidents-updates')
-      .on('postgres_changes', 
-        { 
-          event: '*', 
-          schema: 'public', 
-          table: 'incidents' 
-        }, 
+      .on('postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'incidents'
+        },
         (payload) => {
           console.log('🔄 Real-time incident update:', {
             event: payload.eventType,
@@ -1051,7 +1142,7 @@ export const adminService = {
             id: payload.new?.id || payload.old?.id,
             timestamp: new Date().toISOString()
           });
-          
+
           // Transform Supabase payload to our expected format
           const transformedPayload = {
             eventType: payload.eventType,
@@ -1081,12 +1172,12 @@ export const adminService = {
   subscribeToUserReports(callback) {
     return supabase
       .channel('user-reports')
-      .on('postgres_changes', 
-        { 
-          event: '*', 
-          schema: 'public', 
-          table: 'reports' 
-        }, 
+      .on('postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'reports'
+        },
         (payload) => {
           console.log('🔄 Real-time user report update:', {
             event: payload.eventType,
@@ -1094,7 +1185,7 @@ export const adminService = {
             id: payload.new?.id || payload.old?.id,
             timestamp: new Date().toISOString()
           });
-          
+
           const transformedPayload = {
             eventType: payload.eventType,
             new: payload.new,
@@ -1117,12 +1208,12 @@ export const adminService = {
   subscribeToProfiles(callback) {
     return supabase
       .channel('profile-updates')
-      .on('postgres_changes', 
-        { 
-          event: '*', 
-          schema: 'public', 
-          table: 'profiles' 
-        }, 
+      .on('postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'profiles'
+        },
         (payload) => {
           console.log('🔄 Real-time profile update:', {
             event: payload.eventType,
@@ -1130,7 +1221,7 @@ export const adminService = {
             id: payload.new?.id || payload.old?.id,
             timestamp: new Date().toISOString()
           });
-          
+
           const transformedPayload = {
             eventType: payload.eventType,
             new: payload.new,
@@ -1157,14 +1248,14 @@ export const adminService = {
         .from('profiles')
         .select('*')
         .order('created_at', { ascending: false });
-      
+
       console.log('Users fetch result:', { data, error });
-      
+
       if (data && data.length > 0) {
         console.log('🔍 Profile columns found:', Object.keys(data[0]));
         console.log('🔍 Sample user data:', data[0]);
       }
-      
+
       if (error) throw error;
       return data;
     } catch (error) {
@@ -1177,20 +1268,20 @@ export const adminService = {
     try {
       if (!userIds || !userIds.length) return { error: 'No user IDs provided' };
       console.log('🗑️ Requesting total deletion of users:', userIds);
-      
+
       // Use count: 'exact' to see how many were actually deleted
       const { error, count } = await supabase
         .from('profiles')
         .delete({ count: 'exact' })
         .in('id', userIds);
-        
+
       if (error) throw error;
-      
+
       if (count === 0) {
         console.warn('⚠️ No records were deleted. This usually means Row Level Security (RLS) is blocking the delete for your user role.');
         throw new Error('Database blocked deletion. Please check Row Level Security (RLS) policies in your Supabase dashboard.');
       }
-      
+
       return { success: true, count };
     } catch (error) {
       console.error('❌ Error deleting users:', error);
@@ -1203,32 +1294,32 @@ export const adminService = {
       if (!userId) {
         throw new Error('User ID is required');
       }
-      
+
       // Determine verification_status based on isVerified if not explicitly provided
       // Database accepts: 'pending', 'verified', 'rejected', 'suspended'
       let status = verificationStatus;
       if (!status) {
         status = isVerified ? 'verified' : 'pending';
       }
-      
+
       // Update both is_verified (boolean) and verification_status (text)
-      const updateData = { 
+      const updateData = {
         is_verified: isVerified,
         verification_status: status,
         updated_at: new Date().toISOString()
       };
-      
+
       console.log('Updating user verification:', { userId, updateData });
-      
+
       // Update profiles table
       const { data, error } = await supabase
         .from('profiles')
         .update(updateData)
         .eq('id', userId)
-        
-      
+
+
       if (error) throw error;
-      
+
       return data;
     } catch (error) {
       console.error('❌ Error updating user verification:', error);
@@ -1245,12 +1336,12 @@ export const adminService = {
         .select('*')
         .eq('admin_id', adminId)
         .single();
-      
+
       if (error && error.code !== 'PGRST116') {
         console.error('Error fetching admin profile:', error);
         throw error;
       }
-      
+
       return data || null;
     } catch (error) {
       console.error('Error fetching admin profile:', error);
@@ -1261,7 +1352,7 @@ export const adminService = {
   async updateAdminProfile(adminId, profileData) {
     try {
       console.log('Updating admin profile:', { adminId, profileData });
-      
+
       const { data, error } = await supabase
         .from('admin_profiles')
         .upsert({
@@ -1271,7 +1362,7 @@ export const adminService = {
         })
         .select()
         .single();
-      
+
       if (error) throw error;
       console.log('Admin profile updated successfully:', data);
       return data;
@@ -1284,7 +1375,7 @@ export const adminService = {
   async updateUserProfile(userId, profileData) {
     try {
       console.log('Updating user profile:', { userId, profileData });
-      
+
       const { data, error } = await supabase
         .from('profiles')
         .update({
@@ -1294,7 +1385,7 @@ export const adminService = {
         .eq('id', userId)
         .select()
         .single();
-      
+
       if (error) throw error;
       console.log('User profile updated successfully:', data);
       return data;
@@ -1307,16 +1398,16 @@ export const adminService = {
   async updateUserEmailInAllTables(userId, newEmail, otherData = {}) {
     try {
       console.log('Updating email across all tables:', { userId, newEmail, otherData });
-      
+
       // Get current email before updating
       const { data: currentProfile } = await supabase
         .from('profiles')
         .select('email')
         .eq('id', userId)
         .single();
-      
+
       const oldEmail = currentProfile?.email;
-      
+
       // Prepare data for profiles table (only basic fields)
       const profileUpdateData = {
         email: newEmail,
@@ -1324,7 +1415,7 @@ export const adminService = {
         phone: otherData.phone_number,
         updated_at: new Date().toISOString()
       };
-      
+
       // Update in profiles table
       const { data: profileData, error: profileError } = await supabase
         .from('profiles')
@@ -1332,12 +1423,12 @@ export const adminService = {
         .eq('id', userId)
         .select()
         .single();
-      
+
       if (profileError) {
         console.error('Error updating profiles table:', profileError);
         throw profileError;
       }
-      
+
       // Prepare data for admin_profiles table (includes department and position)
       const adminUpdateData = {
         email: newEmail,
@@ -1347,7 +1438,7 @@ export const adminService = {
         position: otherData.position,
         updated_at: new Date().toISOString()
       };
-      
+
       // Update in admin_profiles table if it exists
       const { data: adminData, error: adminError } = await supabase
         .from('admin_profiles')
@@ -1357,18 +1448,18 @@ export const adminService = {
         })
         .select()
         .single();
-      
+
       if (adminError && adminError.code !== 'PGRST116') {
         console.error('Error updating admin_profiles table:', adminError);
         // Don't throw error here as admin_profiles might not exist for all users
       }
-      
+
       // Log the email change for security purposes
       if (oldEmail && oldEmail !== newEmail) {
         console.log(`Email changed for user ${userId}: ${oldEmail} -> ${newEmail}`);
         // You could also store this in a separate audit log table if needed
       }
-      
+
       console.log('Email updated successfully in all tables');
       return { profileData, adminData };
     } catch (error) {
@@ -1417,18 +1508,18 @@ export const adminService = {
   async uploadAvatar(adminId, formData) {
     try {
       console.log('Uploading avatar for admin:', adminId);
-      
+
       // For now, we'll simulate the upload process
       // In a real implementation, you would upload to Supabase Storage
       const file = formData.get('avatar');
       const fileName = `admin-${adminId}-${Date.now()}.${file.name.split('.').pop()}`;
-      
+
       // Simulate upload success
       const avatarUrl = `https://example.com/avatars/${fileName}`;
-      
+
       // Update the profile with the new avatar URL
       await this.updateAdminProfile(adminId, { avatar_url: avatarUrl });
-      
+
       return {
         success: true,
         url: avatarUrl,
@@ -1443,7 +1534,7 @@ export const adminService = {
   async updateSecuritySettings(adminId, settings) {
     try {
       console.log('Updating security settings for admin:', adminId, settings);
-      
+
       const { data, error } = await supabase
         .from('admin_profiles')
         .update({
@@ -1453,7 +1544,7 @@ export const adminService = {
         .eq('admin_id', adminId)
         .select()
         .single();
-      
+
       if (error) throw error;
       console.log('Security settings updated successfully:', data);
       return data;
@@ -1466,24 +1557,24 @@ export const adminService = {
   async toggleTwoFactor(adminId, enabled) {
     try {
       console.log('Toggling two-factor for admin:', adminId, enabled);
-      
+
       // Get current security settings
       const { data: profile, error: fetchError } = await supabase
         .from('admin_profiles')
         .select('security')
         .eq('admin_id', adminId)
         .single();
-      
+
       if (fetchError && fetchError.code !== 'PGRST116') {
         throw fetchError;
       }
-      
+
       const currentSecurity = profile?.security || {};
       const updatedSecurity = {
         ...currentSecurity,
         two_factor_enabled: enabled
       };
-      
+
       const { data, error } = await supabase
         .from('admin_profiles')
         .upsert({
@@ -1493,7 +1584,7 @@ export const adminService = {
         })
         .select()
         .single();
-      
+
       if (error) throw error;
       console.log('Two-factor toggled successfully:', data);
       return data;
@@ -1512,7 +1603,7 @@ export const invitationService = {
     try {
       // Generate a random 8-character code
       const code = Math.random().toString(36).substring(2, 10).toUpperCase();
-      
+
       const expiresAt = new Date();
       expiresAt.setHours(expiresAt.getHours() + expiresInHours);
 
@@ -1597,11 +1688,11 @@ export const invitationService = {
         .order('created_at', { ascending: false })
         .limit(1)
         .single();
-      
+
       if (error && error.code !== 'PGRST116') {
         throw error;
       }
-      
+
       return data || {
         id: null,
         site_name: 'UrbanShield',
@@ -1635,7 +1726,7 @@ export const invitationService = {
         })
         .select()
         .single();
-      
+
       if (error) throw error;
       return data;
     } catch (error) {
@@ -1652,11 +1743,11 @@ export const invitationService = {
         .order('created_at', { ascending: false })
         .limit(1)
         .single();
-      
+
       if (error && error.code !== 'PGRST116') {
         throw error;
       }
-      
+
       return data || {
         id: null,
         email_notifications: true,
@@ -1685,7 +1776,7 @@ export const invitationService = {
         })
         .select()
         .single();
-      
+
       if (error) throw error;
       return data;
     } catch (error) {
@@ -1702,11 +1793,11 @@ export const invitationService = {
         .order('created_at', { ascending: false })
         .limit(1)
         .single();
-      
+
       if (error && error.code !== 'PGRST116') {
         throw error;
       }
-      
+
       return data || {
         id: null,
         require_invitation_codes: true,
@@ -1737,7 +1828,7 @@ export const invitationService = {
         })
         .select()
         .single();
-      
+
       if (error) throw error;
       return data;
     } catch (error) {
@@ -1754,32 +1845,32 @@ export const invitationService = {
         .from('system_settings')
         .select('*')
         .order('setting_key');
-      
+
       console.log('Settings query result:', { data, error });
-      
+
       if (error) {
         console.error('Settings query error:', error);
         // Return empty object instead of throwing error
         return {};
       }
-      
+
       // Convert array to object for easier use
       const settings = {};
       if (data && data.length > 0) {
         data.forEach(setting => {
           let value = setting.setting_value;
-          
+
           // Try to convert based on value content
           if (value === 'true' || value === 'false') {
             value = value === 'true';
           } else if (!isNaN(value) && !isNaN(parseFloat(value))) {
             value = parseFloat(value);
           }
-          
+
           settings[setting.setting_key] = value;
         });
       }
-      
+
       console.log('Processed settings:', settings);
       return settings;
     } catch (error) {
@@ -1792,10 +1883,10 @@ export const invitationService = {
   updateAdminSettings: async (settings) => {
     try {
       console.log('Updating admin settings:', settings);
-      
+
       const updates = Object.entries(settings).map(([key, value]) => {
         let settingValue = value;
-        
+
         // Convert value to string for storage
         if (typeof value === 'boolean') {
           settingValue = value.toString();
@@ -1804,28 +1895,28 @@ export const invitationService = {
         } else if (typeof value === 'object') {
           settingValue = JSON.stringify(value);
         }
-        
+
         return {
           setting_key: key,
           setting_value: settingValue,
           updated_at: new Date().toISOString()
         };
       });
-      
+
       console.log('Settings updates to apply:', updates);
-      
+
       const { data, error } = await supabase
         .from('system_settings')
         .upsert(updates, { onConflict: 'setting_key' })
-        
-      
+
+
       console.log('Update result:', { data, error });
-      
+
       if (error) {
         console.error('Update error:', error);
         throw error;
       }
-      
+
       return data;
     } catch (error) {
       console.error('Error updating admin settings:', error);

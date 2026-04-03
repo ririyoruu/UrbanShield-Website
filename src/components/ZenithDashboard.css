@@ -310,23 +310,24 @@
   text-transform: capitalize;
 }
 
-.zenith-badge-pending {
-  background: var(--muted);
-  color: var(--muted-fg);
+.zenith-badge-open {
+  background: rgba(245, 158, 11, 0.1);
+  color: #f59e0b;
 }
 
 .zenith-badge-resolved {
-  background: rgba(0, 0, 0, 0.05);
-  color: var(--fg);
+  background: rgba(16, 185, 129, 0.1);
+  color: #10b981;
 }
 
-[data-theme="dark"] .zenith-badge-resolved {
-  background: rgba(255, 255, 255, 0.1);
+.zenith-badge-in_progress {
+  background: rgba(59, 130, 246, 0.1);
+  color: #3b82f6;
 }
 
-.zenith-badge-in_action {
-  background: var(--muted);
-  color: var(--fg);
+.zenith-badge-duplicate {
+  background: rgba(139, 92, 246, 0.1);
+  color: #8b5cf6;
 }
 
 /* Quick Actions Section */
@@ -589,12 +590,12 @@
   text-transform: capitalize;
 }
 
-.zenith-badge-pending {
+.zenith-badge-open {
   background: rgba(245, 158, 11, 0.1);
   color: #f59e0b;
 }
 
-.zenith-badge-in_action {
+.zenith-badge-in_progress {
   background: rgba(59, 130, 246, 0.1);
   color: #3b82f6;
 }
@@ -602,6 +603,11 @@
 .zenith-badge-resolved {
   background: rgba(16, 185, 129, 0.1);
   color: #10b981;
+}
+
+.zenith-badge-duplicate {
+  background: rgba(139, 92, 246, 0.1);
+  color: #8b5cf6;
 }
 
 /* Responsive */

@@ -24,7 +24,7 @@ import {
   Paperclip,
   MessageSquare
 } from 'lucide-react';
-import { supabase } from '../config/supabase';
+import { adminService, supabase } from '../config/supabase';
 import AssignResponderModal from './AssignResponderModal';
 import './ReportDetailModal.css';
 import './ZenithReportModal.css';
@@ -38,7 +38,7 @@ const ReportDetailModal = ({
   onStartAction,
   onMarkResolved,
   onMarkDuplicate,
-  onRevertPending,
+  onRevertOpen,
   onDeleteReport,
   onSaveNote,
   onAssignResponder,
@@ -54,6 +54,8 @@ const ReportDetailModal = ({
   const [isStatusUpdating, setIsStatusUpdating] = useState(false);
   const [isStatusDropdownOpen, setIsStatusDropdownOpen] = useState(false);
   const [showAssignModal, setShowAssignModal] = useState(false);
+  const [realtimeLogs, setRealtimeLogs] = useState([]);
+  const [logsLoading, setLogsLoading] = useState(false);
 
   // Debug: Log if onAssignResponder is available
   useEffect(() => {
@@ -79,10 +81,58 @@ const ReportDetailModal = ({
       if (!isSidePanel) document.body.style.overflow = 'hidden';
       setNoteDraft(report.admin_notes || '');
     } else {
-      if (!isSidePanel) document.body.style.overflow = '';
     }
     return () => { if (!isSidePanel) document.body.style.overflow = ''; };
   }, [isOpen, report?.id, report?.admin_notes, isSidePanel]);
+
+  // Fetch Activity Logs & Subscriptions
+  useEffect(() => {
+    if (!isOpen || !report?.id) return;
+
+    fetchLogs();
+
+    const logChannel = supabase
+      .channel(`incident-logs-${report.id}`)
+      .on('postgres_changes', { 
+        event: 'INSERT', 
+        schema: 'public', 
+        table: 'incident_activity_log',
+        filter: `incident_id=eq.${report.id}`
+      }, () => {
+        fetchLogs();
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(logChannel);
+    };
+  }, [isOpen, report?.id]);
+
+  const fetchLogs = async () => {
+    try {
+      setLogsLoading(true);
+      const data = await adminService.getIncidentActivityLog(report.id);
+      
+      // Ensure there's always a "created" entry at the chronological start
+      const hasCreated = data.some(log => log.action === 'created');
+      if (!hasCreated) {
+        const initialLog = {
+          id: `synth-${report.id}`,
+          action: 'created',
+          created_at: report.created_at,
+          performer: { full_name: report.reporter || report.reporter_name || 'Citizen' }
+        };
+        // Append to the end because logs are descending by time
+        setRealtimeLogs([...data, initialLog]);
+      } else {
+        setRealtimeLogs(data);
+      }
+    } catch (err) {
+      console.error('Failed to fetch logs:', err);
+    } finally {
+      setLogsLoading(false);
+    }
+  };
 
   if (!isOpen || !report) return null;
 
@@ -113,7 +163,7 @@ const ReportDetailModal = ({
   const getStatusConfig = () => {
     if (report.status === 'duplicate') return { label: 'Duplicate', color: '#8b5cf6', bg: 'rgba(139,92,246,.1)', border: 'rgba(139,92,246,.25)', icon: <Copy size={14} /> };
     if (report.status === 'resolved') return { label: 'Resolved', color: '#10b981', bg: 'rgba(16,185,129,.1)', border: 'rgba(16,185,129,.25)', icon: <CheckCircle size={14} /> };
-    if (report.status === 'in_action') return { label: 'In Progress', color: '#3b82f6', bg: 'rgba(59,130,246,.1)', border: 'rgba(59,130,246,.25)', icon: <Clock size={14} /> };
+    if (report.status === 'in_progress' || report.status === 'in_action') return { label: 'In Progress', color: '#3b82f6', bg: 'rgba(59,130,246,.1)', border: 'rgba(59,130,246,.25)', icon: <Clock size={14} /> };
     return { label: 'Open', color: '#f59e0b', bg: 'rgba(245,158,11,.1)', border: 'rgba(245,158,11,.25)', icon: <AlertTriangle size={14} /> };
   };
 
@@ -121,10 +171,10 @@ const ReportDetailModal = ({
 
   // Normalize raw DB status to canonical values for button logic
   const currentStatus =
-    report.status === 'in_action' ? 'in_action' :
+    (report.status === 'in_progress' || report.status === 'in_action') ? 'in_progress' :
     report.status === 'resolved'  ? 'resolved'  :
     report.status === 'duplicate' ? 'duplicate' :
-    'pending'; // handles null, undefined, 'pending', or anything else
+    'open'; // handles null, undefined, 'open', 'pending', or anything else
 
   const getSeverityColor = (s) => ({
     critical: '#e11d48', high: '#ef4444', medium: '#f59e0b', low: '#10b981'
@@ -134,15 +184,17 @@ const ReportDetailModal = ({
     if (!report?.id || nextStatus === report.status) return;
     try {
       setIsStatusUpdating(true);
-      if (nextStatus === 'pending' && onRevertPending) {
-        await onRevertPending(report.id);
-      } else if (nextStatus === 'in_action' && onStartAction) {
+      if (nextStatus === 'open' && onRevertOpen) {
+        await onRevertOpen(report.id);
+      } else if (nextStatus === 'in_progress' && onStartAction) {
         await onStartAction(report.id);
       } else if (nextStatus === 'resolved' && onMarkResolved) {
         onMarkResolved(report);
       } else if (nextStatus === 'duplicate' && onMarkDuplicate) {
         onMarkDuplicate(report.id);
       }
+      // Instant refresh of logs after action
+      await fetchLogs();
     } finally {
       setIsStatusUpdating(false);
       setIsStatusDropdownOpen(false);
@@ -154,16 +206,43 @@ const ReportDetailModal = ({
     onSaveNote(report.id, noteDraft.trim());
   };
 
-  const activityLog = [];
-  if (report.updated_at) {
-    activityLog.push({ label: `Status updated to ${statusConfig.label}`, time: report.updated_at, color: '#22c55e' });
-  }
-  const isUnassignedStatus = ['pending', 'open'].includes(report.status);
+  const isUnassignedStatus = ['pending', 'open'].includes(report.status) || !report.status;
   const assignedTo = isUnassignedStatus ? null : (report.status_updated_by_name || report.assigned_officer);
-  if (assignedTo) {
-    activityLog.push({ label: `Assigned to ${assignedTo}`, time: report.assigned_at || report.updated_at, color: '#3b82f6' });
-  }
-  activityLog.push({ label: `Report submitted by ${report.reporter || report.reporter_name || 'Citizen'}`, time: report.created_at, color: '#0ea5e9' });
+
+  const getLogDotColor = (action) => {
+    switch (action) {
+      case 'created': return '#0ea5e9';
+      case 'start_action': return '#3b82f6';
+      case 'resolved': return '#22c55e';
+      case 'flagged_duplicate': return '#a855f7';
+      default: return '#71717a';
+    }
+  };
+
+  const getLogLabel = (log) => {
+    const actor = log.performer?.full_name || 'System';
+    const action = log.action;
+    const details = log.details || {};
+
+    // Use specific messages from details if they exist (e.g. for reverts)
+    if (details.message) return details.message;
+
+    switch (action) {
+      case 'created':
+        return `Incident reported by ${actor}`;
+      case 'start_action':
+        return `Action started by ${actor}`;
+      case 'resolved':
+        return `Incident marked as resolved by ${actor}`;
+      case 'flagged_duplicate':
+        return `Flagged as duplicate by ${actor}`;
+      case 'status_change':
+        if (details.new_status === 'open') return `Incident reverted to open by ${actor}`;
+        return `Status updated to ${details.new_status || 'updated'} by ${actor}`;
+      default:
+        return `${action.replace(/_/g, ' ')} by ${actor}`;
+    }
+  };
 
   const renderContent = () => (
     <div className={`post-modal-card ${isSidePanel ? 'side-panel-mode' : ''}`} onClick={e => e.stopPropagation()}>
@@ -294,40 +373,60 @@ const ReportDetailModal = ({
             <p className="aside-label">Actions</p>
             {onAssignResponder ? (
               <button
-                className={`aside-btn ${['pending', 'open'].includes(currentStatus) ? 'dark' : 'gray-solid'}`}
+                className={`aside-btn ${currentStatus === 'open' ? 'dark' : 'gray-solid'}`}
                 onClick={() => setShowAssignModal(true)}
-                disabled={loading || !['pending', 'open'].includes(currentStatus) || !!report.status_updated_by}
+                disabled={loading || currentStatus !== 'open' || !!report.status_updated_by}
               >
-                <Activity size={20} /> {currentStatus === 'in_action' ? 'Action in Progress' : 'Start Action'}
+                <Activity size={20} /> {currentStatus === 'in_progress' ? 'Action in Progress' : 'Start Action'}
               </button>
             ) : (
               <button
-                className={`aside-btn ${['pending', 'open'].includes(currentStatus) ? 'dark' : 'gray-solid'}`}
-                onClick={() => onStartAction?.(report.id)}
-                disabled={loading || !['pending', 'open'].includes(currentStatus) || !!report.status_updated_by}
+                className={`aside-btn ${currentStatus === 'open' ? 'dark' : 'gray-solid'}`}
+                onClick={async () => {
+                  if (onStartAction) {
+                    await onStartAction(report.id);
+                    await fetchLogs();
+                  }
+                }}
+                disabled={loading || currentStatus !== 'open' || !!report.status_updated_by}
               >
-                <Activity size={20} /> {currentStatus === 'in_action' ? 'Action in Progress' : 'Start Action'}
+                <Activity size={20} /> {currentStatus === 'in_progress' ? 'Action in Progress' : 'Start Action'}
               </button>
             )}
             <button
-              className={`aside-btn ${currentStatus === 'in_action' ? 'dark' : 'gray-solid'}`}
-              onClick={() => onMarkResolved?.(report)}
-              disabled={loading || currentStatus !== 'in_action'}
-              title={currentStatus === 'pending' ? 'Assign a responder first' : ''}
+              className={`aside-btn ${currentStatus === 'in_progress' ? 'dark' : 'gray-solid'}`}
+              onClick={async () => {
+                if (onMarkResolved) {
+                  await onMarkResolved(report);
+                  await fetchLogs();
+                }
+              }}
+              disabled={loading || currentStatus !== 'in_progress'}
+              title={currentStatus === 'open' ? 'Assign a responder first' : ''}
             >
               <CheckCircle size={20} /> Mark Resolved
             </button>
             <button 
               className={`aside-btn ${currentStatus === 'duplicate' ? 'gray-solid' : 'outline'}`}
-              onClick={() => onMarkDuplicate?.(report.id)} 
+              onClick={async () => {
+                if (onMarkDuplicate) {
+                  await onMarkDuplicate(report.id);
+                  await fetchLogs();
+                }
+              }} 
               disabled={loading || currentStatus === 'duplicate' || currentStatus === 'resolved'}
             >
               <Copy size={20} /> Mark Duplicate
             </button>
             <button 
-              className={`aside-btn ${['in_action', 'resolved', 'duplicate'].includes(currentStatus) ? 'outline' : 'gray-solid'}`}
-              onClick={() => onRevertPending?.(report.id)} 
-              disabled={loading || !['in_action', 'resolved', 'duplicate'].includes(currentStatus)}
+              className={`aside-btn ${['in_progress', 'resolved', 'duplicate'].includes(currentStatus) ? 'outline' : 'gray-solid'}`}
+              onClick={async () => {
+                if (onRevertOpen) {
+                  await onRevertOpen(report.id);
+                  await fetchLogs();
+                }
+              }} 
+              disabled={loading || !['in_progress', 'resolved', 'duplicate'].includes(currentStatus)}
             >
               <RotateCcw size={20} /> {currentStatus === 'duplicate' ? 'Remove Duplicate' : 'Revert to Open'}
             </button>
@@ -339,17 +438,27 @@ const ReportDetailModal = ({
           </div>
 
           <div className="activity-log-section">
-            <p className="activity-log-label">Activity Log</p>
+            <div className="activity-log-header">
+              <Activity size={16} />
+              <p className="activity-log-label">Activity Log</p>
+            </div>
             <div className="activity-log-list">
-              {report.admin_notes ? (
-                report.admin_notes.split('\n').filter(l => l.trim()).map((line, idx) => (
-                  <div key={idx} className="activity-log-entry">
-                    <span className="activity-log-dot" />
-                    <span className="activity-log-text">{line}</span>
+              {logsLoading && realtimeLogs.length === 0 ? (
+                <div className="activity-log-loading">Loading activity...</div>
+              ) : (
+                realtimeLogs.map((log) => (
+                  <div key={log.id} className="activity-log-entry">
+                    <div className="activity-log-dot" style={{ backgroundColor: getLogDotColor(log.action) }} />
+                    <div className="activity-log-content">
+                      <span className="activity-log-text">{getLogLabel(log)}</span>
+                      <span className="activity-log-time">{formatRelativeTime(log.created_at)}</span>
+                    </div>
                   </div>
                 ))
-              ) : (
-                <div className="activity-log-empty">No activity yet</div>
+              )}
+              
+              {realtimeLogs.length === 0 && !logsLoading && (
+                <div className="activity-log-empty">No activity records found</div>
               )}
             </div>
           </div>
@@ -443,7 +552,12 @@ const ReportDetailModal = ({
           incident={report}
           isOpen={showAssignModal}
           onClose={() => setShowAssignModal(false)}
-          onAssign={onAssignResponder}
+          onAssign={async (incidentId, responderId, options) => {
+            if (onAssignResponder) {
+              await onAssignResponder(incidentId, responderId, options);
+              await fetchLogs();
+            }
+          }}
           loading={loading}
         />
       )}

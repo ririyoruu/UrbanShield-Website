@@ -155,7 +155,7 @@ const MapComponent = ({
               _lng: coords.lng,
               _type: incident.category || 'General',
               _severity: incident.severity || 'medium',
-              _status: incident.status === 'open' ? 'pending' : (incident.status || 'pending'),
+              _status: (incident.status === 'open' || incident.status === 'pending') ? 'open' : (incident.status === 'in_action' ? 'in_progress' : (incident.status || 'open')),
               _address: incident.address || null,
             };
           }
@@ -178,7 +178,7 @@ const MapComponent = ({
             _lng: coords.lng,
             _type: incident.category || 'General',
             _severity: incident.severity || 'medium',
-            _status: incident.status === 'open' ? 'pending' : (incident.status || 'pending'),
+            _status: (incident.status === 'open' || incident.status === 'pending') ? 'open' : (incident.status === 'in_action' ? 'in_progress' : (incident.status || 'open')),
             _address: incident.address,
             _geocoded: true, // Mark as geocoded
           });
@@ -222,11 +222,12 @@ const MapComponent = ({
   const getMarkerColor = (status) => {
     // Color based on status only
     const statusColors = {
-      open: '#f59e0b',       // Orange — same as pending
-      pending: '#f59e0b',    // Orange for open/pending
-      in_action: '#3b82f6',  // Blue for in progress
-      resolved: '#10b981',   // Green for resolved
-      duplicate: '#8b5cf6'   // Purple for duplicate
+      open: '#f59e0b',       // Orange
+      pending: '#f59e0b',    // Orange
+      in_progress: '#3b82f6', // Blue
+      in_action: '#3b82f6',  // Blue
+      resolved: '#10b981',   // Green
+      duplicate: '#8b5cf6'   // Purple
     };
     return statusColors[status] || '#6b7280';
   };
@@ -245,6 +246,7 @@ const MapComponent = ({
     const statusMap = {
       open: { label: 'Open', color: '#f59e0b' },
       pending: { label: 'Open', color: '#f59e0b' },
+      in_progress: { label: 'In Progress', color: '#3b82f6' },
       in_action: { label: 'In Progress', color: '#3b82f6' },
       resolved: { label: 'Resolved', color: '#10b981' },
       duplicate: { label: 'Duplicate', color: '#8b5cf6' }
@@ -413,23 +415,23 @@ const MapComponent = ({
           <span className="stat-value">{pins.length}</span>
         </div>
         <div 
-          className={`stat-item ${statusFilter === 'pending' ? 'active' : ''}`}
-          onClick={() => setStatusFilter('pending')}
+          className={`stat-item ${(statusFilter === 'open' || statusFilter === 'pending') ? 'active' : ''}`}
+          onClick={() => setStatusFilter('open')}
           style={{ cursor: 'pointer' }}
         >
           <span className="stat-label">Open</span>
           <span className="stat-value" style={{ color: '#f59e0b' }}>
-            {pins.filter(p => p._status === 'pending').length}
+            {pins.filter(p => p._status === 'open' || p._status === 'pending').length}
           </span>
         </div>
         <div 
-          className={`stat-item ${statusFilter === 'in_action' ? 'active' : ''}`}
-          onClick={() => setStatusFilter('in_action')}
+          className={`stat-item ${(statusFilter === 'in_progress' || statusFilter === 'in_action') ? 'active' : ''}`}
+          onClick={() => setStatusFilter('in_progress')}
           style={{ cursor: 'pointer' }}
         >
           <span className="stat-label">In Progress</span>
           <span className="stat-value" style={{ color: '#3b82f6' }}>
-            {pins.filter(p => p._status === 'in_action').length}
+            {pins.filter(p => p._status === 'in_progress' || p._status === 'in_action').length}
           </span>
         </div>
         <div 

@@ -57,14 +57,14 @@ const NotificationDropdown = ({ user, reports = [], isOpen, onClose, onNavigateT
     .slice(0, 15);
 
   const notifications = actionable.map(r => {
-    const isPending = !r.status || r.status === 'pending';
+    const isPending = !r.status || r.status === 'open' || r.status === 'pending';
     const location = cleanLocation(r);
     return {
       id: r.id,
       title: r.title || r.category || 'Untitled Post',
       location,
       category: r.category || 'Other',
-      status: isPending ? 'pending' : 'in_action',
+      status: isPending ? 'open' : 'in_progress',
       severity: r.severity || 'medium',
       time: r.created_at,
       incidentId: r.id,
@@ -86,8 +86,8 @@ const NotificationDropdown = ({ user, reports = [], isOpen, onClose, onNavigateT
 
   if (!isOpen) return null;
 
-  const pendingCount = notifications.filter(n => n.status === 'pending').length;
-  const inActionCount = notifications.filter(n => n.status === 'in_action').length;
+  const pendingCount = notifications.filter(n => n.status === 'open').length;
+  const inActionCount = notifications.filter(n => n.status === 'in_progress').length;
 
   const isViewed = (id) => viewedNotifications.has(id);
 
@@ -119,13 +119,13 @@ const NotificationDropdown = ({ user, reports = [], isOpen, onClose, onNavigateT
       {notifications.length > 0 && (
         <div className="nd-summary">
           {pendingCount > 0 && (
-            <span className="nd-chip pending">
+            <span className="nd-chip open">
               <AlertTriangle size={11} /> {pendingCount} Open
             </span>
           )}
           {inActionCount > 0 && (
-            <span className="nd-chip in_action">
-              <Shield size={11} /> {inActionCount} In Action
+            <span className="nd-chip in_progress">
+              <Shield size={11} /> {inActionCount} In Progress
             </span>
           )}
         </div>
@@ -154,7 +154,7 @@ const NotificationDropdown = ({ user, reports = [], isOpen, onClose, onNavigateT
                 <div className="nd-item-top">
                   <span className="nd-item-title">{notif.title}</span>
                   <span className={`nd-status-pill ${notif.status}`}>
-                    {notif.status === 'in_action' ? 'In Progress' : 'Open'}
+                    {notif.status === 'in_progress' ? 'In Progress' : 'Open'}
                   </span>
                 </div>
                 <div className="nd-item-meta">

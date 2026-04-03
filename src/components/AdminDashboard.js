@@ -52,7 +52,7 @@ const AdminDashboard = ({ user, onLogout }) => {
     setActiveTab(tab);
   };
   const [reports, setReports] = useState([]);
-  const [filterStatus, setFilterStatus] = useState('pending');
+  const [filterStatus, setFilterStatus] = useState('open');
   const [searchTerm, setSearchTerm] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
@@ -227,9 +227,9 @@ const AdminDashboard = ({ user, onLogout }) => {
 
           entries.forEach(entry => {
             const isUpdate = entry.type === 'incident' && entry.action === 'updated';
-            const existing = grouped.find(g => 
-              g.type === entry.type && 
-              g.action === entry.action && 
+            const existing = grouped.find(g =>
+              g.type === entry.type &&
+              g.action === entry.action &&
               g.incident_id === entry.incident_id &&
               Math.abs(new Date(g.timestamp) - new Date(entry.timestamp)) < WINDOW_MS
             );
@@ -465,7 +465,7 @@ const AdminDashboard = ({ user, onLogout }) => {
         },
         {
           title: 'Open',
-          value: (dashboardStats.pendingReports || 0).toString(),
+          value: (dashboardStats.openReports || 0).toString(),
           change: null,
           icon: <Clock />,
           color: '#f59e0b'
@@ -518,7 +518,7 @@ const AdminDashboard = ({ user, onLogout }) => {
   // Play notification sound
   const playNotificationSound = useCallback(() => {
     if (!isSoundEnabled) return;
-    
+
     try {
       // Use a professional, mission-critical alert sound
       const audio = new Audio('/notification.wav');
@@ -582,7 +582,7 @@ const AdminDashboard = ({ user, onLogout }) => {
       if (payload.eventType === 'INSERT') {
         console.log('📝 New incident reported - refreshing all data...');
         playNotificationSound();
-        
+
         // Show browser notification
         showBrowserNotification(`New ${payload.new.category || 'Incident'} Reported`, {
           body: payload.new.title || payload.new.address || 'Check the dashboard for details.',
@@ -602,14 +602,14 @@ const AdminDashboard = ({ user, onLogout }) => {
       } else if (payload.eventType === 'UPDATE') {
         console.log('✏️ Incident updated - synchronizing data...');
         const updatedIncident = payload.new;
-        const isRevert = ['pending', 'open'].includes(updatedIncident.status);
-        
+        const isRevert = updatedIncident.status === 'open';
+
         // Sync the modal in real-time if it's currently showing the updated incident
         setSelectedReport(prev => {
           if (!prev || prev.id !== updatedIncident.id) return prev;
-          
-          return { 
-            ...prev, 
+
+          return {
+            ...prev,
             ...updatedIncident,
             ...(isRevert && {
               status_updated_by: null,
@@ -621,7 +621,7 @@ const AdminDashboard = ({ user, onLogout }) => {
             })
           };
         });
-        
+
         loadReports();
         loadStats();
         loadAnalytics();
@@ -767,7 +767,7 @@ const AdminDashboard = ({ user, onLogout }) => {
       const result = await adminService.assignResponder(incidentId, responder.id, {
         assignedBy,
         ...options,
-        status: 'in_action'
+        status: 'in_progress'
       });
 
       console.log('✅ adminService result:', result);
@@ -775,7 +775,7 @@ const AdminDashboard = ({ user, onLogout }) => {
       // Optimistic update for reports list (for map and main dashboard)
       setReports(prev => prev.map(r => r.id === incidentId ? {
         ...r,
-        status: 'in_action',
+        status: 'in_progress',
         assigned_officer_id: responder.id,
         assigned_officer: responder.full_name
       } : r));
@@ -786,7 +786,7 @@ const AdminDashboard = ({ user, onLogout }) => {
       setSelectedReport(prev => (prev && prev.id === incidentId
         ? {
           ...prev,
-          status: 'in_action',
+          status: 'in_progress',
           assigned_officer: responder.full_name + (options.additionalResponders?.length ? ` + ${options.additionalResponders.length} others` : ''),
           assigned_officer_id: responder.id
         }
@@ -900,9 +900,9 @@ const AdminDashboard = ({ user, onLogout }) => {
       await adminService.startAction(reportId);
 
       // Optimistic update
-      setReports(prev => prev.map(r => r.id === reportId ? { ...r, status: 'in_action' } : r));
+      setReports(prev => prev.map(r => r.id === reportId ? { ...r, status: 'in_progress' } : r));
       if (selectedReport?.id === reportId) {
-        setSelectedReport(prev => ({ ...prev, status: 'in_action' }));
+        setSelectedReport(prev => ({ ...prev, status: 'in_progress' }));
       }
 
       await loadStats();
@@ -965,14 +965,14 @@ const AdminDashboard = ({ user, onLogout }) => {
       setSelectedReport(prev => ({
         ...prev,
         status: newStatus,
-        ...(clearAssignment && { 
-          status_updated_by: null, 
+        ...(clearAssignment && {
+          status_updated_by: null,
           status_updated_by_name: null,
           dispatched_departments: [],
           assigned_responders: [],
-          assigned_officer: null, 
-          assigned_officer_id: null, 
-          assigned_at: null 
+          assigned_officer: null,
+          assigned_officer_id: null,
+          assigned_at: null
         })
       }));
     }
@@ -984,14 +984,14 @@ const AdminDashboard = ({ user, onLogout }) => {
       await adminService.updateReportStatus(reportId, 'pending', 'Status reverted to pending');
 
       // Optimistic update
-      setReports(prev => prev.map(r => r.id === reportId ? { 
-        ...r, 
-        status: 'pending', 
+      setReports(prev => prev.map(r => r.id === reportId ? {
+        ...r,
+        status: 'pending',
         status_updated_by_name: null,
         dispatched_departments: [],
         assigned_responders: [],
-        assigned_officer: null, 
-        assigned_officer_id: null 
+        assigned_officer: null,
+        assigned_officer_id: null
       } : r));
 
       await handleIncidentStatusChange(reportId, 'pending');
@@ -1335,8 +1335,8 @@ const AdminDashboard = ({ user, onLogout }) => {
                       <AreaChart data={analyticsData}>
                         <defs>
                           <linearGradient id="colorIncidents" x1="0" y1="0" x2="0" y2="1">
-                            <stop offset="5%" stopColor={isDark ? "#3b82f6" : "#2563eb"} stopOpacity={0.3}/>
-                            <stop offset="95%" stopColor={isDark ? "#3b82f6" : "#2563eb"} stopOpacity={0}/>
+                            <stop offset="5%" stopColor={isDark ? "#3b82f6" : "#2563eb"} stopOpacity={0.3} />
+                            <stop offset="95%" stopColor={isDark ? "#3b82f6" : "#2563eb"} stopOpacity={0} />
                           </linearGradient>
                         </defs>
                         <CartesianGrid strokeDasharray="3 3" stroke={isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)'} vertical={false} />
@@ -1405,16 +1405,16 @@ const AdminDashboard = ({ user, onLogout }) => {
                             boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1)',
                           }}
                         />
-                        <Bar 
-                          dataKey="incidents" 
-                          fill={isDark ? "#3f3f46" : "#e4e4e7"} 
-                          radius={[4, 4, 0, 0]} 
+                        <Bar
+                          dataKey="incidents"
+                          fill={isDark ? "#3f3f46" : "#e4e4e7"}
+                          radius={[4, 4, 0, 0]}
                           barSize={20}
                         />
-                        <Bar 
-                          dataKey="resolved" 
-                          fill={isDark ? "#10b981" : "#059669"} 
-                          radius={[4, 4, 0, 0]} 
+                        <Bar
+                          dataKey="resolved"
+                          fill={isDark ? "#10b981" : "#059669"}
+                          radius={[4, 4, 0, 0]}
                           barSize={20}
                         />
                       </BarChart>
@@ -1531,11 +1531,13 @@ const AdminDashboard = ({ user, onLogout }) => {
                         </tr>
                       ) : reports.slice(0, 6).map(report => {
                         const postStatus = report.status === 'resolved' ? 'resolved'
-                          : report.status === 'in_action' ? 'in_action'
-                            : 'pending';
+                          : report.status === 'in_progress' ? 'in_progress'
+                          : report.status === 'duplicate' ? 'duplicate'
+                          : 'open';
                         const statusLabel = postStatus === 'resolved' ? 'Resolved'
-                          : postStatus === 'in_action' ? 'In Progress'
-                            : 'Pending';
+                          : postStatus === 'in_progress' ? 'In Progress'
+                          : postStatus === 'duplicate' ? 'Duplicate'
+                          : 'Open';
                         return (
                           <tr key={report.id} onClick={() => { setSelectedReport(report); setShowReportModal(true); }}>
                             <td>
@@ -1549,7 +1551,21 @@ const AdminDashboard = ({ user, onLogout }) => {
                             </td>
                             <td className="zenith-location">{report.address || report.location || '—'}</td>
                             <td className="zenith-date">{new Date(report.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</td>
-                            <td><span className={`zenith-badge zenith-badge-${postStatus}`}>{statusLabel}</span></td>
+                            <td>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                <span className={`zenith-badge zenith-badge-${postStatus}`}>{statusLabel}</span>
+                                {report.status !== 'duplicate' && report.isDuplicate && (
+                                  <span style={{ 
+                                    fontSize: '0.65rem', 
+                                    background: 'rgba(139, 92, 246, 0.1)', 
+                                    color: '#8b5cf6', 
+                                    padding: '2px 6px', 
+                                    borderRadius: '4px',
+                                    fontWeight: '600'
+                                  }}>SUGGESTED DUPLICATE</span>
+                                )}
+                              </div>
+                            </td>
                           </tr>
                         );
                       })}
@@ -1623,16 +1639,16 @@ const AdminDashboard = ({ user, onLogout }) => {
                     <p style={{ textAlign: 'center', padding: '3rem', color: 'var(--muted-fg)' }}>No active logs recorded.</p>
                   ) : (
                     recentActivity.map(activity => (
-                      <div key={activity.id} style={{ 
-                        display: 'flex', 
-                        gap: '1rem', 
-                        padding: '1.25rem 0', 
-                        borderBottom: `1px solid ${isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)'}` 
+                      <div key={activity.id} style={{
+                        display: 'flex',
+                        gap: '1rem',
+                        padding: '1.25rem 0',
+                        borderBottom: `1px solid ${isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)'}`
                       }}>
-                        <div style={{ 
-                          width: '40px', 
-                          height: '40px', 
-                          borderRadius: '10px', 
+                        <div style={{
+                          width: '40px',
+                          height: '40px',
+                          borderRadius: '10px',
                           background: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)',
                           display: 'flex',
                           alignItems: 'center',
@@ -1647,7 +1663,7 @@ const AdminDashboard = ({ user, onLogout }) => {
                             <span style={{ fontSize: '0.75rem', color: 'var(--muted-fg)' }}>{new Date(activity.timestamp).toLocaleString()}</span>
                           </div>
                           <p style={{ fontSize: '0.875rem', color: 'var(--muted-fg)', margin: 0 }}>
-                            Successfully <span style={{ color: 'var(--fg)', fontWeight: '500' }}>{activity.action}</span> a new {activity.type === 'incident' ? 'Incident Report' : 'User Profile'}: 
+                            Successfully <span style={{ color: 'var(--fg)', fontWeight: '500' }}>{activity.action}</span> a new {activity.type === 'incident' ? 'Incident Report' : 'User Profile'}:
                             <strong style={{ marginLeft: '4px', color: 'var(--fg)' }}>{activity.target}</strong>
                           </p>
                         </div>

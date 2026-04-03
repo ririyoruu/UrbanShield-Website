@@ -124,7 +124,7 @@ const IncidentModeration = ({ initialSearch = '', onStatusChange, onAssignRespon
     try {
       setSaving(true);
       const incident = incidents.find(i => i.id === incidentId);
-      const currentStatus = incident?.status || 'pending';
+      const currentStatus = incident?.status || 'open';
       const result = await adminService.updateReportStatus(incidentId, currentStatus, note);
       console.log('✅ Note saved in DB:', result);
       if (result) {
@@ -150,8 +150,8 @@ const IncidentModeration = ({ initialSearch = '', onStatusChange, onAssignRespon
       setSaving(true);
       await adminService.updateReportStatus(incidentId, 'duplicate', 'Marked as duplicate');
       // Optimistic update — real-time subscription will confirm
-      setSelectedIncident(prev => prev?.id === incidentId ? { ...prev, status: 'duplicate', isDuplicate: true } : prev);
-      setIncidents(prev => prev.map(i => i.id === incidentId ? { ...i, status: 'duplicate', isDuplicate: true } : i));
+      setSelectedIncident(prev => prev?.id === incidentId ? { ...prev, status: 'duplicate', isOfficialDuplicate: true, isSuggestedDuplicate: false } : prev);
+      setIncidents(prev => prev.map(i => i.id === incidentId ? { ...i, status: 'duplicate', isOfficialDuplicate: true, isSuggestedDuplicate: false } : i));
     } catch (error) {
       console.error('❌ Error marking duplicate:', error);
       setError('Failed to mark duplicate: ' + error.message);
@@ -162,10 +162,10 @@ const IncidentModeration = ({ initialSearch = '', onStatusChange, onAssignRespon
 
   // Status mapping — DB uses 'open' for new incidents
   const getStatus = (incident) => {
-    if (incident.status === 'duplicate' || incident.isDuplicate) return 'duplicate';
+    if (incident.status === 'duplicate') return 'duplicate';
     if (incident.status === 'resolved') return 'resolved';
-    if (incident.status === 'in_action') return 'in_action';
-    if (incident.status === 'open' || incident.status === 'pending' || !incident.status) return 'pending';
+    if (incident.status === 'in_progress' || incident.status === 'in_action') return 'in_progress';
+    if (incident.status === 'open' || incident.status === 'pending' || !incident.status) return 'open';
     return incident.status;
   };
 
@@ -173,9 +173,9 @@ const IncidentModeration = ({ initialSearch = '', onStatusChange, onAssignRespon
     switch (status) {
       case 'resolved':
         return { label: 'Resolved', color: '#10b981', bg: 'rgba(16,185,129,.15)' };
-      case 'in_action':
+      case 'in_progress':
         return { label: 'In Progress', color: '#2563eb', bg: 'rgba(37,99,235,.12)' };
-      case 'pending':
+      case 'open':
         return { label: 'Open', color: '#d97706', bg: 'rgba(217,119,6,.14)' };
       case 'duplicate':
         return { label: 'Duplicate', color: '#a855f7', bg: 'rgba(168,85,247,.15)' };
@@ -390,7 +390,8 @@ const IncidentModeration = ({ initialSearch = '', onStatusChange, onAssignRespon
       setDuplicateGroups(dupes);
       const withDupes = formattedIncidents.map(i => ({
         ...i,
-        isDuplicate: i.status === 'duplicate' || !!dupes[i.id],
+        isSuggestedDuplicate: !!dupes[i.id],
+        isOfficialDuplicate: i.status === 'duplicate',
         duplicateOf: dupes[i.id] || null
       }));
 
@@ -433,8 +434,8 @@ const IncidentModeration = ({ initialSearch = '', onStatusChange, onAssignRespon
   }, [incidents, searchTerm, filterCategory, filterSeverity, filterStatus]);
 
   const stats = useMemo(() => ({
-    pending: incidents.filter(i => getStatus(i) === 'pending').length,
-    in_action: incidents.filter(i => getStatus(i) === 'in_action').length,
+    open: incidents.filter(i => getStatus(i) === 'open').length,
+    in_progress: incidents.filter(i => getStatus(i) === 'in_progress').length,
     resolved: incidents.filter(i => getStatus(i) === 'resolved').length,
     duplicate: incidents.filter(i => getStatus(i) === 'duplicate').length,
     total: incidents.length
@@ -444,7 +445,7 @@ const IncidentModeration = ({ initialSearch = '', onStatusChange, onAssignRespon
   const handleViewIncident = async (incident) => {
     // Don't open modal if clicking on checkbox
     if (selectedIncidents.has(incident.id)) return;
-    
+
     let refreshed = incident;
     try {
       const fresh = await adminService.getIncidentById(incident.id);
@@ -468,9 +469,9 @@ const IncidentModeration = ({ initialSearch = '', onStatusChange, onAssignRespon
       setSaving(true);
       await adminService.startAction(incidentId);
       // Optimistic update — real-time subscription will confirm from DB
-      setSelectedIncident(prev => prev?.id === incidentId ? { ...prev, status: 'in_action' } : prev);
-      setIncidents(prev => prev.map(i => i.id === incidentId ? { ...i, status: 'in_action' } : i));
-      onStatusChange?.(incidentId, 'in_action');
+      setSelectedIncident(prev => prev?.id === incidentId ? { ...prev, status: 'in_progress' } : prev);
+      setIncidents(prev => prev.map(i => i.id === incidentId ? { ...i, status: 'in_progress' } : i));
+      onStatusChange?.(incidentId, 'in_progress');
     } catch (error) {
       console.error('❌ Error starting action:', error);
       setError('Failed to start action: ' + error.message);
@@ -538,7 +539,7 @@ const IncidentModeration = ({ initialSearch = '', onStatusChange, onAssignRespon
 
     try {
       setSaving(true);
-      const deletePromises = Array.from(selectedIncidents).map(id => 
+      const deletePromises = Array.from(selectedIncidents).map(id =>
         adminService.deleteReport(id)
       );
       await Promise.all(deletePromises);
@@ -559,7 +560,7 @@ const IncidentModeration = ({ initialSearch = '', onStatusChange, onAssignRespon
 
     try {
       setSaving(true);
-      const resolvePromises = Array.from(selectedIncidents).map(id => 
+      const resolvePromises = Array.from(selectedIncidents).map(id =>
         adminService.resolveIncident(id, { updateText: 'Bulk resolved' })
       );
       await Promise.all(resolvePromises);
@@ -580,7 +581,7 @@ const IncidentModeration = ({ initialSearch = '', onStatusChange, onAssignRespon
 
     try {
       setSaving(true);
-      const duplicatePromises = Array.from(selectedIncidents).map(id => 
+      const duplicatePromises = Array.from(selectedIncidents).map(id =>
         adminService.updateReportStatus(id, 'duplicate', 'Bulk marked as duplicate')
       );
       await Promise.all(duplicatePromises);
@@ -590,6 +591,27 @@ const IncidentModeration = ({ initialSearch = '', onStatusChange, onAssignRespon
     } catch (error) {
       console.error('Error marking duplicates:', error);
       setError('Failed to mark selected posts as duplicate');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleBulkRevertToOpen = async () => {
+    if (selectedIncidents.size === 0) return;
+    if (!window.confirm(`Restore ${selectedIncidents.size} selected post(s) to Open status?`)) return;
+
+    try {
+      setSaving(true);
+      const revertPromises = Array.from(selectedIncidents).map(id =>
+        adminService.updateReportStatus(id, 'open', 'Bulk restored to Open')
+      );
+      await Promise.all(revertPromises);
+      setSelectedIncidents(new Set());
+      setSelectAll(false);
+      await loadIncidents();
+    } catch (error) {
+      console.error('Error restoring posts:', error);
+      setError('Failed to restore selected posts');
     } finally {
       setSaving(false);
     }
@@ -608,12 +630,12 @@ const IncidentModeration = ({ initialSearch = '', onStatusChange, onAssignRespon
 
       setSelectedIncident(prev =>
         prev && prev.id === incidentId
-          ? { ...prev, status: 'in_action', assigned_officer: display }
+          ? { ...prev, status: 'in_progress', assigned_officer: display }
           : prev
       );
       setIncidents(prev =>
         prev.map(i =>
-          i.id === incidentId ? { ...i, status: 'in_action', assigned_officer: display } : i
+          i.id === incidentId ? { ...i, status: 'in_progress', assigned_officer: display } : i
         )
       );
 
@@ -691,22 +713,26 @@ const IncidentModeration = ({ initialSearch = '', onStatusChange, onAssignRespon
       console.log(`🔄 Reverting incident ${incidentId} to ${newStatus}...`);
       const statusLabel = newStatus === 'open' ? 'Open' : newStatus;
       await adminService.updateReportStatus(incidentId, newStatus, `Status reverted to ${statusLabel}`);
+
+      console.log('✅ Revert successful in DB, Updating local state...');
       
-      // Clear assignment data when reverting to open
-      const isRevertingToOpen = newStatus === 'open';
-      const patch = {
-        status: newStatus,
-        isDuplicate: newStatus === 'duplicate',
-        ...(isRevertingToOpen && { 
-          assigned_officer: null, 
-          assigned_officer_id: null, 
-          assigned_at: null 
-        })
+      const applyPatch = (item) => {
+        const isRevertingToOpen = newStatus === 'open';
+        return {
+          ...item,
+          status: newStatus,
+          isOfficialDuplicate: newStatus === 'duplicate',
+          isSuggestedDuplicate: newStatus === 'duplicate' ? false : item.isSuggestedDuplicate,
+          ...(isRevertingToOpen && { 
+            assigned_officer: null, 
+            assigned_officer_id: null, 
+            assigned_at: null 
+          })
+        };
       };
       
-      console.log('✅ Applying revert patch to local state:', patch);
-      setSelectedIncident(prev => prev?.id === incidentId ? { ...prev, ...patch } : prev);
-      setIncidents(prev => prev.map(i => i.id === incidentId ? { ...i, ...patch } : i));
+      setSelectedIncident(prev => prev?.id === incidentId ? applyPatch(prev) : prev);
+      setIncidents(prev => prev.map(i => i.id === incidentId ? applyPatch(i) : i));
       onStatusChange?.(incidentId, newStatus);
     } catch (err) {
       console.error('❌ Error reverting status:', err);
@@ -763,258 +789,284 @@ const IncidentModeration = ({ initialSearch = '', onStatusChange, onAssignRespon
 
   return (
     <>
-    <div className="zenith-table-moderation">
-      {/* Tab Filters */}
-      <div className="zenith-tabs">
-        <button className={`zenith-tab ${filterStatus === 'all' ? 'active' : ''}`} onClick={() => setFilterStatus('all')}>
-          All
-        </button>
-        <button className={`zenith-tab ${filterStatus === 'resolved' ? 'active' : ''}`} onClick={() => setFilterStatus('resolved')}>
-          Resolved
-        </button>
-        <button className={`zenith-tab ${filterStatus === 'in_action' ? 'active' : ''}`} onClick={() => setFilterStatus('in_action')}>
-          In Progress
-        </button>
-        <button className={`zenith-tab ${filterStatus === 'pending' ? 'active' : ''}`} onClick={() => setFilterStatus('pending')}>
-          Open
-        </button>
-        {stats.duplicate > 0 && (
-          <button className={`zenith-tab ${filterStatus === 'duplicate' ? 'active' : ''}`} onClick={() => setFilterStatus('duplicate')}>
-            Duplicate
+      <div className="zenith-table-moderation">
+        {/* Tab Filters */}
+        <div className="zenith-tabs">
+          <button className={`zenith-tab ${filterStatus === 'all' ? 'active' : ''}`} onClick={() => setFilterStatus('all')}>
+            All
           </button>
-        )}
-      </div>
+          <button className={`zenith-tab ${filterStatus === 'resolved' ? 'active' : ''}`} onClick={() => setFilterStatus('resolved')}>
+            Resolved
+          </button>
+          <button className={`zenith-tab ${filterStatus === 'in_progress' ? 'active' : ''}`} onClick={() => setFilterStatus('in_progress')}>
+            In Progress
+          </button>
+          <button className={`zenith-tab ${filterStatus === 'open' ? 'active' : ''}`} onClick={() => setFilterStatus('open')}>
+            Open
+          </button>
+          {stats.duplicate > 0 && (
+            <button className={`zenith-tab ${filterStatus === 'duplicate' ? 'active' : ''}`} onClick={() => setFilterStatus('duplicate')}>
+              Duplicate
+            </button>
+          )}
+        </div>
 
-      {/* Toolbar */}
-      <div className="zenith-toolbar">
-        {selectedIncidents.size > 0 ? (
-          <div className="zenith-bulk-actions">
-            <span className="zenith-bulk-count">
-              {selectedIncidents.size} selected
-            </span>
-            <button 
-              className="zenith-toolbar-btn zenith-btn-success"
-              onClick={handleBulkResolve}
-              disabled={saving}
-            >
-              <CheckCircle size={16} /> Resolve
-            </button>
-            <button 
-              className="zenith-toolbar-btn zenith-btn-warning"
-              onClick={handleBulkMarkDuplicate}
-              disabled={saving}
-            >
-              <Copy size={16} /> Mark Duplicate
-            </button>
-            {isSuperAdmin && (
-              <button 
-                className="zenith-toolbar-btn zenith-btn-danger"
-                onClick={handleBulkDelete}
+        {/* Toolbar */}
+        <div className="zenith-toolbar">
+          {selectedIncidents.size > 0 ? (
+            <div className="zenith-bulk-actions">
+              <span className="zenith-bulk-count">
+                {selectedIncidents.size} selected
+              </span>
+              <button
+                className="zenith-toolbar-btn zenith-btn-success"
+                onClick={handleBulkResolve}
                 disabled={saving}
               >
-                <Trash2 size={16} /> Delete
+                <CheckCircle size={16} /> Resolve
               </button>
-            )}
-            <button 
-              className="zenith-toolbar-btn"
-              onClick={() => setSelectedIncidents(new Set())}
-            >
-              <X size={16} /> Clear
-            </button>
-          </div>
-        ) : (
-          <>
-            <div className="zenith-search">
-              <Search size={18} />
-              <input type="text" placeholder="Search posts..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
-            </div>
-            <div className="zenith-toolbar-actions">
-              {/* Category Filter */}
-              <div className="zenith-filter-group" style={{ display: 'flex', gap: '0.5rem' }}>
-                <select 
-                  className="zenith-toolbar-select" 
-                  value={filterCategory} 
-                  onChange={(e) => setFilterCategory(e.target.value)}
+              {(filterStatus === 'duplicate' || filterStatus === 'resolved') ? (
+                <button
+                  className="zenith-toolbar-btn zenith-btn-info"
+                  onClick={handleBulkRevertToOpen}
+                  disabled={saving}
                 >
-                  <option value="all">All Categories</option>
-                  <option value="earthquake">Earthquake</option>
-                  <option value="fire">Fire</option>
-                  <option value="flood">Flood</option>
-                  <option value="accident">Accident</option>
-                  <option value="rescue">Rescue</option>
-                  <option value="General">General</option>
-                </select>
-              </div>
+                  <RefreshCw size={16} /> Restore to Open
+                </button>
+              ) : (
+                <button
+                  className="zenith-toolbar-btn zenith-btn-warning"
+                  onClick={handleBulkMarkDuplicate}
+                  disabled={saving}
+                >
+                  <Copy size={16} /> Mark Duplicate
+                </button>
+              )}
+              {isSuperAdmin && (
+                <button
+                  className="zenith-toolbar-btn zenith-btn-danger"
+                  onClick={handleBulkDelete}
+                  disabled={saving}
+                >
+                  <Trash2 size={16} /> Delete
+                </button>
+              )}
+              <button
+                className="zenith-toolbar-btn"
+                onClick={() => setSelectedIncidents(new Set())}
+              >
+                <X size={16} /> Clear
+              </button>
             </div>
-          </>
-        )}
-      </div>
+          ) : (
+            <>
+              <div className="zenith-search">
+                <Search size={18} />
+                <input type="text" placeholder="Search posts..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
+              </div>
+              <div className="zenith-toolbar-actions">
+                {/* Category Filter */}
+                <div className="zenith-filter-group" style={{ display: 'flex', gap: '0.5rem' }}>
+                  <select
+                    className="zenith-toolbar-select"
+                    value={filterCategory}
+                    onChange={(e) => setFilterCategory(e.target.value)}
+                  >
+                    <option value="all">All Categories</option>
+                    <option value="earthquake">Earthquake</option>
+                    <option value="fire">Fire</option>
+                    <option value="flood">Flood</option>
+                    <option value="accident">Accident</option>
+                    <option value="rescue">Rescue</option>
+                    <option value="General">General</option>
+                  </select>
+                </div>
+              </div>
+            </>
+          )}
+        </div>
 
-      {/* Table */}
-      <div className="zenith-table-container">
-        {loading ? (
-          <div className="zenith-loading-state">
-            <RefreshCw size={32} />
-            <p>Loading posts...</p>
-          </div>
-        ) : incidents.length === 0 ? (
-          <div className="zenith-empty-state">
-            <AlertTriangle size={48} />
-            <h3>No posts found</h3>
-            <p>There are currently no posts in the database.</p>
-          </div>
-        ) : filteredIncidents.length === 0 ? (
-          <div className="zenith-empty-state">
-            <AlertTriangle size={48} />
-            <h3>No matching posts</h3>
-            <p>Try changing your filter settings. ({incidents.length} total posts)</p>
-          </div>
-        ) : (
-          <div className="zenith-table-wrapper">
-            <table className="zenith-data-table">
-              <thead>
-                <tr>
-                  <th className="zenith-checkbox-cell">
-                    <input
-                      type="checkbox"
-                      className="zenith-checkbox"
-                      checked={isAllSelected}
-                      ref={el => {
-                        if (el) {
-                          el.indeterminate = isIndeterminate;
-                        }
-                      }}
-                      onChange={handleSelectAll}
-                    />
-                  </th>
-                  <th>Post ID</th>
-                  <th>Reporter</th>
-                  <th>Location</th>
-                  <th>Status</th>
-                  <th>Date</th>
-                  <th className="zenith-actions-cell"></th>
-                </tr>
-              </thead>
-              <tbody>
-                {filteredIncidents.map((incident, index) => {
-                  const status = getStatus(incident);
-                  const statusConfig = getStatusConfig(status);
-                  const displayLocation = incident.resolvedLocation || incident.location || 'No location provided';
-                  const statusClass = status === 'in_action' ? 'in-progress' : status;
-                  return (
-                    <tr key={incident.id} onClick={() => handleViewIncident(incident)}>
-                      <td className="zenith-checkbox-cell" onClick={(e) => e.stopPropagation()}>
-                        <input
-                          type="checkbox"
-                          className="zenith-checkbox"
-                          checked={selectedIncidents.has(incident.id)}
-                          onChange={() => handleSelectIncident(incident.id)}
-                        />
-                      </td>
-                      <td className="zenith-order-cell">
-                        {formatDisplayId(index, filteredIncidents.length)}
-                      </td>
-                      <td>
-                        <div className="zenith-customer-cell">
-                          <div className="zenith-avatar">
-                            {(incident.reporter || 'U').charAt(0).toUpperCase()}
+        {/* Table */}
+        <div className="zenith-table-container">
+          {loading ? (
+            <div className="zenith-loading-state">
+              <RefreshCw size={32} />
+              <p>Loading posts...</p>
+            </div>
+          ) : incidents.length === 0 ? (
+            <div className="zenith-empty-state">
+              <AlertTriangle size={48} />
+              <h3>No posts found</h3>
+              <p>There are currently no posts in the database.</p>
+            </div>
+          ) : filteredIncidents.length === 0 ? (
+            <div className="zenith-empty-state">
+              <AlertTriangle size={48} />
+              <h3>No matching posts</h3>
+              <p>Try changing your filter settings. ({incidents.length} total posts)</p>
+            </div>
+          ) : (
+            <div className="zenith-table-wrapper">
+              <table className="zenith-data-table">
+                <thead>
+                  <tr>
+                    <th className="zenith-checkbox-cell">
+                      <input
+                        type="checkbox"
+                        className="zenith-checkbox"
+                        checked={isAllSelected}
+                        ref={el => {
+                          if (el) {
+                            el.indeterminate = isIndeterminate;
+                          }
+                        }}
+                        onChange={handleSelectAll}
+                      />
+                    </th>
+                    <th>Post ID</th>
+                    <th>Reporter</th>
+                    <th>Location</th>
+                    <th>Status</th>
+                    <th>Date</th>
+                    <th className="zenith-actions-cell"></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filteredIncidents.map((incident, index) => {
+                    const status = getStatus(incident);
+                    const statusConfig = getStatusConfig(status);
+                    const displayLocation = incident.resolvedLocation || incident.location || 'No location provided';
+                    const statusClass = status === 'in_action' ? 'in-progress' : status;
+                    return (
+                      <tr key={incident.id} onClick={() => handleViewIncident(incident)}>
+                        <td className="zenith-checkbox-cell" onClick={(e) => e.stopPropagation()}>
+                          <input
+                            type="checkbox"
+                            className="zenith-checkbox"
+                            checked={selectedIncidents.has(incident.id)}
+                            onChange={() => handleSelectIncident(incident.id)}
+                          />
+                        </td>
+                        <td className="zenith-order-cell">
+                          {formatDisplayId(index, filteredIncidents.length)}
+                        </td>
+                        <td>
+                          <div className="zenith-customer-cell">
+                            <div className="zenith-avatar">
+                              {(incident.reporter || 'U').charAt(0).toUpperCase()}
+                            </div>
+                            <div className="zenith-customer-info">
+                              <div className="zenith-customer-name">{incident.reporter || 'Unknown User'}</div>
+                              <div className="zenith-customer-email">{incident.title || 'Untitled Post'}</div>
+                            </div>
                           </div>
-                          <div className="zenith-customer-info">
-                            <div className="zenith-customer-name">{incident.reporter || 'Unknown User'}</div>
-                            <div className="zenith-customer-email">{incident.title || 'Untitled Post'}</div>
-                          </div>
+                        </td>
+                        <td className="zenith-product-cell">
+                          {displayLocation}
+                        </td>
+                        <td>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                          <span className={`zenith-status-badge ${statusClass}`}>
+                            {statusConfig.label}
+                          </span>
+                          {incident.isSuggestedDuplicate && status !== 'duplicate' && (
+                            <span 
+                              className="zenith-status-badge" 
+                              style={{ 
+                                background: 'rgba(168,85,247,.1)', 
+                                color: '#a855f7',
+                                fontSize: '0.75rem',
+                                padding: '4px 8px'
+                              }}
+                              title="Detected as a likely duplicate of another post"
+                            >
+                              SUGGESTED DUPLICATE
+                            </span>
+                          )}
                         </div>
                       </td>
-                      <td className="zenith-product-cell">
-                        {displayLocation}
-                      </td>
-                      <td>
-                        <span className={`zenith-status-badge ${statusClass}`}>
-                          {statusConfig.label}
-                        </span>
-                      </td>
-                      <td className="zenith-date-cell">
-                        {new Date(incident.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
-                      </td>
-                      <td className="zenith-actions-cell" onClick={(e) => e.stopPropagation()}>
-                        <button className="zenith-actions-btn">
-                          <Activity size={16} />
-                        </button>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
+                        <td className="zenith-date-cell">
+                          {new Date(incident.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                        </td>
+                        <td className="zenith-actions-cell" onClick={(e) => e.stopPropagation()}>
+                          <button className="zenith-actions-btn">
+                            <Activity size={16} />
+                          </button>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+
+        {/* Resolve Modal */}
+        {showResolveModal && resolveTarget && (
+          <div className="resolve-modal-overlay" onClick={() => setShowResolveModal(false)}>
+            <div className="resolve-modal" onClick={e => e.stopPropagation()}>
+              <div className="resolve-modal-header">
+                <h3>Mark as Resolved</h3>
+                <button className="resolve-modal-close" onClick={() => setShowResolveModal(false)}><X size={20} /></button>
+              </div>
+              <p className="resolve-modal-subtitle">Resolving: <strong>{resolveTarget.title}</strong></p>
+
+              <div className="resolve-option">
+                <label><FileText size={16} /> Add Update</label>
+                <textarea
+                  placeholder="Describe what was done to resolve this incident..."
+                  value={resolveText}
+                  onChange={e => setResolveText(e.target.value)}
+                  rows={3}
+                />
+              </div>
+
+              <div className="resolve-option">
+                <label><Upload size={16} /> Upload Proof (optional)</label>
+                <div className="proof-upload-area" onClick={() => proofInputRef.current?.click()}>
+                  {resolveProofPreview ? (
+                    <img src={resolveProofPreview} alt="Proof preview" className="proof-preview-img" />
+                  ) : (
+                    <span>Click to upload resolve proof image</span>
+                  )}
+                </div>
+                <input
+                  ref={proofInputRef}
+                  type="file"
+                  accept="image/*"
+                  style={{ display: 'none' }}
+                  onChange={handleProofFileChange}
+                />
+              </div>
+
+              <div className="resolve-modal-actions">
+                <button className="btn-cancel" onClick={() => setShowResolveModal(false)}>Cancel</button>
+                <button className="btn-resolve-confirm" onClick={handleResolve} disabled={saving}>
+                  {saving ? 'Resolving...' : 'Confirm Resolved'}
+                </button>
+              </div>
+            </div>
           </div>
         )}
+
+        <ReportDetailModal
+          report={selectedIncident}
+          isOpen={showModal}
+          isSuperAdmin={isSuperAdmin}
+          onClose={() => setShowModal(false)}
+          onApprove={handleApprove}
+          onReject={handleReject}
+          onStartAction={handleStartAction}
+          onMarkResolved={handleDirectResolve}
+          onMarkDuplicate={handleMarkDuplicate}
+          onRevertOpen={(id) => handleRevertStatus(id, 'open')}
+          onDeleteReport={handleDelete}
+          onSaveNote={handleSaveNote}
+          onAssignResponder={handleLocalAssignResponder}
+          loading={saving}
+        />
       </div>
-
-      {/* Resolve Modal */}
-      {showResolveModal && resolveTarget && (
-        <div className="resolve-modal-overlay" onClick={() => setShowResolveModal(false)}>
-          <div className="resolve-modal" onClick={e => e.stopPropagation()}>
-            <div className="resolve-modal-header">
-              <h3>Mark as Resolved</h3>
-              <button className="resolve-modal-close" onClick={() => setShowResolveModal(false)}><X size={20} /></button>
-            </div>
-            <p className="resolve-modal-subtitle">Resolving: <strong>{resolveTarget.title}</strong></p>
-
-            <div className="resolve-option">
-              <label><FileText size={16} /> Add Update</label>
-              <textarea
-                placeholder="Describe what was done to resolve this incident..."
-                value={resolveText}
-                onChange={e => setResolveText(e.target.value)}
-                rows={3}
-              />
-            </div>
-
-            <div className="resolve-option">
-              <label><Upload size={16} /> Upload Proof (optional)</label>
-              <div className="proof-upload-area" onClick={() => proofInputRef.current?.click()}>
-                {resolveProofPreview ? (
-                  <img src={resolveProofPreview} alt="Proof preview" className="proof-preview-img" />
-                ) : (
-                  <span>Click to upload resolve proof image</span>
-                )}
-              </div>
-              <input
-                ref={proofInputRef}
-                type="file"
-                accept="image/*"
-                style={{ display: 'none' }}
-                onChange={handleProofFileChange}
-              />
-            </div>
-
-            <div className="resolve-modal-actions">
-              <button className="btn-cancel" onClick={() => setShowResolveModal(false)}>Cancel</button>
-              <button className="btn-resolve-confirm" onClick={handleResolve} disabled={saving}>
-                {saving ? 'Resolving...' : 'Confirm Resolved'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      <ReportDetailModal
-        report={selectedIncident}
-        isOpen={showModal}
-        isSuperAdmin={isSuperAdmin}
-        onClose={() => setShowModal(false)}
-        onApprove={handleApprove}
-        onReject={handleReject}
-        onStartAction={handleStartAction}
-        onMarkResolved={handleDirectResolve}
-        onMarkDuplicate={handleMarkDuplicate}
-        onRevertPending={(id) => handleRevertStatus(id, 'open')}
-        onDeleteReport={handleDelete}
-        onSaveNote={handleSaveNote}
-        onAssignResponder={handleLocalAssignResponder}
-        loading={saving}
-      />
-    </div>
     </>
   );
 };

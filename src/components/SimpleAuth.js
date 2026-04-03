@@ -6,7 +6,7 @@ import './SimpleAuth.css';
 const SimpleAuth = ({ onLoginClick, onSignupClick }) => {
   const [stats, setStats] = useState({
     totalReports: 0,
-    pendingReports: 0,
+    openReports: 0,
     totalUsers: 0,
     resolvedToday: 0
   });
@@ -18,7 +18,7 @@ const SimpleAuth = ({ onLoginClick, onSignupClick }) => {
         const dashboardStats = await adminService.getDashboardStats();
         setStats({
           totalReports: dashboardStats.totalReports || 0,
-          pendingReports: dashboardStats.pendingReports || 0,
+          openReports: dashboardStats.openReports || 0,
           totalUsers: dashboardStats.totalUsers || 0,
           resolvedToday: dashboardStats.resolvedToday || 0
         });
@@ -115,8 +115,8 @@ const SimpleAuth = ({ onLoginClick, onSignupClick }) => {
                   <Activity size={24} style={{ color: '#f59e0b' }} />
                 </div>
                 <div className="admin-stat-content">
-                  <div className="admin-stat-value">{stats.pendingReports}</div>
-                  <div className="admin-stat-label">Pending Review</div>
+                  <div className="admin-stat-value">{stats.openReports}</div>
+                  <div className="admin-stat-label">Open Incidents</div>
                 </div>
               </div>
               

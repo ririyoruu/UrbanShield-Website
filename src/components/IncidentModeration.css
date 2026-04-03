@@ -50,7 +50,7 @@
   color: #f59e0b;
 }
 
-.mod-stat-chip.in_action .mod-stat-num {
+.mod-stat-chip.in_progress .mod-stat-num {
   color: #3b82f6;
 }
 
@@ -177,7 +177,7 @@
   border-color: rgba(245, 158, 11, .18);
 }
 
-.mod-card.in_action::before {
+.mod-card.in_progress::before {
   border-color: rgba(37, 99, 235, .18);
 }
 

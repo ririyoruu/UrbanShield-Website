@@ -603,3 +603,99 @@
     white-space: normal;
   }
 }
+
+/* Activity Log - New Styles */
+.activity-log-section {
+  padding: 1.25rem 1rem;
+  background: var(--card);
+}
+
+.activity-log-header {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+  color: var(--muted-fg);
+}
+
+.activity-log-label {
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin: 0;
+}
+
+.activity-log-list {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.activity-log-entry {
+  display: flex;
+  gap: 0.75rem;
+  align-items: flex-start;
+}
+
+.activity-log-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  margin-top: 5px;
+  flex-shrink: 0;
+}
+
+.activity-log-content {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.activity-log-text {
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--fg);
+  line-height: 1.4;
+}
+
+.activity-log-time {
+  font-size: 0.75rem;
+  color: var(--muted-fg);
+}
+
+.admin-notes-section {
+  margin-top: 1rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--border);
+}
+
+.admin-notes-label {
+  font-size: 0.6875rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  color: var(--muted-fg);
+  margin-bottom: 0.75rem;
+  letter-spacing: 0.025em;
+}
+
+.note-entry {
+  background: var(--muted);
+  padding: 0.75rem;
+  border-radius: 8px;
+}
+
+.note-icon {
+  margin-top: 3px;
+  color: var(--muted-fg);
+  flex-shrink: 0;
+}
+
+.activity-log-loading,
+.activity-log-empty {
+  font-size: 0.8125rem;
+  color: var(--muted-fg);
+  text-align: center;
+  padding: 1rem 0;
+  font-style: italic;
+}
