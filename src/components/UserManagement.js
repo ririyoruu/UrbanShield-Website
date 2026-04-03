@@ -90,7 +90,7 @@ const UserManagement = ({ isSuperAdmin }) => {
   const handleBulkDelete = () => {
     if (!selectedUsers.size) return;
     const count = selectedUsers.size;
-    
+
     setModal({
       show: true,
       type: 'confirm',
@@ -106,7 +106,7 @@ const UserManagement = ({ isSuperAdmin }) => {
     const count = selectedUsers.size;
     const oldUsers = [...users];
     const userIds = Array.from(selectedUsers);
-    
+
     setModal({ show: false }); // Close confirm modal
     setUsers(prev => prev.filter(u => !selectedUsers.has(u.id)));
     setSelectedUsers(new Set());
@@ -273,16 +273,16 @@ const UserManagement = ({ isSuperAdmin }) => {
       const matchesSearch = !s ||
         user.full_name.toLowerCase().includes(s) ||
         user.email.toLowerCase().includes(s);
-      
+
       const statusKey = getStatusInfo(user).key;
       const matchesStatus = filterStatus === 'all' || statusKey === filterStatus;
-      
+
       // Document Filter
-      const docs = Array.isArray(user.verification_documents) ? user.verification_documents : 
-                   (user.documents ? (Array.isArray(user.documents) ? user.documents : [user.documents]) : []);
+      const docs = Array.isArray(user.verification_documents) ? user.verification_documents :
+        (user.documents ? (Array.isArray(user.documents) ? user.documents : [user.documents]) : []);
       const hasDocs = docs.filter(d => d && (typeof d === 'string' ? d.trim() : true)).length > 0;
-      const matchesDocs = filterRole === 'all' || 
-        (filterRole === 'with_docs' && hasDocs) || 
+      const matchesDocs = filterRole === 'all' ||
+        (filterRole === 'with_docs' && hasDocs) ||
         (filterRole === 'no_docs' && !hasDocs);
 
       return matchesSearch && matchesStatus && matchesDocs;
@@ -344,7 +344,7 @@ const UserManagement = ({ isSuperAdmin }) => {
             </div>
             <h3>{modal.title}</h3>
             <p>{modal.message}</p>
-            
+
             {modal.type === 'confirm' ? (
               <div className="zenith-modal-actions">
                 <button className="zenith-modal-btn cancel" onClick={() => setModal({ show: false })}>
@@ -410,14 +410,14 @@ const UserManagement = ({ isSuperAdmin }) => {
         </div>
         <div className="zenith-toolbar-actions" style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
           <button className="zenith-toolbar-btn" onClick={loadUsers} disabled={loading} title="Refresh results">
-             <RefreshCw size={14} className={loading ? 'spinning' : ''} />
-             Reload
+            <RefreshCw size={14} className={loading ? 'spinning' : ''} />
+            Reload
           </button>
-          
+
           {/* Document Filter */}
-          <select 
-            className="zenith-toolbar-select" 
-            value={filterRole} 
+          <select
+            className="zenith-toolbar-select"
+            value={filterRole}
             onChange={(e) => setFilterRole(e.target.value)}
           >
             <option value="all">Recent (Newest)</option>
@@ -466,8 +466,8 @@ const UserManagement = ({ isSuperAdmin }) => {
               <tbody>
                 {filteredUsers.map((user, index) => {
                   const statusInfo = getStatusInfo(user);
-                  const docs = Array.isArray(user.verification_documents) ? user.verification_documents : 
-                               (user.documents ? (Array.isArray(user.documents) ? user.documents : [user.documents]) : []);
+                  const docs = Array.isArray(user.verification_documents) ? user.verification_documents :
+                    (user.documents ? (Array.isArray(user.documents) ? user.documents : [user.documents]) : []);
                   const docCount = docs.filter(d => d && (typeof d === 'string' ? d.trim() : true)).length;
                   const initials = getInitials(user.full_name);
                   const statusClass = `status-${statusInfo.key}`;
@@ -531,6 +531,6 @@ const UserManagement = ({ isSuperAdmin }) => {
     </div>
   );
 }
-;
+  ;
 
 export default UserManagement;

@@ -128,6 +128,7 @@
 .zenith-toolbar-btn:hover svg {
   color: var(--fg);
 }
+
 /* Large Category Select */
 .zenith-toolbar-select {
   padding: 0.875rem 1.75rem;
@@ -173,11 +174,13 @@
 
 .zenith-modal-btn {
   flex: 1;
-  padding: 14px 20px;
-  border-radius: 12px;
+  padding: 8px 12px;
+  border-radius: 8px;
   font-family: inherit;
-  font-size: 14px;
-  font-weight: 700;
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+  line-height: 1.2;
   cursor: pointer;
   border: none;
   transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
@@ -196,12 +199,14 @@
   color: #f4f4f5;
 }
 
-.zenith-modal-btn.confirm-delete {
+.zenith-modal-btn.confirm-delete,
+.zenith-modal-btn.confirm-submit {
   background: #ef4444;
   color: #fff;
 }
 
-.zenith-modal-btn.confirm-delete:hover {
+.zenith-modal-btn.confirm-delete:hover,
+.zenith-modal-btn.confirm-submit:hover {
   background: #dc2626;
   box-shadow: 0 4px 12px rgba(239, 68, 68, 0.3);
 }
@@ -679,11 +684,12 @@
 
 /* Responsive */
 @media (max-width: 1024px) {
+
   .zenith-data-table th,
   .zenith-data-table td {
     padding: 0.75rem;
   }
-  
+
   .zenith-product-cell {
     max-width: 150px;
   }
@@ -694,36 +700,37 @@
     overflow-x: auto;
     -webkit-overflow-scrolling: touch;
   }
-  
+
   .zenith-tab {
     flex-shrink: 0;
   }
-  
+
   .zenith-toolbar {
     flex-direction: column;
     align-items: stretch;
   }
-  
+
   .zenith-search {
     width: 100%;
   }
-  
+
   .zenith-toolbar-actions {
     width: 100%;
   }
-  
+
   .zenith-toolbar-btn {
     flex: 1;
   }
-  
+
   .zenith-table-wrapper {
     overflow-x: scroll;
   }
-  
+
   .zenith-data-table {
     min-width: 800px;
   }
 }
+
 /* Success Modal Styles */
 /* ── Zenith Status & Confirm Modals ── */
 .zenith-modals-container {
@@ -750,9 +757,9 @@
 .zenith-status-modal {
   background: var(--card, #fff);
   width: 100%;
-  max-width: 400px;
-  border-radius: 24px;
-  padding: 40px 32px;
+  max-width: 340px;
+  border-radius: 20px;
+  padding: 32px 24px;
   text-align: center;
   box-shadow: 0 20px 50px rgba(0, 0, 0, 0.2);
   border: 1px solid var(--border);
@@ -789,13 +796,13 @@
 
 .status-close-btn {
   width: 100%;
-  padding: 1rem;
+  padding: 0.75rem;
   background: var(--primary);
   color: #ffffff;
   border: none;
   border-radius: var(--radius);
-  font-size: 1.125rem;
-  font-weight: 700;
+  font-size: 0.95rem;
+  font-weight: 600;
   cursor: pointer;
   transition: all 0.2s;
   box-shadow: 0 4px 12px rgba(37, 99, 235, 0.2);
@@ -827,12 +834,19 @@
 }
 
 @keyframes slideDownFade {
-  from { transform: translate(-50%, -20px); opacity: 0; }
-  to { transform: translate(-50%, 0); opacity: 1; }
+  from {
+    transform: translate(-50%, -20px);
+    opacity: 0;
+  }
+
+  to {
+    transform: translate(-50%, 0);
+    opacity: 1;
+  }
 }
 
 .zenith-toast-error button {
-  background: rgba(0,0,0,0.1);
+  background: rgba(0, 0, 0, 0.1);
   border: none;
   color: #fff;
   padding: 4px;
@@ -850,4 +864,3 @@
 .zenith-btn-info:hover {
   background: rgba(59, 130, 246, 0.2);
 }
-

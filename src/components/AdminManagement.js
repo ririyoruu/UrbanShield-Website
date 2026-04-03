@@ -187,7 +187,7 @@ const AdminManagement = ({ initialTab = 'all', isSuperAdmin }) => {
     e?.stopPropagation();
     const currentlyActive = isActive(user);
     const nextStatus = !currentlyActive;
-    
+
     setModal({
       show: true,
       type: 'confirm',
@@ -244,10 +244,10 @@ const AdminManagement = ({ initialTab = 'all', isSuperAdmin }) => {
     e?.stopPropagation();
     const isDemoteToAdmin = user.user_type === 'super_admin';
     const title = isDemoteToAdmin ? 'Demote Super Admin?' : 'Remove from Staff?';
-    const message = isDemoteToAdmin 
+    const message = isDemoteToAdmin
       ? `Are you sure you want to demote ${user.full_name} to regular Admin?`
       : `Are you sure you want to remove ${user.full_name} from staff? they will be demoted to a resident.`;
-    
+
     setModal({
       show: true,
       type: 'confirm',
@@ -261,7 +261,7 @@ const AdminManagement = ({ initialTab = 'all', isSuperAdmin }) => {
     setModal({ show: false });
     const previousRole = user.user_type;
     setSaving(true);
-    
+
     if (isDemoteToAdmin) {
       setUsers(prev => prev.map(u => u.id === user.id ? { ...u, user_type: 'admin' } : u));
     } else {
@@ -274,9 +274,9 @@ const AdminManagement = ({ initialTab = 'all', isSuperAdmin }) => {
       } else {
         await superAdminService.demoteToResident(user.id);
       }
-      
+
       if (selectedStaffId === user.id && !isDemoteToAdmin) setShowDetailDrawer(false);
-      
+
       const handleUndo = async () => {
         try {
           setSaving(true);
@@ -330,16 +330,16 @@ const AdminManagement = ({ initialTab = 'all', isSuperAdmin }) => {
     const emailStr = addFormData.email.toLowerCase().trim();
     const domain = emailStr.split('@')[1];
     const popularDomains = [
-      'gmail.com', 'yahoo.com', 'outlook.com', 'hotmail.com', 
-      'icloud.com', 'msn.com', 'live.com', 'me.com', 
-      'aol.com', 'ymail.com', 'rocketmail.com', 'protonmail.com', 
+      'gmail.com', 'yahoo.com', 'outlook.com', 'hotmail.com',
+      'icloud.com', 'msn.com', 'live.com', 'me.com',
+      'aol.com', 'ymail.com', 'rocketmail.com', 'protonmail.com',
       'proton.me', 'zoho.com', 'gmx.com', 'mail.com'
     ];
 
     if (!domain || !popularDomains.includes(domain)) {
       showFlash(
-        `Please use a legitimate email provider (e.g., Gmail, Yahoo, Outlook). '${domain || 'unknown'}' is not recognized.`, 
-        'error', 
+        `Please use a legitimate email provider (e.g., Gmail, Yahoo, Outlook). '${domain || 'unknown'}' is not recognized.`,
+        'error',
         'Invalid Email Domain'
       );
       return;
@@ -372,7 +372,7 @@ const AdminManagement = ({ initialTab = 'all', isSuperAdmin }) => {
     const chars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*";
     let password = "";
     for (let i = 0; i < 12; i++) {
-        password += chars.charAt(Math.floor(Math.random() * chars.length));
+      password += chars.charAt(Math.floor(Math.random() * chars.length));
     }
     setAddFormData(prev => ({ ...prev, password }));
     setShowPassword(true);
@@ -381,33 +381,33 @@ const AdminManagement = ({ initialTab = 'all', isSuperAdmin }) => {
 
   const handleResetPassword = async (email) => {
     if (!email) return;
-    
+
     // Open confirmation modal first
     setResetModal({ isOpen: true, email, generatedPass: null });
   };
 
   const confirmResetPassword = async () => {
     const { email } = resetModal;
-    
+
     // Generate secure password
     const chars = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*';
     let generated = '';
     for (let i = 0; i < 12; i++) {
-        generated += chars.charAt(Math.floor(Math.random() * chars.length));
+      generated += chars.charAt(Math.floor(Math.random() * chars.length));
     }
 
     setSaving(true);
     try {
       await superAdminService.resetUserPassword(email, generated);
-      
+
       // Update modal to show the generated password
       setResetModal(prev => ({ ...prev, generatedPass: generated }));
-      
+
       // Copy to clipboard
       try {
         await navigator.clipboard.writeText(generated);
-      } catch (err) {}
-      
+      } catch (err) { }
+
       showFlash(`Success: Password reset and copied to clipboard.`, 'success', 'Password Reset');
     } catch (err) {
       console.error('Password reset failed:', err);
@@ -494,9 +494,9 @@ const AdminManagement = ({ initialTab = 'all', isSuperAdmin }) => {
             ) : (
               <div className="zenith-modal-actions" style={{ flexDirection: 'column', gap: '0.75rem' }}>
                 {modal.undoAction && (
-                  <button className="zenith-modal-btn undo-btn" onClick={() => { 
-                    modal.undoAction(); 
-                    setModal({ ...modal, show: false }); 
+                  <button className="zenith-modal-btn undo-btn" onClick={() => {
+                    modal.undoAction();
+                    setModal({ ...modal, show: false });
                   }}>
                     Undo Action
                   </button>
@@ -804,7 +804,7 @@ const AdminManagement = ({ initialTab = 'all', isSuperAdmin }) => {
                         Demote to Resident
                       </button>
                     ) : null}
-                    
+
                     {isSuperAdmin && (
                       <button type="button" className="reset-pass-btn-zenith" onClick={() => handleResetPassword(selectedStaff.email)}>
                         <Key size={16} /> Reset Password
@@ -852,27 +852,27 @@ const AdminManagement = ({ initialTab = 'all', isSuperAdmin }) => {
                 <div className="form-item">
                   <label>Password</label>
                   <div className="pass-wrap">
-                    <input 
-                      type={showPassword ? 'text' : 'password'} 
-                      required 
-                      value={addFormData.password} 
-                      onChange={e => setAddFormData({ ...addFormData, password: e.target.value })} 
+                    <input
+                      type={showPassword ? 'text' : 'password'}
+                      required
+                      value={addFormData.password}
+                      onChange={e => setAddFormData({ ...addFormData, password: e.target.value })}
                       placeholder="Enter or generate password"
                     />
                     <div className="pass-actions">
-                      <button 
-                        type="button" 
-                        title="Generate Password" 
-                        className="gen-pass-btn" 
+                      <button
+                        type="button"
+                        title="Generate Password"
+                        className="gen-pass-btn"
                         onClick={generateAutoPassword}
                       >
                         <Sparkles size={16} />
                       </button>
                       {addFormData.password && (
-                        <button 
-                          type="button" 
-                          title="Copy Password" 
-                          className="copy-pass-btn" 
+                        <button
+                          type="button"
+                          title="Copy Password"
+                          className="copy-pass-btn"
                           onClick={() => copyToClipboard(addFormData.password)}
                         >
                           {copied ? <Check size={16} color="#10b981" /> : <Copy size={16} />}
