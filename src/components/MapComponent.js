@@ -53,10 +53,52 @@ const MapComponent = ({
     return null;
   };
 
+  // Helper: parse PostGIS WKB hex → {lat, lng}
+  const parsePostGISLocation = (hex) => {
+    try {
+      if (!hex || typeof hex !== 'string') return null;
+      const clean = hex.replace(/[^0-9A-Fa-f]/g, '');
+      
+      // Determine offset based on WKB header
+      let offset = -1;
+      // EWKB Point (SRID 4326): 1 byte order + 4 bytes type (with SRID flag 0x20) + 4 bytes SRID = 9 bytes = 18 hex
+      if (clean.startsWith('0101000020')) offset = 18;
+      // WKB Point: 1 byte order + 4 bytes type = 5 bytes = 10 hex
+      else if (clean.startsWith('0101000000')) offset = 10;
+      // Fallback for some PostGIS variations that might skip the '0101' prefix check strictly
+      else if (clean.length >= 32 + 10 && clean.includes('01010000')) {
+        const foundAt = clean.indexOf('01010000');
+        offset = foundAt + 10;
+      }
+      
+      if (offset < 0 || clean.length < offset + 32) return null;
+      
+      const readLE = (h) => {
+        const buf = new ArrayBuffer(8);
+        const dv = new DataView(buf);
+        for (let i = 0; i < 8; i++) {
+          dv.setUint8(i, parseInt(h.substring(i * 2, i * 2 + 2), 16));
+        }
+        return dv.getFloat64(0, true);
+      };
+      
+      const x = readLE(clean.substring(offset, offset + 16));
+      const y = readLE(clean.substring(offset + 16, offset + 32));
+      
+      // Validate and return as {lat, lng}
+      if (y >= -90 && y <= 90 && x >= -180 && x <= 180) return { lat: y, lng: x };
+      if (x >= -90 && x <= 90 && y >= -180 && y <= 180) return { lat: x, lng: y };
+    } catch (e) {
+      console.error('Map parser error:', e);
+    }
+    return null;
+  };
+
   // Extract coordinates from incident (database already parses PostGIS)
   const extractCoordinates = (incident) => {
-    // First check if latitude/longitude are already parsed
-    if (incident.latitude && incident.longitude) {
+    // 1. First check if latitude/longitude are already parsed
+    if (incident.latitude !== undefined && incident.latitude !== null &&
+        incident.longitude !== undefined && incident.longitude !== null) {
       const lat = parseFloat(incident.latitude);
       const lng = parseFloat(incident.longitude);
       if (isFinite(lat) && isFinite(lng) && lat >= -90 && lat <= 90 && lng >= -180 && lng <= 180) {
@@ -64,9 +106,22 @@ const MapComponent = ({
       }
     }
 
-    // If no coordinates but has address, we'll geocode it later
-    if (incident.address) {
-      return null; // Will be handled in geocoding step
+    // 2. Try to parse from the 'raw_location' field (PostGIS hex) - BEST ACCURACY
+    if (incident.raw_location) {
+      const coords = parsePostGISLocation(incident.raw_location);
+      if (coords) return coords;
+    }
+
+    // 3. Try to parse from the location field (PostGIS hex)
+    if (incident.location) {
+      const coords = parsePostGISLocation(incident.location);
+      if (coords) return coords;
+    }
+
+    // 4. Try specifically from a 'coordinates' field if it exists
+    if (incident.coordinates) {
+      const coords = parsePostGISLocation(incident.coordinates);
+      if (coords) return coords;
     }
 
     return null;

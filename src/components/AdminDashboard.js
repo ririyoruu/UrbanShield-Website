@@ -352,7 +352,7 @@ const AdminDashboard = ({ user, onLogout }) => {
             }
             return cleaned;
           })(),
-          location: (() => {
+          display_location: (() => {
             const originalLoc = report.location;
             const cityAddress = `${report.city || ''} ${report.address || ''}`.trim();
             const loc = originalLoc || cityAddress || 'Unknown Location';
@@ -365,6 +365,7 @@ const AdminDashboard = ({ user, onLogout }) => {
             }
             return loc;
           })(),
+          raw_location: report.location, // Keep raw hex for map precision
           address: report.address || null,
           description: cleanHexStrings(report.description),
           images: report.images || report.photo_urls || []
@@ -1058,7 +1059,16 @@ const AdminDashboard = ({ user, onLogout }) => {
           <div className="sidebar-group">
             <button
               className={`nav-item ${['users', 'admin-management'].includes(activeTab) ? 'active' : ''}`}
-              onClick={() => setUserManagementOpen(!userManagementOpen)}
+              onClick={() => {
+                if (sidebarCollapsed) {
+                  setSidebarCollapsed(false);
+                  setUserManagementOpen(true);
+                  handleTabChange('users');
+                } else {
+                  setUserManagementOpen(!userManagementOpen);
+                  handleTabChange('users');
+                }
+              }}
             >
               <div className="nav-item-content">
                 <Users size={18} />

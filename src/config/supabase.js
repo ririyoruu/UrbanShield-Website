@@ -246,36 +246,52 @@ export const adminService = {
         .select()
         .single();
       
-      if (error) throw error;
+      if (error) {
+        console.error('❌ Announcement Insert Details:', {
+          message: error.message,
+          code: error.code,
+          details: error.details,
+          hint: error.hint
+        });
+        throw error;
+      }
 
-      // 📣 Broadcast notification to mobile app users
+      // 📣 Broadcast notification to all residents for their separate app
       try {
-        const alertEmoji = {
-          critical: '🔴',
-          warning: '🟡',
-          info: '🔵',
-          notice: '⚫'
-        }[announcement.alert_level] || '📢';
+        const { data: residents, error: residentsError } = await supabase
+          .from('profiles')
+          .select('id')
+          .eq('user_type', 'resident');
 
-        await supabase
-          .from('notifications')
-          .insert([{
+        if (residentsError) throw residentsError;
+
+        if (residents && residents.length > 0) {
+          const alertEmoji = {
+            critical: '🔴',
+            warning: '🟡',
+            info: '🔵',
+            notice: '⚫'
+          }[announcement.alert_level] || '📢';
+
+          const notifications = residents.map(res => ({
+            user_id: res.id,
             type: 'announcement',
             title: `${alertEmoji} ${announcement.title}`,
             message: announcement.content,
-            data: {
-              announcement_id: data.id,
-              alert_level: announcement.alert_level || 'info',
-              alert_type: announcement.alert_type || null,
-              areas: announcement.areas || null,
-            },
             is_read: false,
             created_at: new Date().toISOString(),
-          }]);
-        console.log('📣 Notification sent to users for announcement:', data.id);
+          }));
+
+          const { error: notifError } = await supabase
+            .from('notifications')
+            .insert(notifications);
+            
+          if (notifError) throw notifError;
+          console.log(`📣 Announcement notification pushed to ${residents.length} residents`);
+        }
       } catch (notifError) {
         // Non-fatal — announcement was still created
-        console.warn('⚠️ Could not insert notification (non-fatal):', notifError.message);
+        console.warn('⚠️ Could not broadcast notification (non-fatal):', notifError.message);
       }
 
       return data;
@@ -302,7 +318,15 @@ export const adminService = {
         .select()
         .single();
       
-      if (error) throw error;
+      if (error) {
+        console.error('❌ Announcement Update Details:', {
+          message: error.message,
+          code: error.code,
+          details: error.details,
+          hint: error.hint
+        });
+        throw error;
+      }
       return data;
     } catch (error) {
       console.error('❌ Error updating announcement:', error);
@@ -395,16 +419,41 @@ export const adminService = {
         .update(updateData)
         .eq('id', reportId);
       
-      if (error) {
-        console.error('❌ Supabase error details:', {
-          message: error.message,
-          details: error.details,
-          hint: error.hint,
-          code: error.code
-        });
-        throw error;
-      }
+      if (error) throw error;
       
+      // 📣 Notify reporter of the status change
+      try {
+        const { data: incident } = await supabase
+          .from('incidents')
+          .select('reporter_id, title, category')
+          .eq('id', reportId)
+          .single();
+
+        if (incident && incident.reporter_id) {
+          const statusLabels = {
+            'pending': 'Pending',
+            'in_action': 'In Progress',
+            'resolved': 'Resolved',
+            'duplicate': 'Duplicate'
+          };
+          
+          await supabase
+            .from('notifications')
+            .insert([{
+              user_id: incident.reporter_id,
+              type: 'incident_update',
+              title: `Report Updated: ${incident.title || incident.category || 'Incident'}`,
+              message: `Status: ${statusLabels[status] || status}`,
+              incident_id: reportId,
+              is_read: false,
+              created_at: new Date().toISOString()
+            }]);
+          console.log(`📣 Notification sent to reporter ${incident.reporter_id} for status change: ${status}`);
+        }
+      } catch (notifError) {
+        console.warn('⚠️ Could not send status update notification (non-fatal):', notifError.message);
+      }
+
       console.log('✅ Update successful');
       return { success: true };
     } catch (error) {
@@ -443,6 +492,32 @@ export const adminService = {
         .eq('id', incidentId);
 
       if (error) throw error;
+
+      // 📣 Notify reporter of the dispatch
+      try {
+        const { data: incident } = await supabase
+          .from('incidents')
+          .select('reporter_id, title, category')
+          .eq('id', incidentId)
+          .single();
+
+        if (incident && incident.reporter_id) {
+          await supabase
+            .from('notifications')
+            .insert([{
+              user_id: incident.reporter_id,
+              type: 'dispatch',
+              title: `Help is on the way!`,
+              message: `Responder ${display} has been dispatched to your report: ${incident.title || incident.category || 'Incident'}`,
+              incident_id: incidentId,
+              is_read: false,
+              created_at: new Date().toISOString()
+            }]);
+          console.log(`📣 Dispatch notification sent to reporter ${incident.reporter_id}`);
+        }
+      } catch (notifError) {
+        console.warn('⚠️ Could not send dispatch notification (non-fatal):', notifError.message);
+      }
       
       console.log('✅ Sequential Dispatch Confirmed');
       return { status: 'in_action' };

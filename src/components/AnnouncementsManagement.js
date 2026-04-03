@@ -24,7 +24,7 @@ const ALERT_LEVEL_CONFIG = {
   info:     { label: 'Info',     color: '#2563eb', bg: '#eff6ff', border: '#bfdbfe', dot: '🔵' },
   notice:   { label: 'Notice',   color: '#475569', bg: '#f8fafc', border: '#e2e8f0', dot: '⚫' },
 };
-
+ 
 const emptyForm = {
   alert_level: 'info',
   alert_type: '',
@@ -304,7 +304,7 @@ const AnnouncementsManagement = () => {
                   value={formData.areas} onChange={e => setFormData({ ...formData, areas: e.target.value })}
                   disabled={loading} />
               </div>
-
+ 
               {/* 6. Action Items */}
               <div className="ann-field">
                 <label>Action Items</label>

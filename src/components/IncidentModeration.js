@@ -689,10 +689,11 @@ const IncidentModeration = ({ initialSearch = '', onStatusChange, onAssignRespon
     try {
       setSaving(true);
       console.log(`🔄 Reverting incident ${incidentId} to ${newStatus}...`);
-      await adminService.updateReportStatus(incidentId, newStatus, `Status reverted to ${newStatus}`);
+      const statusLabel = newStatus === 'open' ? 'Open' : newStatus;
+      await adminService.updateReportStatus(incidentId, newStatus, `Status reverted to ${statusLabel}`);
       
       // Clear assignment data when reverting to open
-      const isRevertingToOpen = newStatus === 'pending' || newStatus === 'open';
+      const isRevertingToOpen = newStatus === 'open';
       const patch = {
         status: newStatus,
         isDuplicate: newStatus === 'duplicate',
@@ -1007,7 +1008,7 @@ const IncidentModeration = ({ initialSearch = '', onStatusChange, onAssignRespon
         onStartAction={handleStartAction}
         onMarkResolved={handleDirectResolve}
         onMarkDuplicate={handleMarkDuplicate}
-        onRevertPending={(id) => handleRevertStatus(id, 'pending')}
+        onRevertPending={(id) => handleRevertStatus(id, 'open')}
         onDeleteReport={handleDelete}
         onSaveNote={handleSaveNote}
         onAssignResponder={handleLocalAssignResponder}
