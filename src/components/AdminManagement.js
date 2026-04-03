@@ -16,10 +16,16 @@ import {
   Briefcase,
   ChevronRight,
   XCircle,
-  AlertTriangle
+  AlertTriangle,
+  RefreshCw,
+  Sparkles,
+  Copy,
+  Check,
+  Key
 } from 'lucide-react';
 import { supabase } from '../config/supabase';
 import superAdminService from '../services/superAdminService';
+import ModernConfirmationModal from './ModernConfirmationModal';
 import './AdminManagement.css';
 
 const AdminManagement = ({ initialTab = 'all', isSuperAdmin }) => {
@@ -51,6 +57,7 @@ const AdminManagement = ({ initialTab = 'all', isSuperAdmin }) => {
   const [saving, setSaving] = useState(false);
   const [modal, setModal] = useState({ show: false, type: 'success', title: '', message: '', onConfirm: null, undoAction: null });
   const [lastDemoted, setLastDemoted] = useState(null);
+  const [resetModal, setResetModal] = useState({ isOpen: false, email: '', generatedPass: null });
 
   /* ── Helpers ── */
   const isActive = (u) => u && u.is_active !== false;
@@ -319,6 +326,25 @@ const AdminManagement = ({ initialTab = 'all', isSuperAdmin }) => {
   const handleAddStaff = async (e) => {
     e.preventDefault();
 
+    // Email domain validation
+    const emailStr = addFormData.email.toLowerCase().trim();
+    const domain = emailStr.split('@')[1];
+    const popularDomains = [
+      'gmail.com', 'yahoo.com', 'outlook.com', 'hotmail.com', 
+      'icloud.com', 'msn.com', 'live.com', 'me.com', 
+      'aol.com', 'ymail.com', 'rocketmail.com', 'protonmail.com', 
+      'proton.me', 'zoho.com', 'gmx.com', 'mail.com'
+    ];
+
+    if (!domain || !popularDomains.includes(domain)) {
+      showFlash(
+        `Please use a legitimate email provider (e.g., Gmail, Yahoo, Outlook). '${domain || 'unknown'}' is not recognized.`, 
+        'error', 
+        'Invalid Email Domain'
+      );
+      return;
+    }
+
     // Phone validation: can be empty if optional, but if provided must be 11 digits
     const digitsOnly = addFormData.phone.replace(/\D/g, '');
     if (addFormData.phone && digitsOnly.length !== 11) {
@@ -340,6 +366,67 @@ const AdminManagement = ({ initialTab = 'all', isSuperAdmin }) => {
     } catch (err) {
       showFlash(err.message || 'Failed to add staff', 'error');
     } finally { setSaving(false); }
+  };
+
+  const generateAutoPassword = () => {
+    const chars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*";
+    let password = "";
+    for (let i = 0; i < 12; i++) {
+        password += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+    setAddFormData(prev => ({ ...prev, password }));
+    setShowPassword(true);
+    showFlash("Generated a secure password for you.", "success", "Password Generated");
+  };
+
+  const handleResetPassword = async (email) => {
+    if (!email) return;
+    
+    // Open confirmation modal first
+    setResetModal({ isOpen: true, email, generatedPass: null });
+  };
+
+  const confirmResetPassword = async () => {
+    const { email } = resetModal;
+    
+    // Generate secure password
+    const chars = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*';
+    let generated = '';
+    for (let i = 0; i < 12; i++) {
+        generated += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+
+    setSaving(true);
+    try {
+      await superAdminService.resetUserPassword(email, generated);
+      
+      // Update modal to show the generated password
+      setResetModal(prev => ({ ...prev, generatedPass: generated }));
+      
+      // Copy to clipboard
+      try {
+        await navigator.clipboard.writeText(generated);
+      } catch (err) {}
+      
+      showFlash(`Success: Password reset and copied to clipboard.`, 'success', 'Password Reset');
+    } catch (err) {
+      console.error('Password reset failed:', err);
+      showFlash(err.message || 'Failed to reset password', 'error');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const [copied, setCopied] = useState(false);
+  const copyToClipboard = async (text) => {
+    if (!text) return;
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch (err) {
+      showFlash("Failed to copy password", "error");
+    }
   };
 
   /* ── Rendering ── */
@@ -641,10 +728,23 @@ const AdminManagement = ({ initialTab = 'all', isSuperAdmin }) => {
                       <label>Department</label>
                       {isEditMode ? (
                         <select value={detailFormData.department} onChange={e => setDetailFormData({ ...detailFormData, department: e.target.value })}>
-                          <option value="PNP">PNP</option>
-                          <option value="BFP">BFP</option>
-                          <option value="MDRRMO">MDRRMO</option>
-                          <option value="RHU">RHU</option>
+                          <option value="">None</option>
+                          <option value="BFP">BFP (Fire Station)</option>
+                          <option value="PNP">PNP (Police Station)</option>
+                          <option value="MHO">MHO (Health Office)</option>
+                          <option value="Hospital">Community Hospital</option>
+                          <option value="MSWDO">MSWDO (Social Welfare)</option>
+                          <option value="Civil Registrar">Civil Registrar</option>
+                          <option value="Mayor Office">Mayor's Office</option>
+                          <option value="Vice Mayor Office">Vice Mayor's Office</option>
+                          <option value="Sangguniang Bayan">Sangguniang Bayan</option>
+                          <option value="Treasurer Office">Treasurer's Office</option>
+                          <option value="Accountant Office">Accountant's Office</option>
+                          <option value="Budget Office">Budget Office</option>
+                          <option value="Agriculture Office">Agriculture Office</option>
+                          <option value="Engineering Office">Engineering Office</option>
+                          <option value="Waterworks">Waterworks</option>
+                          <option value="Barangay Office">Barangay Office</option>
                         </select>
                       ) : (
                         <div className="value">{selectedStaff.department || '—'}</div>
@@ -704,6 +804,12 @@ const AdminManagement = ({ initialTab = 'all', isSuperAdmin }) => {
                         Demote to Resident
                       </button>
                     ) : null}
+                    
+                    {isSuperAdmin && (
+                      <button type="button" className="reset-pass-btn-zenith" onClick={() => handleResetPassword(selectedStaff.email)}>
+                        <Key size={16} /> Reset Password
+                      </button>
+                    )}
                   </div>
                 </div>
               )}
@@ -743,7 +849,41 @@ const AdminManagement = ({ initialTab = 'all', isSuperAdmin }) => {
                 <div className="admin-drawer-section-title">Login Credentials</div>
                 <div className="form-item"><label>Email</label><input type="email" required value={addFormData.email} onChange={e => setAddFormData({ ...addFormData, email: e.target.value })} /></div>
                 <div className="form-item"><label>Username</label><input type="text" required value={addFormData.username} onChange={e => setAddFormData({ ...addFormData, username: e.target.value })} /></div>
-                <div className="form-item"><label>Password</label><div className="pass-wrap"><input type={showPassword ? 'text' : 'password'} required value={addFormData.password} onChange={e => setAddFormData({ ...addFormData, password: e.target.value })} /><button type="button" onClick={() => setShowPassword(!showPassword)}>{showPassword ? <Eye size={18} /> : <EyeOff size={18} />}</button></div></div>
+                <div className="form-item">
+                  <label>Password</label>
+                  <div className="pass-wrap">
+                    <input 
+                      type={showPassword ? 'text' : 'password'} 
+                      required 
+                      value={addFormData.password} 
+                      onChange={e => setAddFormData({ ...addFormData, password: e.target.value })} 
+                      placeholder="Enter or generate password"
+                    />
+                    <div className="pass-actions">
+                      <button 
+                        type="button" 
+                        title="Generate Password" 
+                        className="gen-pass-btn" 
+                        onClick={generateAutoPassword}
+                      >
+                        <Sparkles size={16} />
+                      </button>
+                      {addFormData.password && (
+                        <button 
+                          type="button" 
+                          title="Copy Password" 
+                          className="copy-pass-btn" 
+                          onClick={() => copyToClipboard(addFormData.password)}
+                        >
+                          {copied ? <Check size={16} color="#10b981" /> : <Copy size={16} />}
+                        </button>
+                      )}
+                      <button type="button" onClick={() => setShowPassword(!showPassword)}>
+                        {showPassword ? <Eye size={18} /> : <EyeOff size={18} />}
+                      </button>
+                    </div>
+                  </div>
+                </div>
               </div>
 
               <div className="drawer-section">
@@ -762,10 +902,22 @@ const AdminManagement = ({ initialTab = 'all', isSuperAdmin }) => {
                     <label>Department</label>
                     <select value={addFormData.department} onChange={e => setAddFormData({ ...addFormData, department: e.target.value })}>
                       <option value="">None</option>
-                      <option value="BFP">BFP</option>
-                      <option value="PNP">PNP</option>
-                      <option value="MDRRMO">MDRRMO</option>
-                      <option value="RHU">RHU</option>
+                      <option value="BFP">BFP (Fire Station)</option>
+                      <option value="PNP">PNP (Police Station)</option>
+                      <option value="MHO">MHO (Health Office)</option>
+                      <option value="Hospital">Community Hospital</option>
+                      <option value="MSWDO">MSWDO (Social Welfare)</option>
+                      <option value="Civil Registrar">Civil Registrar</option>
+                      <option value="Mayor Office">Mayor's Office</option>
+                      <option value="Vice Mayor Office">Vice Mayor's Office</option>
+                      <option value="Sangguniang Bayan">Sangguniang Bayan</option>
+                      <option value="Treasurer Office">Treasurer's Office</option>
+                      <option value="Accountant Office">Accountant's Office</option>
+                      <option value="Budget Office">Budget Office</option>
+                      <option value="Agriculture Office">Agriculture Office</option>
+                      <option value="Engineering Office">Engineering Office</option>
+                      <option value="Waterworks">Waterworks</option>
+                      <option value="Barangay Office">Barangay Office</option>
                     </select>
                   </div>
                 )}
@@ -792,6 +944,21 @@ const AdminManagement = ({ initialTab = 'all', isSuperAdmin }) => {
           </div>
         </>
       )}
+      {/* Modern Confirmation Modal for Resets */}
+      <ModernConfirmationModal
+        isOpen={resetModal.isOpen}
+        onClose={() => setResetModal({ ...resetModal, isOpen: false })}
+        onConfirm={confirmResetPassword}
+        title="Reset Password"
+        message={`Are you sure you want to reset the password for ${resetModal.email}? This action cannot be undone.`}
+        confirmLabel={saving ? "Resetting..." : "Reset Now"}
+        type="warning"
+        generatedPassword={resetModal.generatedPass}
+        onCopy={(txt) => {
+          copyToClipboard(txt);
+          showFlash("Password copied to clipboard!", "success");
+        }}
+      />
     </div>
   );
 };

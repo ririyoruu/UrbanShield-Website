@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { X, Shield, Building2, CheckCircle, Search, Users, Thermometer, Flame, Activity, Heart, HardHat, RefreshCw } from 'lucide-react';
+import { X, Shield, Building2, CheckCircle, Search, Users, Thermometer, Flame, Activity, Heart, HardHat, RefreshCw, Crown } from 'lucide-react';
 import { supabase } from '../config/supabase';
 import './AssignResponderModal.css';
 
@@ -14,10 +14,20 @@ const AssignResponderModal = ({ incident, isOpen, onClose, onAssign, loading }) 
   const DEPARTMENTS = [
     { id: 'PNP', label: 'PNP (POLICE)', icon: <Shield size={16} /> },
     { id: 'BFP', label: 'BFP (FIRE)', icon: <Flame size={16} /> },
-    { id: 'MDRRMC', label: 'MDRRMC (DISASTER)', icon: <Activity size={16} /> },
-    { id: 'RHU', label: 'RHU (MEDICAL)', icon: <Heart size={16} /> },
+    { id: 'MHO', label: 'MHO (HEALTH)', icon: <Heart size={16} /> },
+    { id: 'Hospital', label: 'COMMUNITY HOSPITAL', icon: <Building2 size={16} /> },
     { id: 'MSWDO', label: 'MSWDO (SOCIAL)', icon: <Users size={16} /> },
-    { id: 'ENGR', label: 'ENGINEERING', icon: <HardHat size={16} /> }
+    { id: 'Civil Registrar', label: 'REGISTRAR', icon: <Activity size={16} /> },
+    { id: 'Mayor Office', label: 'MAYOR', icon: <Crown size={16} /> },
+    { id: 'Vice Mayor Office', label: 'V-MAYOR', icon: <Crown size={16} /> },
+    { id: 'Sangguniang Bayan', label: 'SB', icon: <Activity size={16} /> },
+    { id: 'Treasurer Office', label: 'TREASURER', icon: <Building2 size={16} /> },
+    { id: 'Accountant Office', label: 'ACCOUNTANT', icon: <Building2 size={16} /> },
+    { id: 'Budget Office', label: 'BUDGET', icon: <Building2 size={16} /> },
+    { id: 'Agriculture Office', label: 'AGRI', icon: <Activity size={16} /> },
+    { id: 'Engineering Office', label: 'ENGR', icon: <HardHat size={16} /> },
+    { id: 'Waterworks', label: 'WATERWORKS', icon: <Activity size={16} /> },
+    { id: 'Barangay Office', label: 'BARANGAY', icon: <Building2 size={16} /> }
   ];
 
   useEffect(() => {

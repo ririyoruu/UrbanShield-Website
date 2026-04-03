@@ -19,8 +19,11 @@ import {
   Building2,
   Edit,
   Save,
+  Lock,
 } from 'lucide-react';
 import { adminService, supabase } from '../config/supabase';
+import { superAdminService } from '../services/superAdminService';
+import ModernConfirmationModal from './ModernConfirmationModal';
 import './UserDetailModal.css';
 
 const UserDetailModal = ({ user, isOpen, onClose, onApprove, onReject, onSuspend, onRestore, loading, isSuperAdmin: propIsSuperAdmin }) => {
@@ -36,6 +39,7 @@ const UserDetailModal = ({ user, isOpen, onClose, onApprove, onReject, onSuspend
     department: ''
   });
   const [saving, setSaving] = useState(false);
+  const [resetModal, setResetModal] = useState({ isOpen: false, email: '', generatedPass: null });
 
   useEffect(() => {
     if (isOpen && user) {
@@ -114,6 +118,39 @@ const UserDetailModal = ({ user, isOpen, onClose, onApprove, onReject, onSuspend
     } catch (error) {
       console.error('Error updating user:', error);
       alert('Failed to update user details');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleResetPassword = async () => {
+    if (!user || !user.email) return;
+    
+    setResetModal({ isOpen: true, email: user.email, generatedPass: null });
+  };
+
+  const confirmResetPassword = async () => {
+    const { email } = resetModal;
+    
+    const chars = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*';
+    let generated = '';
+    for (let i = 0; i < 12; i++) {
+      generated += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+
+    setSaving(true);
+    try {
+      await superAdminService.resetUserPassword(email, generated);
+      
+      setResetModal(prev => ({ ...prev, generatedPass: generated }));
+      
+      try {
+        await navigator.clipboard.writeText(generated);
+      } catch (err) {}
+    } catch (error) {
+      console.error('Password reset failed:', error);
+      alert(error.message || 'Failed to reset password');
+      setResetModal({ ...resetModal, isOpen: false });
     } finally {
       setSaving(false);
     }
@@ -418,6 +455,14 @@ const UserDetailModal = ({ user, isOpen, onClose, onApprove, onReject, onSuspend
                 <XCircle size={14} />
                 Suspend account
               </button>
+              <button
+                className="udm-btn udm-btn-reset-pass"
+                onClick={handleResetPassword}
+                disabled={loading || saving}
+              >
+                <Lock size={14} />
+                Reset Password
+              </button>
             </div>
           )}
 
@@ -431,6 +476,14 @@ const UserDetailModal = ({ user, isOpen, onClose, onApprove, onReject, onSuspend
               >
                 <CheckCircle size={14} />
                 Restore access
+              </button>
+              <button
+                className="udm-btn udm-btn-reset-pass"
+                onClick={handleResetPassword}
+                disabled={loading || saving}
+              >
+                <Lock size={14} />
+                Reset Password
               </button>
             </div>
           )}
@@ -456,6 +509,20 @@ const UserDetailModal = ({ user, isOpen, onClose, onApprove, onReject, onSuspend
           )}
 
         </div>
+
+        <ModernConfirmationModal
+          isOpen={resetModal.isOpen}
+          onClose={() => setResetModal({ ...resetModal, isOpen: false })}
+          onConfirm={confirmResetPassword}
+          title="Reset Password"
+          message={`Are you sure you want to reset the password for ${user.full_name || user.email}?`}
+          confirmLabel={saving ? "Resetting..." : "Reset Now"}
+          type="warning"
+          generatedPassword={resetModal.generatedPass}
+          onCopy={(txt) => {
+            alert("Password copied to clipboard!");
+          }}
+        />
       </div>
     </>
   );

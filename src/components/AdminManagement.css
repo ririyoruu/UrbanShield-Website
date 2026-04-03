@@ -555,14 +555,20 @@
 }
 
 .pass-wrap input {
-  padding-right: 3rem;
+  padding-right: 5rem;
 }
 
-.pass-wrap button {
+.pass-actions {
   position: absolute;
   right: 0.5rem;
   top: 50%;
   transform: translateY(-50%);
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.pass-actions button {
   background: none;
   border: none;
   color: var(--muted-fg);
@@ -570,7 +576,53 @@
   padding: 0.5rem;
   display: flex;
   align-items: center;
+  justify-content: center;
+  border-radius: 6px;
+  transition: all 0.2s;
 }
+
+.pass-actions button:hover {
+  background: var(--muted);
+  color: var(--primary);
+}
+
+.gen-pass-btn {
+  color: var(--primary) !important;
+}
+
+.gen-pass-btn:hover {
+  background: rgba(37, 99, 235, 0.1) !important;
+}
+
+.copy-pass-btn:hover {
+  background: rgba(16, 185, 129, 0.1) !important;
+}
+
+.reset-pass-btn-zenith {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 0.75rem;
+  background: rgba(30, 41, 59, 0.05);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--muted-fg);
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+  margin-top: 1rem;
+}
+
+.reset-pass-btn-zenith:hover {
+  background: var(--muted);
+  color: var(--fg);
+  border-color: var(--muted-fg);
+}
+
+
+
 
 .status-row {
   display: flex;

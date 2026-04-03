@@ -222,9 +222,19 @@ export const authService = {
       });
 
       if (error) {
-        // Provide more specific error messages
+        // First check if the email exists in our system at all
+        const { data: profileCheck } = await supabase
+          .from('profiles')
+          .select('id')
+          .eq('email', email)
+          .single();
+          
+        if (!profileCheck) {
+          throw new Error('This account does not exist. Please contact an administrator.');
+        }
+
         if (error.message.includes('Invalid login credentials')) {
-          throw new Error('Invalid email or password. Please check your credentials.');
+          throw new Error('Incorrect password. Please try again or reset your password.');
         } else if (error.message.includes('Email not confirmed')) {
           throw new Error('Please check your email and confirm your account before signing in.');
         } else {

@@ -272,6 +272,35 @@ export const superAdminService = {
     }
   },
 
+  /**
+   * Reset any user's password (super admin only)
+   */
+  async resetUserPassword(email, newPassword) {
+    try {
+      const { data, error } = await supabase.functions.invoke('reset-admin-password', {
+        body: { email, newPassword }
+      });
+
+      if (error || (data && !data.success)) {
+        throw new Error(data?.error || error?.message || 'Failed to reset password');
+      }
+
+      // Log audit action
+      await this.logAudit({
+        action: 'reset_user_password',
+        resource_type: 'user',
+        resource_id: null,
+        details: { email }
+      });
+
+      return true;
+    } catch (error) {
+      console.error('Error resetting password:', error);
+      throw error;
+    }
+  },
+
+
   // ============================================
   // System Settings
   // ============================================

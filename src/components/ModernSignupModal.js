@@ -20,9 +20,21 @@ const ModernSignupModal = ({ onClose, onSignup, onSwitchToLogin }) => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setError('');
-    setSuccess('');
-    
+    // Email domain validation
+    const emailStr = formData.email.toLowerCase().trim();
+    const domain = emailStr.split('@')[1];
+    const popularDomains = [
+      'gmail.com', 'yahoo.com', 'outlook.com', 'hotmail.com', 
+      'icloud.com', 'msn.com', 'live.com', 'me.com', 
+      'aol.com', 'ymail.com', 'rocketmail.com', 'protonmail.com', 
+      'proton.me', 'zoho.com', 'gmx.com', 'mail.com'
+    ];
+
+    if (!domain || !popularDomains.includes(domain)) {
+      setError(`Please use a legitimate email provider (e.g., Gmail, Yahoo, Outlook). '${domain || 'unknown'}' is not recognized.`);
+      return;
+    }
+
     if (formData.password !== formData.confirmPassword) {
       setError('Passwords do not match');
       return;
