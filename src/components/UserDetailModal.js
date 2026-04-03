@@ -391,20 +391,14 @@ const UserDetailModal = ({ user, isOpen, onClose, onApprove, onReject, onSuspend
               <div className="udm-btn-row">
                 <button
                   className="udm-btn udm-btn-reject"
-                  onClick={() => {
-                    const r = window.prompt('Rejection reason (optional):');
-                    onReject(user.id, r);
-                  }}
+                  onClick={() => onReject(user.id)}
                   disabled={loading}
                 >
                   Reject
                 </button>
                 <button
                   className="udm-btn udm-btn-verify"
-                  onClick={() => {
-                    if (!hasDocuments && !window.confirm('No documents found. Verify anyway?')) return;
-                    onApprove(user.id);
-                  }}
+                  onClick={() => onApprove(user.id)}
                   disabled={loading}
                 >
                   Verify user
@@ -418,9 +412,7 @@ const UserDetailModal = ({ user, isOpen, onClose, onApprove, onReject, onSuspend
             <div className="udm-footer-actions">
               <button
                 className="udm-btn udm-btn-suspend"
-                onClick={() => {
-                  if (window.confirm('Suspend this account? The user will lose access.')) onSuspend(user.id);
-                }}
+                onClick={() => onSuspend(user.id)}
                 disabled={loading}
               >
                 <XCircle size={14} />

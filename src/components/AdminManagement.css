@@ -367,7 +367,7 @@
 .drawer-scrollable {
   flex: 1;
   overflow-y: auto;
-  padding: 2rem;
+  padding: 12px 32px 32px;
 }
 
 .status-subheader {
@@ -422,20 +422,27 @@
   margin-top: 2rem;
 }
 
-.admin-management-module .section-title {
-  font-size: 1.125rem;
-  font-weight: 900;
-  color: #000000 !important;
+.admin-management-module .admin-drawer-section-title {
+  font-size: 1.3rem;
+  font-weight: 700;
+  color: #000000 !important; /* Pure black */
+  background: none !important;
+  -webkit-text-fill-color: initial !important;
   text-transform: uppercase;
-  letter-spacing: 0.12em;
+  letter-spacing: 0.08em;
   padding-bottom: 0.75rem;
   border-bottom: 2px solid var(--border);
   margin-bottom: 1.5rem;
   display: block;
 }
 
-[data-theme="dark"] .admin-management-module .section-title {
-  color: #ffffff !important;
+/* Tighten the gap at the top of the drawer */
+.drawer-section:first-child {
+  margin-top: 0 !important;
+}
+
+[data-theme="dark"] .admin-management-module .admin-drawer-section-title {
+  color: #fafafa !important;
 }
 
 .alert-card-zenith {

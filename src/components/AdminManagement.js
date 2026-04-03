@@ -176,14 +176,23 @@ const AdminManagement = ({ initialTab = 'all', isSuperAdmin }) => {
     setShowDetailDrawer(true);
   };
 
-  const handleToggleActive = async (e, user) => {
+  const handleToggleActive = (e, user) => {
     e?.stopPropagation();
     const currentlyActive = isActive(user);
     const nextStatus = !currentlyActive;
-    if (!window.confirm(`${currentlyActive ? 'Deactivate' : 'Reactivate'} ${user.full_name || 'account'}?`)) return;
+    
+    setModal({
+      show: true,
+      type: 'confirm',
+      title: nextStatus ? 'Reactivate Account?' : 'Deactivate Account?',
+      message: `Are you sure you want to ${nextStatus ? 'reactivate' : 'deactivate'} ${user.full_name || 'this account'}?`,
+      onConfirm: () => executeToggleActive(user, nextStatus)
+    });
+  };
 
+  const executeToggleActive = async (user, nextStatus) => {
+    setModal({ show: false });
     setSaving(true);
-    // Optimistic
     const old = [...users];
     setUsers(prev => prev.map(u => u.id === user.id ? { ...u, is_active: nextStatus } : u));
 
@@ -224,25 +233,48 @@ const AdminManagement = ({ initialTab = 'all', isSuperAdmin }) => {
     } finally { setSaving(false); }
   };
 
-  const handleRemoveStaff = async (e, user) => {
+  const handleRemoveStaff = (e, user) => {
     e?.stopPropagation();
-    if (!window.confirm(`Are you sure you want to remove ${user.full_name} from staff? they will be demoted to a resident.`)) return;
+    const isDemoteToAdmin = user.user_type === 'super_admin';
+    const title = isDemoteToAdmin ? 'Demote Super Admin?' : 'Remove from Staff?';
+    const message = isDemoteToAdmin 
+      ? `Are you sure you want to demote ${user.full_name} to regular Admin?`
+      : `Are you sure you want to remove ${user.full_name} from staff? they will be demoted to a resident.`;
+    
+    setModal({
+      show: true,
+      type: 'confirm',
+      title,
+      message,
+      onConfirm: () => executeRemoveStaff(user, isDemoteToAdmin)
+    });
+  };
 
+  const executeRemoveStaff = async (user, isDemoteToAdmin) => {
+    setModal({ show: false });
     const previousRole = user.user_type;
-
     setSaving(true);
-    setUsers(prev => prev.filter(u => u.id !== user.id)); // Optimistic
+    
+    if (isDemoteToAdmin) {
+      setUsers(prev => prev.map(u => u.id === user.id ? { ...u, user_type: 'admin' } : u));
+    } else {
+      setUsers(prev => prev.filter(u => u.id !== user.id));
+    }
+
     try {
-      await superAdminService.demoteToResident(user.id);
+      if (isDemoteToAdmin) {
+        await superAdminService.updateStaffRole(user.id, 'admin');
+      } else {
+        await superAdminService.demoteToResident(user.id);
+      }
       
-      if (selectedStaffId === user.id) setShowDetailDrawer(false);
+      if (selectedStaffId === user.id && !isDemoteToAdmin) setShowDetailDrawer(false);
       
       const handleUndo = async () => {
         try {
           setSaving(true);
           await superAdminService.updateStaffRole(user.id, previousRole);
-          const roleLabel = previousRole === 'responder' ? 'Responder' : previousRole === 'super_admin' ? 'Super Admin' : 'Admin';
-          showFlash(`${user.full_name} restored as ${roleLabel}`);
+          showFlash(`${user.full_name} role restored to ${previousRole === 'super_admin' ? 'Super Admin' : 'Responder'}`);
           await loadStaff(true);
         } catch (err) {
           showFlash('Undo failed', 'error');
@@ -251,17 +283,28 @@ const AdminManagement = ({ initialTab = 'all', isSuperAdmin }) => {
         }
       };
 
-      showFlash(`${isResponderMode ? 'Responder' : 'Admin'} demoted to Resident`, 'success', 'Staff Demoted', handleUndo);
+      const successMsg = isDemoteToAdmin ? `${user.full_name} demoted to Admin` : `${user.full_name} demoted to Resident`;
+      showFlash(successMsg, 'success', 'Staff Demoted', handleUndo);
       await loadStaff(true);
     } catch (err) {
-      showFlash('Demotion failed', 'error');
+      showFlash('Action failed', 'error');
       await loadStaff();
     } finally { setSaving(false); }
   };
 
-  const handlePromoteToSuperAdmin = async (e, user) => {
+  const handlePromoteToSuperAdmin = (e, user) => {
     e?.stopPropagation();
-    if (!window.confirm(`Are you sure you want to promote ${user.full_name} to Super Admin? This will give them full system control.`)) return;
+    setModal({
+      show: true,
+      type: 'confirm',
+      title: 'Promote to Super Admin?',
+      message: `Are you sure you want to promote ${user.full_name} to Super Admin? This will give them full system control.`,
+      onConfirm: () => executePromoteToSuperAdmin(user)
+    });
+  };
+
+  const executePromoteToSuperAdmin = async (user) => {
+    setModal({ show: false });
     setSaving(true);
     try {
       await superAdminService.updateStaffRole(user.id, 'super_admin');
@@ -652,9 +695,15 @@ const AdminManagement = ({ initialTab = 'all', isSuperAdmin }) => {
                     <button type="button" className={`status-btn-zenith ${isActive(selectedStaff) ? 'deactivate' : 'activate'}`} onClick={(e) => handleToggleActive(e, selectedStaff)}>
                       {isActive(selectedStaff) ? 'Suspend Personnel' : 'Reactivate Personnel'}
                     </button>
-                    <button type="button" className="remove-btn-zenith" onClick={(e) => handleRemoveStaff(e, selectedStaff)}>
-                      Demote to Resident
-                    </button>
+                    {selectedStaff.user_type === 'super_admin' ? (
+                      <button type="button" className="remove-btn-zenith" onClick={(e) => handleRemoveStaff(e, selectedStaff)}>
+                        Demote to Admin
+                      </button>
+                    ) : selectedStaff.user_type === 'responder' ? (
+                      <button type="button" className="remove-btn-zenith" onClick={(e) => handleRemoveStaff(e, selectedStaff)}>
+                        Demote to Resident
+                      </button>
+                    ) : null}
                   </div>
                 </div>
               )}
@@ -691,14 +740,14 @@ const AdminManagement = ({ initialTab = 'all', isSuperAdmin }) => {
             <form onSubmit={handleAddStaff} className="drawer-scrollable">
               {/* ... existing fields ... */}
               <div className="drawer-section">
-                <div className="section-title" style={{ color: '#000000', fontWeight: '900', textTransform: 'uppercase' }}>Login Credentials</div>
+                <div className="admin-drawer-section-title">Login Credentials</div>
                 <div className="form-item"><label>Email</label><input type="email" required value={addFormData.email} onChange={e => setAddFormData({ ...addFormData, email: e.target.value })} /></div>
                 <div className="form-item"><label>Username</label><input type="text" required value={addFormData.username} onChange={e => setAddFormData({ ...addFormData, username: e.target.value })} /></div>
-                <div className="form-item"><label>Password</label><div className="pass-wrap"><input type={showPassword ? 'text' : 'password'} required value={addFormData.password} onChange={e => setAddFormData({ ...addFormData, password: e.target.value })} /><button type="button" onClick={() => setShowPassword(!showPassword)}>{showPassword ? <EyeOff size={18} /> : <Eye size={18} />}</button></div></div>
+                <div className="form-item"><label>Password</label><div className="pass-wrap"><input type={showPassword ? 'text' : 'password'} required value={addFormData.password} onChange={e => setAddFormData({ ...addFormData, password: e.target.value })} /><button type="button" onClick={() => setShowPassword(!showPassword)}>{showPassword ? <Eye size={18} /> : <EyeOff size={18} />}</button></div></div>
               </div>
 
               <div className="drawer-section">
-                <div className="section-title" style={{ color: '#000000', fontWeight: '900', textTransform: 'uppercase' }}>Staff Details</div>
+                <div className="admin-drawer-section-title">Staff Details</div>
                 <div className="form-item"><label>Full Name</label><input type="text" required value={addFormData.full_name} onChange={e => setAddFormData({ ...addFormData, full_name: e.target.value })} /></div>
                 {!isResponderMode ? (
                   <div className="form-item">

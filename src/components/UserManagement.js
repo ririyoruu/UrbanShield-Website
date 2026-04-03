@@ -172,29 +172,65 @@ const UserManagement = ({ isSuperAdmin }) => {
     }
   };
 
-  const handleApproveUser = (userId) => handleUserStatusChange(userId, {
-    isVerified: true,
-    status: 'verified',
-    successMessage: 'User verified successfully'
-  });
+  const handleApproveUser = (userId) => {
+    const user = users.find(u => u.id === userId);
+    setModal({
+      show: true,
+      type: 'confirm',
+      title: 'Approve Resident?',
+      message: `Are you sure you want to verify ${user?.full_name || 'this user'}? This will give them full access to the platform.`,
+      onConfirm: () => handleUserStatusChange(userId, {
+        isVerified: true,
+        status: 'verified',
+        successMessage: 'User verified successfully'
+      })
+    });
+  };
 
-  const handleRejectUser = (userId) => handleUserStatusChange(userId, {
-    isVerified: false,
-    status: 'rejected',
-    successMessage: 'User rejected successfully'
-  });
+  const handleRejectUser = (userId) => {
+    const user = users.find(u => u.id === userId);
+    setModal({
+      show: true,
+      type: 'confirm',
+      title: 'Reject Resident?',
+      message: `Are you sure you want to reject ${user?.full_name || 'this user'}'s registration?`,
+      onConfirm: () => handleUserStatusChange(userId, {
+        isVerified: false,
+        status: 'rejected',
+        successMessage: 'User rejected successfully'
+      })
+    });
+  };
 
-  const handleSuspendUser = (userId) => handleUserStatusChange(userId, {
-    isVerified: false,
-    status: 'suspended',
-    successMessage: 'User suspended successfully'
-  });
+  const handleSuspendUser = (userId) => {
+    const user = users.find(u => u.id === userId);
+    setModal({
+      show: true,
+      type: 'confirm',
+      title: 'Suspend Account?',
+      message: `Are you sure you want to suspend access for ${user?.full_name || 'this user'}? They will lose all permissions.`,
+      onConfirm: () => handleUserStatusChange(userId, {
+        isVerified: false,
+        status: 'suspended',
+        successMessage: 'User suspended successfully'
+      })
+    });
+  };
 
-  const handleRestoreUser = (userId) => handleUserStatusChange(userId, {
-    isVerified: null,
-    status: 'pending',
-    successMessage: 'User access restored — now pending review'
-  });
+  const handleRestoreUser = (userId) => {
+    const user = users.find(u => u.id === userId);
+    setModal({
+      show: true,
+      type: 'confirm',
+      title: 'Restore Access?',
+      message: `Restore access for ${user?.full_name || 'this user'}? Status will return to pending review.`,
+      onConfirm: () => handleUserStatusChange(userId, {
+        isVerified: null,
+        status: 'pending',
+        successMessage: 'User access restored — now pending review'
+      })
+    });
+  };
 
   /* ── Status helpers ── */
   const getStatusInfo = (user) => {
