@@ -274,7 +274,7 @@ const LandingPage = ({ onLoginClick, onSignupClick }) => {
 
                             <div className="app-qr-area">
                                 <div className="qr-container">
-                                    <img src="/urbanshield_qr_code.png" alt="Scan to Download" className="qr-img" />
+                                    <img src="/qr.png" alt="Scan to Download" className="qr-img" />
                                     <div className="qr-overlay">
                                         <QrCode size={24} />
                                     </div>
@@ -286,7 +286,10 @@ const LandingPage = ({ onLoginClick, onSignupClick }) => {
                             </div>
 
                             <div className="app-buttons">
-                                <button className="app-btn">
+                                <button 
+                                    className="app-btn cta-primary" 
+                                    onClick={() => window.open('https://file.kiwi/a312e4f4#tQi4l-aKIhA8TYvL7GYcXw', '_blank')}
+                                >
                                     <Smartphone size={20} />
                                     <span>Download APK</span>
                                 </button>
