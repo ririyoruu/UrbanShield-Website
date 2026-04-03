@@ -220,9 +220,29 @@ const AdminDashboard = ({ user, onLogout }) => {
           });
         });
 
-        // Sort by timestamp
-        activities.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
-        setRecentActivity(activities.slice(0, 8));
+        // Sorting and Grouping Logic (2-minute window)
+        const groupLogs = (entries) => {
+          const grouped = [];
+          const WINDOW_MS = 2 * 60 * 1000; // 2 minutes
+
+          entries.forEach(entry => {
+            const isUpdate = entry.type === 'incident' && entry.action === 'updated';
+            const existing = grouped.find(g => 
+              g.type === entry.type && 
+              g.action === entry.action && 
+              g.incident_id === entry.incident_id &&
+              Math.abs(new Date(g.timestamp) - new Date(entry.timestamp)) < WINDOW_MS
+            );
+
+            if (!isUpdate || !existing) {
+              grouped.push(entry);
+            }
+          });
+          return grouped;
+        };
+
+        const sorted = activities.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+        setRecentActivity(groupLogs(sorted).slice(0, 8));
       } catch (err) {
         console.error('Error loading recent activity:', err);
       }
@@ -580,7 +600,28 @@ const AdminDashboard = ({ user, onLogout }) => {
           setNewReportsAvailable(false);
         }, 5000);
       } else if (payload.eventType === 'UPDATE') {
-        console.log('✏️ Incident updated - refreshing data...');
+        console.log('✏️ Incident updated - synchronizing data...');
+        const updatedIncident = payload.new;
+        const isRevert = ['pending', 'open'].includes(updatedIncident.status);
+        
+        // Sync the modal in real-time if it's currently showing the updated incident
+        setSelectedReport(prev => {
+          if (!prev || prev.id !== updatedIncident.id) return prev;
+          
+          return { 
+            ...prev, 
+            ...updatedIncident,
+            ...(isRevert && {
+              status_updated_by: null,
+              status_updated_by_name: null,
+              dispatched_departments: [],
+              assigned_responders: [],
+              assigned_officer: null,
+              assigned_officer_id: null
+            })
+          };
+        });
+        
         loadReports();
         loadStats();
         loadAnalytics();
@@ -924,7 +965,15 @@ const AdminDashboard = ({ user, onLogout }) => {
       setSelectedReport(prev => ({
         ...prev,
         status: newStatus,
-        ...(clearAssignment && { assigned_officer: null, assigned_officer_id: null, assigned_at: null })
+        ...(clearAssignment && { 
+          status_updated_by: null, 
+          status_updated_by_name: null,
+          dispatched_departments: [],
+          assigned_responders: [],
+          assigned_officer: null, 
+          assigned_officer_id: null, 
+          assigned_at: null 
+        })
       }));
     }
   };
@@ -935,7 +984,15 @@ const AdminDashboard = ({ user, onLogout }) => {
       await adminService.updateReportStatus(reportId, 'pending', 'Status reverted to pending');
 
       // Optimistic update
-      setReports(prev => prev.map(r => r.id === reportId ? { ...r, status: 'pending', assigned_officer: null, assigned_officer_id: null } : r));
+      setReports(prev => prev.map(r => r.id === reportId ? { 
+        ...r, 
+        status: 'pending', 
+        status_updated_by_name: null,
+        dispatched_departments: [],
+        assigned_responders: [],
+        assigned_officer: null, 
+        assigned_officer_id: null 
+      } : r));
 
       await handleIncidentStatusChange(reportId, 'pending');
     } catch (err) {

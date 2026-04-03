@@ -216,7 +216,7 @@ const AdminLogin = ({ onLogin, onSignup, initialView = 'login' }) => {
                                         onChange={e => setLoginData({ ...loginData, password: e.target.value })}
                                     />
                                     <button type="button" className="al-toggle-pw" onClick={() => setShowPassword(!showPassword)}>
-                                        {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                                        {showPassword ? <Eye size={16} /> : <EyeOff size={16} />}
                                     </button>
                                 </div>
                             </div>
@@ -273,7 +273,7 @@ const AdminLogin = ({ onLogin, onSignup, initialView = 'login' }) => {
                                             setPasswordErrors(validatePassword(e.target.value));
                                         }} />
                                     <button type="button" className="al-toggle-pw" onClick={() => setShowSignupPassword(!showSignupPassword)}>
-                                        {showSignupPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                                        {showSignupPassword ? <Eye size={16} /> : <EyeOff size={16} />}
                                     </button>
                                 </div>
                                 {passwordErrors.length > 0 && signupData.password && (

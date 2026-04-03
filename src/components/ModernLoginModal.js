@@ -291,7 +291,7 @@ const ModernLoginModal = ({ onClose, onLogin, onSwitchToSignup }) => {
                     className="auth-password-toggle"
                     onClick={() => setShowPassword(!showPassword)}
                   >
-                    {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                    {showPassword ? <Eye size={18} /> : <EyeOff size={18} />}
                   </button>
                 </div>
 

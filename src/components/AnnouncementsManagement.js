@@ -91,15 +91,20 @@ const AnnouncementsManagement = () => {
       const payload = { ...formData, action_items: formData.action_items.filter(i => i.trim()) };
       if (editing) {
         const updated = await adminService.updateAnnouncement(editing, payload);
-        setAnnouncements(prev => prev.map(a => a.id === editing ? { ...a, ...updated } : a));
+        const updatedData = updated.data || updated;
+        setAnnouncements(prev => prev.map(a => a.id === editing ? { ...a, ...updatedData } : a));
       } else {
-        const created = await adminService.createAnnouncement(payload);
-        setAnnouncements(prev => [created, ...prev]);
+        const result = await adminService.createAnnouncement(payload);
+        const createdData = result.data || result;
+        setAnnouncements(prev => [createdData, ...prev]);
       }
+      
+      loadAnnouncements();
       closeDrawer();
     } catch (err) {
-      console.error('Failed to save announcement:', err);
-      setError(editing ? 'Failed to update announcement' : 'Failed to create announcement');
+      console.error('📋 Full failure context:', err);
+      // 🔥 EXPOSE THE ACTUAL ERROR MESSAGE SO WE CAN FIX THE DB
+      setError(err.message || (editing ? 'Failed to update announcement' : 'Failed to create announcement'));
     } finally {
       setLoading(false);
     }

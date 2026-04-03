@@ -158,8 +158,10 @@ const ReportDetailModal = ({
   if (report.updated_at) {
     activityLog.push({ label: `Status updated to ${statusConfig.label}`, time: report.updated_at, color: '#22c55e' });
   }
-  if (report.assigned_officer) {
-    activityLog.push({ label: `Assigned to ${report.assigned_officer}`, time: report.assigned_at || report.updated_at, color: '#3b82f6' });
+  const isUnassignedStatus = ['pending', 'open'].includes(report.status);
+  const assignedTo = isUnassignedStatus ? null : (report.status_updated_by_name || report.assigned_officer);
+  if (assignedTo) {
+    activityLog.push({ label: `Assigned to ${assignedTo}`, time: report.assigned_at || report.updated_at, color: '#3b82f6' });
   }
   activityLog.push({ label: `Report submitted by ${report.reporter || report.reporter_name || 'Citizen'}`, time: report.created_at, color: '#0ea5e9' });
 
@@ -270,8 +272,8 @@ const ReportDetailModal = ({
                 <Shield size={15} className="meta-icon" />
                 <div className="meta-content">
                   <span className="meta-label">Assigned to</span>
-                  <span className={`meta-value ${!report.assigned_officer ? 'unassigned-value' : ''}`}>
-                    {report.assigned_officer || 'Unassigned'}
+                  <span className={`meta-value ${!assignedTo ? 'unassigned-value' : ''}`}>
+                    {assignedTo || 'Unassigned'}
                   </span>
                 </div>
               </div>
@@ -292,19 +294,19 @@ const ReportDetailModal = ({
             <p className="aside-label">Actions</p>
             {onAssignResponder ? (
               <button
-                className={`aside-btn ${currentStatus === 'pending' ? 'dark' : 'gray-solid'}`}
+                className={`aside-btn ${['pending', 'open'].includes(currentStatus) ? 'dark' : 'gray-solid'}`}
                 onClick={() => setShowAssignModal(true)}
-                disabled={loading || currentStatus !== 'pending'}
+                disabled={loading || !['pending', 'open'].includes(currentStatus) || !!report.status_updated_by}
               >
-                <Activity size={20} /> Start Action
+                <Activity size={20} /> {currentStatus === 'in_action' ? 'Action in Progress' : 'Start Action'}
               </button>
             ) : (
               <button
-                className={`aside-btn ${currentStatus === 'pending' ? 'dark' : 'gray-solid'}`}
+                className={`aside-btn ${['pending', 'open'].includes(currentStatus) ? 'dark' : 'gray-solid'}`}
                 onClick={() => onStartAction?.(report.id)}
-                disabled={loading || currentStatus !== 'pending'}
+                disabled={loading || !['pending', 'open'].includes(currentStatus) || !!report.status_updated_by}
               >
-                <Activity size={20} /> Start Action
+                <Activity size={20} /> {currentStatus === 'in_action' ? 'Action in Progress' : 'Start Action'}
               </button>
             )}
             <button

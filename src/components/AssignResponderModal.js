@@ -96,14 +96,25 @@ const AssignResponderModal = ({ incident, isOpen, onClose, onAssign, loading }) 
   }, [responders, selectedDepts, searchQuery]);
 
   const handleDispatch = () => {
-    console.log('📦 MODAL DISPATCH START:', incident?.id, { selectedCount: selectedResponders.size });
-    if (selectedResponders.size === 0) return;
+    console.log('📦 MODAL DISPATCH START:', incident?.id, { 
+      selectedResponders: selectedResponders.size,
+      selectedDepts: selectedDepts.size 
+    });
     
-    // We send the array of selected responders to onAssign
+    if (selectedResponders.size === 0 && selectedDepts.size === 0) return;
+    
+    // We send the array of selected responders and departments to onAssign
     const selectedList = responders.filter(r => selectedResponders.has(r.id));
+    const deptsList = Array.from(selectedDepts);
     
-    console.log('📦 Dispatching to:', selectedList[0]?.full_name);
-    onAssign(incident.id, selectedList[0], { additionalResponders: selectedList.slice(1) });
+    console.log('📦 Dispatching Action with Departments:', deptsList);
+    
+    onAssign(incident.id, selectedList[0] || null, { 
+      additionalResponders: selectedList.slice(1),
+      departments: deptsList,
+      action_started_at: new Date().toISOString()
+    });
+    
     onClose();
   };
 

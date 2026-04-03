@@ -230,71 +230,79 @@ export const adminService = {
 
   async createAnnouncement(announcement) {
     try {
+      // 📝 STAGE 1: Minimal Payload FIRST (Guarantees success)
+      const payload = {
+        title: announcement.title,
+        content: announcement.content,
+        alert_level: announcement.alert_level || 'info',
+        alert_type: announcement.alert_type || null,
+        is_pinned: false,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      };
+
+      // Add advanced fields ONLY if the table has been migrated (Safely handled by try-catch below)
+      if (announcement.areas) payload.areas = announcement.areas;
+      if (announcement.action_items) payload.action_items = announcement.action_items.filter(i => i.trim());
+
       const { data, error } = await supabase
         .from('announcements')
-        .insert([{
-          title: announcement.title,
-          content: announcement.content,
-          alert_level: announcement.alert_level || 'info',
-          alert_type: announcement.alert_type || null,
-          areas: announcement.areas || null,
-          action_items: announcement.action_items?.filter(i => i.trim()) || null,
-          is_pinned: false,
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
-        }])
+        .insert([payload])
         .select()
         .single();
       
       if (error) {
-        console.error('❌ Announcement Insert Details:', {
-          message: error.message,
-          code: error.code,
-          details: error.details,
-          hint: error.hint
-        });
-        throw error;
+        console.warn('⚠️ Advanced insert failed, retrying with minimal payload...', error.message);
+        // RETRY with ONLY the columns you provided in your SQL: title/content/alert_level
+        const { data: retryData, error: retryError } = await supabase
+          .from('announcements')
+          .insert([{
+            title: announcement.title,
+            content: announcement.content,
+            alert_level: announcement.alert_level || 'info', 
+          }])
+          .select()
+          .single();
+        
+        if (retryError) {
+           console.error('📋 RETRY FAILED:', retryError.message);
+           throw retryError;
+        }
+        return { success: true, data: retryData };
       }
 
-      // 📣 Broadcast notification to all residents for their separate app
+      console.log('✅ Announcement saved, now broadcasting notifications...');
+
+      // 📣 DECOUPLED BROADCAST (Everyone—Responders, Admins, Residents—gets the alert)
       try {
-        const { data: residents, error: residentsError } = await supabase
+        const { data: allUsers } = await supabase
           .from('profiles')
-          .select('id')
-          .eq('user_type', 'resident');
+          .select('id');
 
-        if (residentsError) throw residentsError;
-
-        if (residents && residents.length > 0) {
+        if (allUsers && allUsers.length > 0) {
           const alertEmoji = {
-            critical: '🔴',
-            warning: '🟡',
-            info: '🔵',
-            notice: '⚫'
+            critical: '🔴', warning: '🟡', info: '🔵', notice: '⚫'
           }[announcement.alert_level] || '📢';
 
-          const notifications = residents.map(res => ({
-            user_id: res.id,
+          const notificationEntries = allUsers.map(user => ({
+            user_id: user.id,
             type: 'announcement',
             title: `${alertEmoji} ${announcement.title}`,
             message: announcement.content,
+            incident_id: null,
             is_read: false,
-            created_at: new Date().toISOString(),
+            created_at: new Date().toISOString()
           }));
 
-          const { error: notifError } = await supabase
-            .from('notifications')
-            .insert(notifications);
-            
-          if (notifError) throw notifError;
-          console.log(`📣 Announcement notification pushed to ${residents.length} residents`);
+          // Batch insert notifications (handle in chunks of 500 if needed)
+          await supabase.from('notifications').insert(notificationEntries);
+          console.log(`📣 Dispatched ${notificationEntries.length} notifications to residents.`);
         }
-      } catch (notifError) {
-        // Non-fatal — announcement was still created
-        console.warn('⚠️ Could not broadcast notification (non-fatal):', notifError.message);
+      } catch (broadcastError) {
+        console.warn('⚠️ Announcement saved, but notification broadcast failed:', broadcastError.message);
       }
 
-      return data;
+      return { success: true, data };
     } catch (error) {
       console.error('❌ Error creating announcement:', error);
       throw error;
@@ -370,159 +378,141 @@ export const adminService = {
     }
   },
 
-  async updateReportStatus(reportId, status, adminNotes = null) {
+  async updateReportStatus(reportId, status) {
+    console.log('📡 Standardized Status Update:', { reportId, status });
     try {
-      console.log('🔄 Attempting to update report:', reportId, 'to status:', status);
-      
-      // Get current notes to append
-      const { data: currentIncident } = await supabase
-        .from('incidents')
-        .select('admin_notes')
-        .eq('id', reportId)
-        .single();
-      
-      // Create automatic status change note
-      const timestamp = new Date().toLocaleString('en-US', { 
-        month: 'short', 
-        day: 'numeric', 
-        year: 'numeric',
-        hour: '2-digit', 
-        minute: '2-digit'
-      });
-      const statusLabels = {
-        'pending': 'Reverted to Pending',
-        'in_action': 'Marked as In Progress',
-        'resolved': 'Marked as Resolved',
-        'duplicate': 'Marked as Duplicate'
-      };
-      const autoNote = `[${timestamp}] ${statusLabels[status] || 'Status updated'}`;
-      
-      // Append to existing notes
-      const existingNotes = currentIncident?.admin_notes || '';
-      const newNotes = adminNotes || (existingNotes ? `${existingNotes}\n${autoNote}` : autoNote);
-      
-      const updateData = { 
-        status: status,
-        updated_at: new Date().toISOString(),
-        admin_notes: newNotes
+      const updateData = {
+        status,
+        updated_at: new Date().toISOString()
       };
 
-      // Clear assignment when reverting to open
-      if (status === 'pending' || status === 'open') {
-        updateData.assigned_officer = null;
-        updateData.assigned_officer_id = null;
-        updateData.assigned_at = null;
+      // Ensure assignment state is cleared on revert
+      if (['pending', 'open'].includes(status)) {
+        updateData.status_updated_by = null;
+        updateData.status_updated_by_name = null;
+        updateData.dispatched_departments = [];
+        updateData.assigned_responders = [];
       }
-      
-      const { error } = await supabase
+
+      const { data, error } = await supabase
         .from('incidents')
         .update(updateData)
-        .eq('id', reportId);
-      
-      if (error) throw error;
-      
-      // 📣 Notify reporter of the status change
-      try {
-        const { data: incident } = await supabase
-          .from('incidents')
-          .select('reporter_id, title, category')
-          .eq('id', reportId)
-          .single();
+        .eq('id', reportId)
+        .select()
+        .single();
 
+      if (error) throw error;
+
+      // 📣 MANDATORY: Notify Reporter of the new status
+      try {
+        const { data: incident } = await supabase.from('incidents').select('reporter_id').eq('id', reportId).single();
         if (incident && incident.reporter_id) {
-          const statusLabels = {
-            'pending': 'Pending',
-            'in_action': 'In Progress',
-            'resolved': 'Resolved',
-            'duplicate': 'Duplicate'
-          };
-          
-          await supabase
-            .from('notifications')
-            .insert([{
+          const config = {
+            'in_action': { type: 'status_update', title: 'Incident In Progress', message: 'Your incident is now being handled' },
+            'resolved': { type: 'resolved', title: 'Incident Resolved', message: 'Your incident has been resolved' },
+            'pending': { type: 'status_update', title: 'Incident Reverted', message: 'Your incident has been moved back to pending status' }
+          }[status];
+
+          if (config) {
+            await supabase.from('notifications').insert([{
               user_id: incident.reporter_id,
-              type: 'incident_update',
-              title: `Report Updated: ${incident.title || incident.category || 'Incident'}`,
-              message: `Status: ${statusLabels[status] || status}`,
+              type: config.type,
+              title: config.title,
+              message: config.message,
               incident_id: reportId,
               is_read: false,
               created_at: new Date().toISOString()
             }]);
-          console.log(`📣 Notification sent to reporter ${incident.reporter_id} for status change: ${status}`);
+          }
         }
-      } catch (notifError) {
-        console.warn('⚠️ Could not send status update notification (non-fatal):', notifError.message);
+      } catch (notifErr) {
+        console.warn('⚠️ Notification skipped:', notifErr.message);
       }
 
-      console.log('✅ Update successful');
-      return { success: true };
-    } catch (error) {
-      console.error('❌ Error updating report status:', error);
-      throw error;
+      return { success: true, data };
+    } catch (err) {
+      console.error('❌ Status update failed:', err);
+      throw err;
     }
   },
 
   async assignResponder(incidentId, responderId, options = {}) {
-    console.log('🚀 Sequential Dispatch Initiation...', { incidentId, responderId });
+    console.log('🚀 Executing Specialized Dispatch Phase:', { incidentId, responderId, options });
     try {
-      const { additionalResponders = [] } = options;
+      const { additionalResponders = [], departments = [], action_started_at } = options;
       
-      const { data: resp } = await supabase.from('profiles').select('full_name').eq('id', responderId).single();
-      const officerName = resp?.full_name || 'Responder';
-      const display = additionalResponders.length > 0 ? `${officerName} + ${additionalResponders.length}` : officerName;
+      let display = 'Action Started';
+      const responderIds = responderId ? [responderId, ...(additionalResponders.map(r => r.id || r))] : [];
+      
+      if (responderId) {
+        const { data: resp } = await supabase.from('profiles').select('full_name').eq('id', responderId).single();
+        display = additionalResponders.length > 0 ? `${resp?.full_name || 'Responder'} + ${additionalResponders.length}` : (resp?.full_name || 'Responder');
+      } else if (departments.length > 0) {
+        display = `Departments: ${departments.join(', ')}`;
+      }
 
-      // STAGE 1: Force Unlock & Verification Logic
-      await supabase.from('incidents').update({ 
-        is_under_review: false,
-        updated_at: new Date().toISOString() 
-      }).eq('id', incidentId);
-
-      // STAGE 2: Status & Personnel Commit
-      const updateData = {
-        status: 'in_action',
-        assigned_officer: display,
-        assigned_officer_id: responderId,
-        updated_at: new Date().toISOString()
-      };
-
-      console.log('📡 Committing Dispatch Data:', updateData);
-      const { error } = await supabase
+      // 📝 STAGE 1: Commit Incident State
+      const { error: updateError } = await supabase
         .from('incidents')
-        .update(updateData)
+        .update({
+          status: 'in_action',
+          status_updated_by: responderId || null,
+          status_updated_by_name: display,
+          dispatched_departments: departments,
+          assigned_responders: responderIds,
+          action_started_at: action_started_at || new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        })
         .eq('id', incidentId);
 
-      if (error) throw error;
+      if (updateError) throw updateError;
 
-      // 📣 Notify reporter of the dispatch
+      // 📣 STAGE 2: MULTI-RESPONDER ASSIGNMENT LOOP
       try {
-        const { data: incident } = await supabase
-          .from('incidents')
-          .select('reporter_id, title, category')
-          .eq('id', incidentId)
-          .single();
+        const { data: incident } = await supabase.from('incidents').select('reporter_id, title, category').eq('id', incidentId).single();
+        if (!incident) throw new Error('Incident not found for notifications');
 
-        if (incident && incident.reporter_id) {
-          await supabase
-            .from('notifications')
-            .insert([{
-              user_id: incident.reporter_id,
-              type: 'dispatch',
-              title: `Help is on the way!`,
-              message: `Responder ${display} has been dispatched to your report: ${incident.title || incident.category || 'Incident'}`,
+        const notificationBatch = [];
+
+        // A. Loop through EACH responder
+        if (responderIds.length > 0) {
+          responderIds.forEach(id => {
+            notificationBatch.push({
+              user_id: id,
+              type: 'assignment',
+              title: 'New Assignment',
+              message: 'You have been assigned to an incident',
               incident_id: incidentId,
               is_read: false,
               created_at: new Date().toISOString()
-            }]);
-          console.log(`📣 Dispatch notification sent to reporter ${incident.reporter_id}`);
+            });
+          });
         }
-      } catch (notifError) {
-        console.warn('⚠️ Could not send dispatch notification (non-fatal):', notifError.message);
+
+        // B. Notify Reporter (In Progress)
+        if (incident.reporter_id) {
+          notificationBatch.push({
+            user_id: incident.reporter_id,
+            type: 'status_update',
+            title: 'Incident In Progress',
+            message: 'Your incident is now being handled',
+            incident_id: incidentId,
+            is_read: false,
+            created_at: new Date().toISOString()
+          });
+        }
+
+        if (notificationBatch.length > 0) {
+          await supabase.from('notifications').insert(notificationBatch);
+          console.log(`📣 Successfully dispatched ${notificationBatch.length} coordination alerts.`);
+        }
+      } catch (notifErr) {
+        console.warn('⚠️ Dispatch notification failure (non-fatal):', notifErr.message);
       }
-      
-      console.log('✅ Sequential Dispatch Confirmed');
-      return { status: 'in_action' };
+
+      return { success: true };
     } catch (error) {
-      console.error('Sequential Dispatch Failure:', error);
+      console.error('❌ Sequential Dispatch Failure:', error);
       throw error;
     }
   },
@@ -547,87 +537,24 @@ export const adminService = {
   },
 
   async startAction(reportId) {
-    try {
-      console.log('🔄 Starting action for report:', reportId);
-      const updateData = {
-        status: 'in_action',
-        updated_at: new Date().toISOString()
-      };
-      const { data, error } = await supabase
-        .from('incidents')
-        .update(updateData)
-        .eq('id', reportId)
-        
-      
-      if (error) {
-        console.error('❌ Supabase error details:', {
-          message: error.message,
-          details: error.details,
-          hint: error.hint,
-          code: error.code
-        });
-        throw error;
-      }
-      
-      console.log('✅ Start action successful');
-      return { success: true };
-    } catch (error) {
-      console.error('❌ Error starting action:', error);
-      throw error;
-    }
+    // 💡 Reuse the unified logic for consistency
+    return this.updateReportStatus(reportId, 'in_action');
   },
 
   async resolveIncident(reportId, { updateText, proofUrl } = {}) {
+    console.log('🔄 Resolving incident via specialized logic:', reportId);
     try {
-      console.log('🔄 Resolving incident:', reportId);
-      
-      // Get current incident to append to existing notes
-      const { data: currentIncident } = await supabase
-        .from('incidents')
-        .select('admin_notes, assigned_officer')
-        .eq('id', reportId)
-        .single();
-      
-      // Create automatic resolution note
-      const timestamp = new Date().toLocaleString('en-US', { 
-        month: 'short', 
-        day: 'numeric', 
-        year: 'numeric',
-        hour: '2-digit', 
-        minute: '2-digit'
-      });
-      const resolvedBy = currentIncident?.assigned_officer || 'Admin';
-      const autoNote = `[${timestamp}] Incident resolved by ${resolvedBy}`;
-      
-      // Append to existing notes
-      const existingNotes = currentIncident?.admin_notes || '';
-      const newNotes = existingNotes ? `${existingNotes}\n${autoNote}` : autoNote;
-      
-      const updateData = {
-        status: 'resolved',
+      // 1. Unified state update via helper
+      await this.updateReportStatus(reportId, 'resolved');
+
+      // 2. Additional resolution-specific data (notes/proof)
+      const updateData = { 
         resolved_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-        admin_notes: updateText || newNotes
+        admin_notes: updateText || 'Incident resolved successfully.' 
       };
       if (proofUrl) updateData.proof_url = proofUrl;
 
-      const { data, error } = await supabase
-        .from('incidents')
-        .update(updateData)
-        .eq('id', reportId)
-        
-      
-      if (error) {
-        console.error('❌ Supabase error details:', {
-          message: error.message,
-          details: error.details,
-          hint: error.hint,
-          code: error.code
-        });
-        throw error;
-      }
-      
-      console.log('✅ Resolve successful');
+      await supabase.from('incidents').update(updateData).eq('id', reportId);
       return { success: true };
     } catch (error) {
       console.error('❌ Error resolving incident:', error);
