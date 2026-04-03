@@ -96,6 +96,7 @@ const AdminDashboard = ({ user, onLogout }) => {
   const [isSuperAdmin, setIsSuperAdmin] = useState(user?.type === 'super_admin');
   const [staffFilter, setStaffFilter] = useState('all');
   const [userManagementOpen, setUserManagementOpen] = useState(false);
+  const [pendingUsersCount, setPendingUsersCount] = useState(0);
   const [activeMenu, setActiveMenu] = useState(null); // track which main menu is open
   const [isSoundEnabled, setIsSoundEnabled] = useState(() => {
     const saved = localStorage.getItem('zenith_sound_enabled');
@@ -485,8 +486,12 @@ const AdminDashboard = ({ user, onLogout }) => {
           color: '#3b82f6'
         }
       ];
-
       setStats(statsData);
+
+      // Update pending users count for sidebar badge
+      if (dashboardStats.pendingUsers !== undefined) {
+        setPendingUsersCount(dashboardStats.pendingUsers);
+      }
     } catch (err) {
       console.error('Error loading stats:', err);
       setStats([
@@ -1112,6 +1117,9 @@ const AdminDashboard = ({ user, onLogout }) => {
             <div className="nav-item-content">
               <AlertTriangle size={18} /><span>Posts</span>
             </div>
+            {notificationCount > 0 && (
+              <span className="sidebar-badge">{notificationCount}</span>
+            )}
           </button>
           <div className="sidebar-group">
             <button
@@ -1131,7 +1139,12 @@ const AdminDashboard = ({ user, onLogout }) => {
                 <Users size={18} />
                 <span>User Management</span>
               </div>
-              <ChevronRight className={`chevron ${userManagementOpen ? 'rotate' : ''}`} size={16} />
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                {pendingUsersCount > 0 && (
+                  <span className="sidebar-badge">{pendingUsersCount}</span>
+                )}
+                <ChevronRight className={`chevron ${userManagementOpen ? 'rotate' : ''}`} size={16} />
+              </div>
             </button>
 
             {userManagementOpen && (
@@ -1244,10 +1257,12 @@ const AdminDashboard = ({ user, onLogout }) => {
                 className="notification-btn"
                 onClick={() => setShowNotifications(!showNotifications)}
               >
-                <Bell size={18} />
-                {notificationCount > 0 && (
-                  <span className="notification-badge">{notificationCount}</span>
-                )}
+                <div className="badge-container">
+                  <Bell size={18} />
+                  {notificationCount > 0 && (
+                    <span className="notification-badge">{notificationCount}</span>
+                  )}
+                </div>
               </button>
               <div className={`realtime-indicator ${realtimeStatus}`} title={`Real-time: ${realtimeStatus}`}>
                 <div className="realtime-dot"></div>

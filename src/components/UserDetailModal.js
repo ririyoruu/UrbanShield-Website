@@ -20,6 +20,7 @@ import {
   Edit,
   Save,
   Lock,
+  RefreshCw,
 } from 'lucide-react';
 import { adminService, supabase } from '../config/supabase';
 import { superAdminService } from '../services/superAdminService';
@@ -40,6 +41,48 @@ const UserDetailModal = ({ user, isOpen, onClose, onApprove, onReject, onSuspend
   });
   const [saving, setSaving] = useState(false);
   const [resetModal, setResetModal] = useState({ isOpen: false, email: '', generatedPass: null });
+  const [resolvedDocuments, setResolvedDocuments] = useState([]);
+
+  useEffect(() => {
+    if (!isOpen || !user) return;
+
+    const resolveDocs = async () => {
+      let rawDocs = [];
+      if (user.verification_documents) rawDocs = Array.isArray(user.verification_documents) ? user.verification_documents : [user.verification_documents];
+      else if (user.documents) rawDocs = Array.isArray(user.documents) ? user.documents : [user.documents];
+      else if (user.id_documents) rawDocs = Array.isArray(user.id_documents) ? user.id_documents : [user.id_documents];
+      
+      const filtered = rawDocs.filter(d => d && (typeof d === 'string' ? d.trim() !== '' : true));
+      if (filtered.length === 0) {
+        setResolvedDocuments([]);
+        return;
+      }
+
+      setResolvedDocuments(filtered.map(() => 'loading')); 
+
+      const resolved = await Promise.all(filtered.map(async (doc) => {
+        if (typeof doc === 'string' && !doc.startsWith('http')) {
+          try {
+            const path = doc.includes(user.id) ? doc : `${user.id}/${doc}`;
+            // Use createSignedUrl for private documents
+            const { data, error } = await supabase.storage
+              .from('verification-documents')
+              .createSignedUrl(path, 3600);
+            
+            if (error) throw error;
+            return data.signedUrl;
+          } catch (err) {
+            const { data } = supabase.storage.from('verification-documents').getPublicUrl(doc);
+            return data?.publicUrl || doc;
+          }
+        }
+        return doc;
+      }));
+      setResolvedDocuments(resolved);
+    };
+
+    resolveDocs();
+  }, [isOpen, user?.id]); 
 
   useEffect(() => {
     if (isOpen && user) {
@@ -159,11 +202,7 @@ const UserDetailModal = ({ user, isOpen, onClose, onApprove, onReject, onSuspend
   if (!isOpen || !user) return null;
 
   /* ── Documents ── */
-  let documents = [];
-  if (user.verification_documents) documents = Array.isArray(user.verification_documents) ? user.verification_documents : [user.verification_documents];
-  else if (user.documents) documents = Array.isArray(user.documents) ? user.documents : [user.documents];
-  else if (user.id_documents) documents = Array.isArray(user.id_documents) ? user.id_documents : [user.id_documents];
-  documents = documents.filter(d => d && d.trim() !== '');
+  const documents = resolvedDocuments;
   const hasDocuments = documents.length > 0;
 
   /* ── Status ── */
@@ -211,7 +250,7 @@ const UserDetailModal = ({ user, isOpen, onClose, onApprove, onReject, onSuspend
     return new Date(ds).toLocaleString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' });
   };
 
-  const docLabels = ['National ID', 'Passport', 'Document 3', 'Document 4'];
+  const docLabels = ['Front Side ID', 'Back Side ID', 'Supporting Document', 'Additional Proof'];
 
   return (
     <>
@@ -274,13 +313,20 @@ const UserDetailModal = ({ user, isOpen, onClose, onApprove, onReject, onSuspend
               </div>
               <div className="udm-doc-viewer">
                 <div className="udm-doc-main">
-                  <img
-                    src={documents[currentDocIndex]}
-                    alt={`Document ${currentDocIndex + 1}`}
-                    className={`udm-doc-img ${docZoom ? 'zoomed' : ''}`}
-                    onClick={() => setDocZoom(!docZoom)}
-                    onError={(e) => { e.target.src = 'https://placehold.co/600x400?text=Not+Available'; }}
-                  />
+                  {documents[currentDocIndex] === 'loading' ? (
+                    <div className="udm-doc-spinner" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px', color: '#fff' }}>
+                      <RefreshCw size={24} className="spinning" />
+                      <span style={{ fontSize: '11px' }}>Fetching secure link...</span>
+                    </div>
+                  ) : (
+                    <img
+                      src={documents[currentDocIndex]}
+                      alt={`Document ${currentDocIndex + 1}`}
+                      className={`udm-doc-img ${docZoom ? 'zoomed' : ''}`}
+                      onClick={() => setDocZoom(!docZoom)}
+                      onError={(e) => { e.target.src = 'https://placehold.co/600x400?text=Reloading...'; }}
+                    />
+                  )}
                   <span className="udm-doc-label">{docLabels[currentDocIndex] || `Document ${currentDocIndex + 1}`}</span>
                   {docZoom && (
                     <button className="udm-doc-zoom-out" onClick={() => setDocZoom(false)}><ZoomOut size={14} /></button>

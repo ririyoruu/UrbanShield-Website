@@ -74,8 +74,10 @@ export const superAdminService = {
 
       if (authError) throw authError;
 
-      // 2. Update profile with extra details
-      const updateData = {
+      // 2. Ensure profile exists and has correct details
+      const upsertData = {
+        id: authData.user.id,
+        email: email,
         user_type,
         full_name,
         verification_status: 'verified',
@@ -84,14 +86,13 @@ export const superAdminService = {
         updated_at: new Date().toISOString()
       };
 
-      if (username) updateData.username = username;
-      if (phone) updateData.phone = phone;
-      if (department) updateData.department = department;
+      if (username) upsertData.username = username;
+      if (phone) upsertData.phone = phone;
+      if (department) upsertData.department = department;
 
       const { error: profileError } = await supabase
         .from('profiles')
-        .update(updateData)
-        .eq('id', authData.user.id);
+        .upsert(upsertData);
 
       if (profileError) throw profileError;
 

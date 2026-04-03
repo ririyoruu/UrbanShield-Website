@@ -1047,15 +1047,25 @@ export const adminService = {
       // Active users = total number of users in the system
       const { data: usersData, error: usersError } = await supabase
         .from('profiles')
-        .select('id', { count: 'exact' });
+        .select('id');
 
       const activeUsers = usersError ? 0 : (usersData?.length || 0);
+
+      // Pending users for verification
+      const { data: pendingUsersData, error: pendingUsersError } = await supabase
+        .from('profiles')
+        .select('id')
+        .or('verification_status.is.null,verification_status.eq.pending')
+        .neq('user_type', 'admin');
+
+      const pendingUsers = pendingUsersError ? 0 : (pendingUsersData?.length || 0);
 
       return {
         totalReports,
         openReports,
         resolvedToday,
-        activeUsers
+        activeUsers,
+        pendingUsers
       };
     } catch (error) {
       console.error('Error fetching dashboard stats:', error);
@@ -1283,9 +1293,16 @@ export const adminService = {
 
       if (error) throw error;
 
-      if (count === 0) {
-        console.warn('⚠️ No records were deleted. This usually means Row Level Security (RLS) is blocking the delete for your user role.');
-        throw new Error('Database blocked deletion. Please check Row Level Security (RLS) policies in your Supabase dashboard.');
+      // 2. Clear Auth Access via Edge Function
+      try {
+        console.log('🛡️ Safeguarding: Clearing Auth access for deleted users...');
+        await supabase.functions.invoke('delete-user', {
+          body: { userIds }
+        });
+      } catch (authError) {
+        // We log but don't fail, as the profile is already gone. 
+        // This prevents the UI from thinking the delete failed if only the auth cleanup glitched.
+        console.warn('⚠️ Profile deleted, but Auth cleanup failed:', authError);
       }
 
       return { success: true, count };

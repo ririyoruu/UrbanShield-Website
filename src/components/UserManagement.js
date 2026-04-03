@@ -96,6 +96,8 @@ const UserManagement = ({ isSuperAdmin }) => {
       type: 'confirm',
       title: 'Delete Residents?',
       message: `Are you sure you want to permanently delete ${count} selected profile(s)? This action cannot be undone.`,
+      confirmLabel: 'Delete rows',
+      cancelLabel: 'Keep them',
       onConfirm: executeBulkDelete
     });
   };
@@ -179,6 +181,8 @@ const UserManagement = ({ isSuperAdmin }) => {
       type: 'confirm',
       title: 'Approve Resident?',
       message: `Are you sure you want to verify ${user?.full_name || 'this user'}? This will give them full access to the platform.`,
+      confirmLabel: 'Verify Resident',
+      cancelLabel: 'Not now',
       onConfirm: () => handleUserStatusChange(userId, {
         isVerified: true,
         status: 'verified',
@@ -194,6 +198,8 @@ const UserManagement = ({ isSuperAdmin }) => {
       type: 'confirm',
       title: 'Reject Resident?',
       message: `Are you sure you want to reject ${user?.full_name || 'this user'}'s registration?`,
+      confirmLabel: 'Reject Registration',
+      cancelLabel: 'Go back',
       onConfirm: () => handleUserStatusChange(userId, {
         isVerified: false,
         status: 'rejected',
@@ -209,6 +215,8 @@ const UserManagement = ({ isSuperAdmin }) => {
       type: 'confirm',
       title: 'Suspend Account?',
       message: `Are you sure you want to suspend access for ${user?.full_name || 'this user'}? They will lose all permissions.`,
+      confirmLabel: 'Suspend User',
+      cancelLabel: 'Cancel',
       onConfirm: () => handleUserStatusChange(userId, {
         isVerified: false,
         status: 'suspended',
@@ -224,6 +232,8 @@ const UserManagement = ({ isSuperAdmin }) => {
       type: 'confirm',
       title: 'Restore Access?',
       message: `Restore access for ${user?.full_name || 'this user'}? Status will return to pending review.`,
+      confirmLabel: 'Restore Access',
+      cancelLabel: 'Cancel',
       onConfirm: () => handleUserStatusChange(userId, {
         isVerified: null,
         status: 'pending',
@@ -268,8 +278,9 @@ const UserManagement = ({ isSuperAdmin }) => {
       const matchesStatus = filterStatus === 'all' || statusKey === filterStatus;
       
       // Document Filter
-      const docs = user.verification_documents || user.documents || [];
-      const hasDocs = Array.isArray(docs) && docs.filter(d => d && d.trim()).length > 0;
+      const docs = Array.isArray(user.verification_documents) ? user.verification_documents : 
+                   (user.documents ? (Array.isArray(user.documents) ? user.documents : [user.documents]) : []);
+      const hasDocs = docs.filter(d => d && (typeof d === 'string' ? d.trim() : true)).length > 0;
       const matchesDocs = filterRole === 'all' || 
         (filterRole === 'with_docs' && hasDocs) || 
         (filterRole === 'no_docs' && !hasDocs);
@@ -337,10 +348,10 @@ const UserManagement = ({ isSuperAdmin }) => {
             {modal.type === 'confirm' ? (
               <div className="zenith-modal-actions">
                 <button className="zenith-modal-btn cancel" onClick={() => setModal({ show: false })}>
-                  Keep them
+                  {modal.cancelLabel || 'Cancel'}
                 </button>
-                <button className="zenith-modal-btn confirm-delete" onClick={modal.onConfirm}>
-                  Delete rows
+                <button className={`zenith-modal-btn ${modal.confirmLabel?.toLowerCase().includes('delete') ? 'confirm-delete' : 'confirm-submit'}`} onClick={modal.onConfirm}>
+                  {modal.confirmLabel || 'Confirm'}
                 </button>
               </div>
             ) : (
@@ -397,7 +408,12 @@ const UserManagement = ({ isSuperAdmin }) => {
             onChange={(e) => setSearchTerm(e.target.value)}
           />
         </div>
-        <div className="zenith-toolbar-actions" style={{ display: 'flex', gap: '0.75rem' }}>
+        <div className="zenith-toolbar-actions" style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
+          <button className="zenith-toolbar-btn" onClick={loadUsers} disabled={loading} title="Refresh results">
+             <RefreshCw size={14} className={loading ? 'spinning' : ''} />
+             Reload
+          </button>
+          
           {/* Document Filter */}
           <select 
             className="zenith-toolbar-select" 
@@ -450,8 +466,9 @@ const UserManagement = ({ isSuperAdmin }) => {
               <tbody>
                 {filteredUsers.map((user, index) => {
                   const statusInfo = getStatusInfo(user);
-                  const docs = user.verification_documents || user.documents || [];
-                  const docCount = Array.isArray(docs) ? docs.filter(d => d && d.trim()).length : 0;
+                  const docs = Array.isArray(user.verification_documents) ? user.verification_documents : 
+                               (user.documents ? (Array.isArray(user.documents) ? user.documents : [user.documents]) : []);
+                  const docCount = docs.filter(d => d && (typeof d === 'string' ? d.trim() : true)).length;
                   const initials = getInitials(user.full_name);
                   const statusClass = `status-${statusInfo.key}`;
                   return (
