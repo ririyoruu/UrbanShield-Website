@@ -162,19 +162,30 @@ export const adminService = {
     }
   },
 
-  // Helper: parse PostGIS WKB hex → {lat, lng}
+  // Helper: parse PostGIS WKB hex or WKT → {lat, lng}
   parsePostGISLocation(hex) {
     try {
       if (!hex || typeof hex !== 'string') return null;
-      const clean = hex.replace(/[^0-9A-Fa-f]/g, '');
 
-      // Determine offset based on WKB header
+      // Handle WKT (Well-known Text) format: POINT(lng lat)
+      if (hex.startsWith('POINT(')) {
+        const match = hex.match(/POINT\s*\(\s*([-\d.]+)\s+([-\d.]+)\s*\)/i);
+        if (match) {
+          const x = parseFloat(match[1]); // Longitude
+          const y = parseFloat(match[2]); // Latitude
+          // Philippines bounds check for auto-correction (~4-21 lat, ~116-127 lng)
+          if (y >= 4 && y <= 21 && x >= 116 && x <= 127) return { lat: y, lng: x };
+          if (x >= 4 && x <= 21 && y >= 116 && y <= 127) return { lat: x, lng: y };
+          return { lat: y, lng: x };
+        }
+      }
+
+      const clean = hex.replace(/[^0-9A-Fa-f]/g, '');
       let offset = -1;
       if (clean.startsWith('0101000020E6100000')) offset = 18;      // geography SRID 4326 (fixed offset)
       else if (clean.startsWith('0101000000')) offset = 10;          // geometry
       if (offset < 0 || clean.length < offset + 32) return null;
 
-      // Read little-endian IEEE 754 double from hex (16 chars = 8 bytes)
       const readLE = (h) => {
         const buf = new ArrayBuffer(8);
         const dv = new DataView(buf);
@@ -184,18 +195,13 @@ export const adminService = {
         return dv.getFloat64(0, true);
       };
 
-      // WKB Point stores X (longitude) first, then Y (latitude)
       const x = readLE(clean.substring(offset, offset + 16));
       const y = readLE(clean.substring(offset + 16, offset + 32));
 
-      // x = longitude, y = latitude in standard WKB
-      // Validate and return
       if (y >= -90 && y <= 90 && x >= -180 && x <= 180) {
+        if (y >= 4 && y <= 21 && x >= 116 && x <= 127) return { lat: y, lng: x };
+        if (x >= 4 && x <= 21 && y >= 116 && y <= 127) return { lat: x, lng: y };
         return { lat: y, lng: x };
-      }
-      // Sometimes stored as lat,lng instead of lng,lat — try swapped
-      if (x >= -90 && x <= 90 && y >= -180 && y <= 180) {
-        return { lat: x, lng: y };
       }
     } catch (e) {
       console.error('PostGIS parse error:', e);

@@ -1,22 +1,38 @@
+const { createClient } = require('@supabase/supabase-client');
+require('dotenv').config();
 
-const { createClient } = require('@supabase/supabase-js');
+// Try to find Supabase credentials from common locations if not in process.env
+const supabaseUrl = process.env.REACT_APP_SUPABASE_URL || 'https://vszfipmxjzkisoyzshjr.supabase.co';
+const supabaseKey = process.env.REACT_APP_SUPABASE_ANON_KEY;
 
-const supabaseUrl = 'https://efiswsdjscypiujrvawp.supabase.co';
-const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVmaXN3c2Rqc2N5cGl1anJ2YXdwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ2MDk4MTQsImV4cCI6MjA5MDE4NTgxNH0.WATfKs11i3ViCtC3i0cPNr2FHZGUqk6iP3GLsSgF_mo';
+if (!supabaseUrl || !supabaseKey) {
+  console.log('Missing Supabase credentials. Checking config folder...');
+}
 
-const supabase = createClient(supabaseUrl, supabaseKey);
-
+// Just a quick check of the last 5 incidents
 async function checkIncidents() {
-    console.log('CHECKING_INCIDENTS');
-    const { data, error, count } = await supabase.from('incidents').select('*', { count: 'exact' });
-    if (error) {
-        console.log('INCIDENTS_ERROR: ' + JSON.stringify(error));
-    } else {
-        console.log('INCIDENT_COUNT: ' + count);
-        if (data.length > 0) {
-            console.log('SAMPLE_INCIDENT: ' + JSON.stringify(data[0]));
-        }
-    }
+  const supabase = createClient(supabaseUrl, supabaseKey);
+  const { data, error } = await supabase
+    .from('incidents')
+    .select('id, title, latitude, longitude, location, address')
+    .order('created_at', { ascending: false })
+    .limit(5);
+
+  if (error) {
+    console.error('Error fetching incidents:', error);
+    return;
+  }
+
+  console.log('--- Last 5 Incidents Location Data ---');
+  data.forEach(inc => {
+    console.log(`ID: ${inc.id}`);
+    console.log(`Title: ${inc.title}`);
+    console.log(`Lat: ${inc.latitude}`);
+    console.log(`Lng: ${inc.longitude}`);
+    console.log(`Hex Location: ${inc.location?.substring(0, 20)}...`);
+    console.log(`Address: ${inc.address}`);
+    console.log('-----------------------------------');
+  });
 }
 
 checkIncidents();

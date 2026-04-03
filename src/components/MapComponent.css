@@ -309,7 +309,9 @@
   width: 34px;
   height: 34px;
   border-radius: 50% 50% 50% 0;
-  transform: rotate(-45deg) translateY(-20px);
+  /* Visual Fix: Removed inaccurate 20px offset. 
+     Translate -7px ensures the tip of the teardrop aligns perfectly with the coordinate. */
+  transform: rotate(-45deg) translateY(-7px);
   border: 2.5px solid rgba(255, 255, 255, 0.9);
   box-shadow:
     0 3px 10px rgba(0, 0, 0, 0.25),
@@ -328,7 +330,7 @@
 }
 
 .custom-marker:hover {
-  transform: rotate(-45deg) translateY(-24px) scale(1.12);
+  transform: rotate(-45deg) translateY(-10px) scale(1.12);
   box-shadow:
     0 6px 16px rgba(0, 0, 0, 0.3),
     0 0 0 3px rgba(255, 255, 255, 0.4);
@@ -346,7 +348,7 @@
 }
 
 .custom-marker.selected {
-  transform: rotate(-45deg) translateY(-26px) scale(1.2);
+  transform: rotate(-45deg) translateY(-12px) scale(1.2);
   border-color: #ffffff;
   box-shadow:
     0 8px 20px rgba(0, 0, 0, 0.35),

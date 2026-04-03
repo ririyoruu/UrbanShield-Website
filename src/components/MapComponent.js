@@ -31,8 +31,8 @@ const MapComponent = ({
     if (!address) return null;
 
     try {
-      // Add "Bohol, Philippines" to improve geocoding accuracy for local addresses
-      const query = `${address}, Bohol, Philippines`;
+      // Add "Tubigon, Bohol" to improve geocoding accuracy for local addresses
+      const query = `${address}, Tubigon, Bohol, Philippines`;
       const response = await fetch(
         `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=1`
       );
@@ -53,23 +53,34 @@ const MapComponent = ({
     return null;
   };
 
-  // Helper: parse PostGIS WKB hex → {lat, lng}
+  // Helper: parse PostGIS WKB hex or WKT → {lat, lng}
   const parsePostGISLocation = (hex) => {
     try {
       if (!hex || typeof hex !== 'string') return null;
+      console.log('🗺️ Parsing location data:', hex.substring(0, 30) + '...');
+
+      // Handle WKT (Well-known Text) format: POINT(lng lat)
+      if (hex.startsWith('POINT(')) {
+        const match = hex.match(/POINT\s*\(\s*([-\d.]+)\s+([-\d.]+)\s*\)/i);
+        if (match) {
+          const x = parseFloat(match[1]); // Longitude
+          const y = parseFloat(match[2]); // Latitude
+          console.log(`🗺️ Parsed WKT: lng=${x}, lat=${y}`);
+          // Philippines bounds check for auto-correction
+          if (y >= 4 && y <= 21 && x >= 116 && x <= 127) return { lat: y, lng: x };
+          if (x >= 4 && x <= 21 && y >= 116 && y <= 127) return { lat: x, lng: y };
+          return { lat: y, lng: x };
+        }
+      }
+
       const clean = hex.replace(/[^0-9A-Fa-f]/g, '');
       
-      // Determine offset based on WKB header
       let offset = -1;
-      // EWKB Point (SRID 4326): 1 byte order + 4 bytes type (with SRID flag 0x20) + 4 bytes SRID = 9 bytes = 18 hex
-      if (clean.startsWith('0101000020')) offset = 18;
-      // WKB Point: 1 byte order + 4 bytes type = 5 bytes = 10 hex
+      // Handle the different PostGIS EWKB/WKB headers
+      if (clean.includes('0101000020E6100000')) offset = clean.indexOf('0101000020E6100000') + 18;
+      else if (clean.startsWith('0101000020')) offset = 18;
       else if (clean.startsWith('0101000000')) offset = 10;
-      // Fallback for some PostGIS variations that might skip the '0101' prefix check strictly
-      else if (clean.length >= 32 + 10 && clean.includes('01010000')) {
-        const foundAt = clean.indexOf('01010000');
-        offset = foundAt + 10;
-      }
+      else if (clean.includes('01010000')) offset = clean.indexOf('01010000') + 10;
       
       if (offset < 0 || clean.length < offset + 32) return null;
       
@@ -85,9 +96,15 @@ const MapComponent = ({
       const x = readLE(clean.substring(offset, offset + 16));
       const y = readLE(clean.substring(offset + 16, offset + 32));
       
-      // Validate and return as {lat, lng}
-      if (y >= -90 && y <= 90 && x >= -180 && x <= 180) return { lat: y, lng: x };
-      if (x >= -90 && x <= 90 && y >= -180 && y <= 180) return { lat: x, lng: y };
+      // Standard WKB 4326 is Longitude (X), Latitude (Y)
+      if (y >= -90 && y <= 90 && x >= -180 && x <= 180) {
+        // Double check for Philippines bounds (~4-21 lat, ~116-127 lng)
+        if (y >= 4 && y <= 21 && x >= 116 && x <= 127) return { lat: y, lng: x };
+        // If not in PH, check if X is lat and Y is lng (sometimes swapped)
+        if (x >= 4 && x <= 21 && y >= 116 && y <= 127) return { lat: x, lng: y };
+        // Fallback to whatever is valid lat
+        return { lat: y, lng: x };
+      }
     } catch (e) {
       console.error('Map parser error:', e);
     }
@@ -96,31 +113,20 @@ const MapComponent = ({
 
   // Extract coordinates from incident (database already parses PostGIS)
   const extractCoordinates = (incident) => {
-    // 1. First check if latitude/longitude are already parsed
+    // 1. Check latitude/longitude fields (already parsed by AdminDashboard/supabase.js)
     if (incident.latitude !== undefined && incident.latitude !== null &&
         incident.longitude !== undefined && incident.longitude !== null) {
       const lat = parseFloat(incident.latitude);
       const lng = parseFloat(incident.longitude);
-      if (isFinite(lat) && isFinite(lng) && lat >= -90 && lat <= 90 && lng >= -180 && lng <= 180) {
+      if (isFinite(lat) && isFinite(lng) && lat !== 0 && lng !== 0) {
         return { lat, lng };
       }
     }
 
-    // 2. Try to parse from the 'raw_location' field (PostGIS hex) - BEST ACCURACY
-    if (incident.raw_location) {
-      const coords = parsePostGISLocation(incident.raw_location);
-      if (coords) return coords;
-    }
-
-    // 3. Try to parse from the location field (PostGIS hex)
-    if (incident.location) {
-      const coords = parsePostGISLocation(incident.location);
-      if (coords) return coords;
-    }
-
-    // 4. Try specifically from a 'coordinates' field if it exists
-    if (incident.coordinates) {
-      const coords = parsePostGISLocation(incident.coordinates);
+    // 2. Check all possible location hex fields
+    const hex = incident.raw_location || incident.location || incident.coordinates;
+    if (hex) {
+      const coords = parsePostGISLocation(hex);
       if (coords) return coords;
     }
 
@@ -130,19 +136,24 @@ const MapComponent = ({
   // Process incidents into pins
   useEffect(() => {
     const processIncidents = async () => {
-      const ONE_WEEK_MS = 7 * 24 * 60 * 60 * 1000; // 7 days in milliseconds
+      if (!incidents || incidents.length === 0) {
+        console.log('🗺️ No incidents to process in MapComponent');
+        setPins([]);
+        return;
+      }
+
+      console.log(`🗺️ Processing ${incidents.length} incidents for the map...`);
+      const ONE_WEEK_MS = 7 * 24 * 60 * 60 * 1000;
       const now = Date.now();
       
-      // Keep resolved posts for 1 week before removing from map
       const activeIncidents = incidents.filter(incident => {
-        if (incident.status !== 'resolved') {
-          return true; // Keep non-resolved incidents
-        }
-        // For resolved incidents, check if resolved within last week
-        // Use resolved_at, updated_at, or created_at as fallback
+        if (!incident) return false;
+        if (incident.status !== 'resolved') return true;
         const resolvedTime = new Date(incident.resolved_at || incident.updated_at || incident.created_at).getTime();
         return (now - resolvedTime) < ONE_WEEK_MS;
       });
+      
+      console.log(`🗺️ ${activeIncidents.length} incidents passed the 'active' filter`);
       
       // First, handle incidents with existing coordinates
       const pinsWithCoords = activeIncidents
