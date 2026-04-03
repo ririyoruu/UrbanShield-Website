@@ -288,7 +288,7 @@ const LandingPage = ({ onLoginClick, onSignupClick }) => {
                             <div className="app-buttons">
                                 <button 
                                     className="app-btn cta-primary" 
-                                    onClick={() => window.open('https://file.kiwi/a312e4f4#tQi4l-aKIhA8TYvL7GYcXw', '_blank')}
+                                    onClick={() => window.open('https://www.mediafire.com/file/3a99ie59sg5ges5/application-2d06a44d-6ec1-446d-9f90-08a92abac1f7.apk/file', '_blank')}
                                 >
                                     <Smartphone size={20} />
                                     <span>Download APK</span>
