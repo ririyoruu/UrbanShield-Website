@@ -210,7 +210,39 @@ export const superAdminService = {
   },
 
   /**
-   * Delete staff member
+   * Demote staff member to resident
+   */
+  async demoteToResident(userId) {
+    try {
+      const { error } = await supabase
+        .from('profiles')
+        .update({ 
+          user_type: 'resident',
+          is_active: true,
+          verification_status: 'verified',
+          department: null,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', userId);
+
+      if (error) throw error;
+
+      // Log audit action
+      await this.logAudit({
+        action: 'demote_staff_to_resident',
+        resource_type: 'staff',
+        resource_id: userId
+      });
+
+      return true;
+    } catch (error) {
+      console.error('Error demoting staff:', error);
+      throw error;
+    }
+  },
+
+  /**
+   * Delete staff member (Complete removal/deactivation)
    */
   async deleteStaff(userId) {
     try {

@@ -49,18 +49,20 @@ const AdminManagement = ({ initialTab = 'all', isSuperAdmin }) => {
   const [selectedStaffIds, setSelectedStaffIds] = useState(new Set());
 
   const [saving, setSaving] = useState(false);
-  const [modal, setModal] = useState({ show: false, type: 'success', title: '', message: '', onConfirm: null });
+  const [modal, setModal] = useState({ show: false, type: 'success', title: '', message: '', onConfirm: null, undoAction: null });
+  const [lastDemoted, setLastDemoted] = useState(null);
 
   /* ── Helpers ── */
   const isActive = (u) => u && u.is_active !== false;
 
-  const showFlash = (message, type = 'success', title = '') => {
+  const showFlash = (message, type = 'success', title = '', undoAction = null) => {
     setModal({
       show: true,
       type,
       title: title || (type === 'success' ? 'Completed' : type === 'error' ? 'Error' : 'Notification'),
       message,
-      onConfirm: null
+      onConfirm: null,
+      undoAction
     });
   };
 
@@ -225,19 +227,34 @@ const AdminManagement = ({ initialTab = 'all', isSuperAdmin }) => {
   const handleRemoveStaff = async (e, user) => {
     e?.stopPropagation();
     if (!window.confirm(`Are you sure you want to remove ${user.full_name} from staff? they will be demoted to a resident.`)) return;
+
+    const previousRole = user.user_type;
+
     setSaving(true);
     setUsers(prev => prev.filter(u => u.id !== user.id)); // Optimistic
     try {
-      const { error } = await supabase.from('profiles').update({
-        is_active: false,
-        verification_status: 'suspended'
-      }).eq('id', user.id);
-      if (error) throw error;
+      await superAdminService.demoteToResident(user.id);
+      
       if (selectedStaffId === user.id) setShowDetailDrawer(false);
-      showFlash(`${isResponderMode ? 'Responder' : 'Admin'} removed`);
+      
+      const handleUndo = async () => {
+        try {
+          setSaving(true);
+          await superAdminService.updateStaffRole(user.id, previousRole);
+          const roleLabel = previousRole === 'responder' ? 'Responder' : previousRole === 'super_admin' ? 'Super Admin' : 'Admin';
+          showFlash(`${user.full_name} restored as ${roleLabel}`);
+          await loadStaff(true);
+        } catch (err) {
+          showFlash('Undo failed', 'error');
+        } finally {
+          setSaving(false);
+        }
+      };
+
+      showFlash(`${isResponderMode ? 'Responder' : 'Admin'} demoted to Resident`, 'success', 'Staff Demoted', handleUndo);
       await loadStaff(true);
     } catch (err) {
-      showFlash('Removal failed', 'error');
+      showFlash('Demotion failed', 'error');
       await loadStaff();
     } finally { setSaving(false); }
   };
@@ -338,14 +355,24 @@ const AdminManagement = ({ initialTab = 'all', isSuperAdmin }) => {
             {modal.type === 'confirm' ? (
               <div className="zenith-modal-actions">
                 <button className="zenith-modal-btn cancel" onClick={() => setModal({ show: false })}>
-                  Cancel
+                  Keep them
                 </button>
                 <button className="zenith-modal-btn confirm-delete" onClick={modal.onConfirm}>
                   Proceed
                 </button>
               </div>
             ) : (
-              <button className="status-close-btn" onClick={() => setModal({ show: false })}>Done</button>
+              <div className="zenith-modal-actions" style={{ flexDirection: 'column', gap: '0.75rem' }}>
+                {modal.undoAction && (
+                  <button className="zenith-modal-btn undo-btn" onClick={() => { 
+                    modal.undoAction(); 
+                    setModal({ ...modal, show: false }); 
+                  }}>
+                    Undo Action
+                  </button>
+                )}
+                <button className="status-close-btn" onClick={() => setModal({ show: false })}>Done</button>
+              </div>
             )}
           </div>
         </div>

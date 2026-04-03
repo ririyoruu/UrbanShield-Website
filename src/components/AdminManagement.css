@@ -800,6 +800,25 @@
   box-shadow: 0 6px 16px rgba(37, 99, 235, 0.3);
 }
 
+.zenith-modal-btn.undo-btn {
+  width: 100%;
+  padding: 1rem;
+  background: #f59e0b;
+  color: #000000;
+  border: none;
+  border-radius: var(--radius);
+  font-size: 1.125rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s;
+  box-shadow: 0 4px 12px rgba(245, 158, 11, 0.2);
+}
+
+.zenith-modal-btn.undo-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(245, 158, 11, 0.3);
+}
+
 /* Error Toast at top */
 .zenith-toast-error {
   position: fixed;
