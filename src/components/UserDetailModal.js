@@ -206,6 +206,11 @@ const UserDetailModal = ({ user, isOpen, onClose, onApprove, onReject, onSuspend
     return new Date(ds).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
   };
 
+  const formatDateTime = (ds) => {
+    if (!ds) return 'N/A';
+    return new Date(ds).toLocaleString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' });
+  };
+
   const docLabels = ['National ID', 'Passport', 'Document 3', 'Document 4'];
 
   return (
@@ -261,7 +266,12 @@ const UserDetailModal = ({ user, isOpen, onClose, onApprove, onReject, onSuspend
           {/* Documents */}
           {hasDocuments ? (
             <div className="udm-doc-section">
-              <span className="udm-section-label">Documents</span>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                <span className="udm-section-label" style={{ marginBottom: 0 }}>Documents</span>
+                <span style={{ fontSize: '11px', color: '#71717a', fontWeight: 500 }}>
+                  Uploaded: {formatDateTime(user.updated_at || user.created_at)}
+                </span>
+              </div>
               <div className="udm-doc-viewer">
                 <div className="udm-doc-main">
                   <img
