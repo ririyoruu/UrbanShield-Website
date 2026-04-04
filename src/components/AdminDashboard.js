@@ -1412,7 +1412,7 @@ const AdminDashboard = ({ user, onLogout }) => {
                       <p className="zenith-chart-subtitle">Comparing reported vs resolved incidents</p>
                     </div>
                     <ResponsiveContainer width="100%" height={320}>
-                      <BarChart data={analyticsData}>
+                      <RechartsBarChart data={analyticsData}>
                         <CartesianGrid strokeDasharray="3 3" stroke={isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)'} vertical={false} />
                         <XAxis
                           dataKey="name"
@@ -1447,7 +1447,7 @@ const AdminDashboard = ({ user, onLogout }) => {
                           radius={[4, 4, 0, 0]}
                           barSize={20}
                         />
-                      </BarChart>
+                      </RechartsBarChart>
                     </ResponsiveContainer>
                   </div>
                 </div>
@@ -1495,7 +1495,7 @@ const AdminDashboard = ({ user, onLogout }) => {
                       <p className="zenith-chart-subtitle">Distribution by type</p>
                     </div>
                     <ResponsiveContainer width="100%" height={380}>
-                      <PieChart>
+                      <RechartsPieChart>
                         <Pie
                           data={incidentTypes}
                           cx="50%"
@@ -1518,7 +1518,7 @@ const AdminDashboard = ({ user, onLogout }) => {
                             fontSize: '13px'
                           }}
                         />
-                      </PieChart>
+                      </RechartsPieChart>
                     </ResponsiveContainer>
                     <div className="zenith-legend" style={{ gridTemplateColumns: 'repeat(2, 1fr)', marginTop: '1rem' }}>
                       {incidentTypes.slice(0, 8).map((entry, index) => (
