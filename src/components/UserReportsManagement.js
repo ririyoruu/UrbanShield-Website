@@ -6,8 +6,6 @@ import {
   XCircle, 
   Eye,
   RefreshCw,
-  Clock,
-  User,
   AlertTriangle,
   X
 } from 'lucide-react';
@@ -76,14 +74,8 @@ const UserReportsManagement = () => {
     });
   }, [reports, searchTerm, filterStatus, filterReason]);
 
-  const stats = useMemo(() => {
-    return {
-      pending: reports.filter(r => getStatus(r) === 'pending').length,
-      reviewed: reports.filter(r => getStatus(r) === 'reviewed').length,
-      resolved: reports.filter(r => getStatus(r) === 'resolved').length,
-      dismissed: reports.filter(r => getStatus(r) === 'dismissed').length
-    };
-  }, [reports]);
+// Stats derived from reports
+  const pendingCount = useMemo(() => reports.filter(r => getStatus(r) === 'pending').length, [reports]);
 
   const handleResolve = async (reportId, notes = null) => {
     try {

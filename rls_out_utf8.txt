@@ -1,0 +1,10 @@
+--- Checking RLS Policies for profiles ---
+✅ Anon can see profiles. Data count: 5
+Sample profiles: [
+  { id: '75761622-af1d-49c6-8c48-d3dad6941241', type: 'super_admin' },
+  { id: '4bea933e-045b-4a53-893d-3fa8b30df19c', type: 'resident' },
+  { id: '98f256b5-0bf6-4cb0-a4a5-aa06830ea34f', type: 'resident' },
+  { id: '2a717956-ce54-4c9b-8966-818125c0b752', type: 'resident' },
+  { id: '4420a132-92ac-48c7-9e59-f685ae83a623', type: 'resident' }
+]
+❌ Anon cannot insert into profiles (Normal/Expected if RLS is on). Error: insert or update on table "profiles" violates foreign key constraint "profiles_id_fkey"

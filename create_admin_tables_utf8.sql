@@ -35,4 +35,3 @@ ALTER TABLE public.admin_profiles ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "Admins manage own profile"
   ON public.admin_profiles FOR ALL
   USING (admin_id = auth.uid());
-

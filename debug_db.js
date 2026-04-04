@@ -5,8 +5,11 @@ const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS
 
 const supabase = createClient(supabaseUrl, supabaseKey);
 
-async function inspectSchema() {
-  console.log('--- Inspecting profiles table ---');
+async function debugDB() {
+  console.log('--- Debugging Database ---');
+  
+  // 1. Check profiles table
+  console.log('Checking profiles table...');
   const { data: profiles, error: profilesError } = await supabase
     .from('profiles')
     .select('*')
@@ -15,6 +18,8 @@ async function inspectSchema() {
   if (profilesError) {
     console.error('❌ Profiles Table Error:', profilesError.message);
     console.error('Code:', profilesError.code);
+    console.error('Details:', profilesError.details);
+    console.error('Hint:', profilesError.hint);
   } else {
     console.log('✅ Profiles table is accessible.');
     if (profiles && profiles.length > 0) {
@@ -24,21 +29,33 @@ async function inspectSchema() {
     }
   }
 
-  console.log('\n--- Inspecting admin_profiles table ---');
-  const { data: admins, error: adminsError } = await supabase
+  // 2. Check admin_profiles table
+  console.log('\nChecking admin_profiles table...');
+  const { data: adminProfiles, error: adminProfilesError } = await supabase
     .from('admin_profiles')
     .select('*')
     .limit(1);
 
-  if (adminsError) {
-    console.error('❌ Admin Profiles Table Error:', adminsError.message);
-    console.error('Code:', adminsError.code);
+  if (adminProfilesError) {
+    console.error('❌ Admin Profiles Table Error:', adminProfilesError.message);
+    console.error('Code:', adminProfilesError.code);
   } else {
     console.log('✅ Admin Profiles table is accessible.');
-    if (admins && admins.length > 0) {
-      console.log('Columns:', Object.keys(admins[0]).join(', '));
-    }
+  }
+
+  // 3. Check invitation_codes table
+  console.log('\nChecking invitation_codes table...');
+  const { data: invitations, error: invitationsError } = await supabase
+    .from('invitation_codes')
+    .select('*')
+    .limit(1);
+
+  if (invitationsError) {
+    console.error('❌ Invitation Codes Table Error:', invitationsError.message);
+    console.error('Code:', invitationsError.code);
+  } else {
+    console.log('✅ Invitation Codes table is accessible.');
   }
 }
 
-inspectSchema();
+debugDB();

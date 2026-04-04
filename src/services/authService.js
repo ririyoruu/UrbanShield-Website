@@ -1,4 +1,4 @@
-import { supabase, invitationService } from '../config/supabase';
+import { supabase } from '../config/supabase';
 
 export const authService = {
   // Sign up new user
@@ -253,7 +253,6 @@ export const authService = {
 
       // ADMIN-ONLY CHECK: Verify user has admin access
       if (data.user) {
-        console.log('🔍 Checking admin permissions for user:', data.user.id);
         
         // Wait a moment for auth session to fully establish
         await new Promise(resolve => setTimeout(resolve, 100));
@@ -268,13 +267,7 @@ export const authService = {
           console.log('Profile fetch result:', { userProfile, profileError });
 
           if (profileError) {
-            console.error('❌ Failed to fetch user profile:', profileError);
-            console.error('Error details:', {
-              code: profileError.code,
-              message: profileError.message,
-              details: profileError.details,
-              hint: profileError.hint
-            });
+            console.error('❌ Database error during profile fetch:', profileError);
             
             // If profile doesn't exist (PGRST116), create it
             if (profileError.code === 'PGRST116') {
@@ -295,16 +288,22 @@ export const authService = {
               if (createError) {
                 console.error('❌ Failed to create profile:', createError);
                 await supabase.auth.signOut();
-                throw new Error('Unable to create user profile. Please run the database setup SQL first.');
+                throw new Error(`Unable to create user profile. DB Error: ${createError.message}`);
               }
               
               console.log('✅ Profile created:', newProfile);
-              return data; // Allow login with new admin profile
+              return data; 
+            } else {
+              // For other database errors (like Permission Denied)
+              await supabase.auth.signOut();
+              throw new Error(`Unable to verify account permissions. DB Error: ${profileError.message}`);
             }
-            
-            // For other errors, sign out and show error
+          }
+
+          if (!userProfile) {
+            console.error('❌ No user profile found after successful login.');
             await supabase.auth.signOut();
-            throw new Error('Unable to verify account permissions. Please ensure the database setup SQL has been run.');
+            throw new Error('User profile missing. Please contact support.');
           }
 
           // CRITICAL: Only allow admin OR super_admin users to login to the website
@@ -405,7 +404,7 @@ export const authService = {
           return { ...user, profile };
         } catch (profileError) {
           console.error('Profile fetch error:', profileError);
-          return { ...user, profile: null };
+          return null;
         }
       }
       

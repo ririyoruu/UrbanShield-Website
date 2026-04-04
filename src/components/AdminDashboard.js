@@ -1,33 +1,48 @@
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { useTheme } from '../contexts/ThemeContext';
 import {
-  AlertTriangle,
   Users,
-  Shield,
-  LayoutDashboard,
-  ChevronRight,
-  MapPin,
-  Clock,
-  CheckCircle,
-  Eye,
-  Search,
+  Map,
+  Settings as SettingsIcon,
   Bell,
+  Search,
+  ChevronRight,
+  LogOut,
+  LayoutDashboard,
+  Shield,
+  ShieldAlert,
+  ShieldCheck,
+  Filter,
+  CheckCircle,
+  XCircle,
+  AlertCircle,
+  AlertTriangle,
+  Clock,
+  PieChart,
+  BarChart,
+  Activity,
+  ArrowUp,
+  ArrowDown,
+  TrendingUp,
+  MoreVertical,
+  Calendar,
+  Layers,
+  MapPin,
+  RefreshCw,
+  Plus,
   Menu,
   X,
   User,
   UserCheck,
   FileText,
   Megaphone,
-  Settings as SettingsIcon,
   Mail,
   Moon,
   Sun,
-  LogOut,
   Volume2,
-  VolumeX,
-  Activity
+  VolumeX
 } from 'lucide-react';
-import { AreaChart, Area, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar, PieChart, Pie, Cell } from 'recharts';
+import { AreaChart, Area, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart as RechartsBarChart, Bar, PieChart as RechartsPieChart, Pie, Cell } from 'recharts';
 import MapComponent from './MapComponent';
 import { adminService, supabase } from '../config/supabase';
 import InvitationManager from './InvitationManager';
@@ -52,7 +67,7 @@ const AdminDashboard = ({ user, onLogout }) => {
     setActiveTab(tab);
   };
   const [reports, setReports] = useState([]);
-  const [filterStatus, setFilterStatus] = useState('open');
+  const [filterStatus] = useState('all');
   const [searchTerm, setSearchTerm] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
