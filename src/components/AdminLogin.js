@@ -31,6 +31,10 @@ const AdminLogin = ({ onLogin, onSignup, initialView = 'login' }) => {
     const [showPassword, setShowPassword] = useState(false);
     const [loginLoading, setLoginLoading] = useState(false);
     const [loginError, setLoginError] = useState('');
+    const [loginAttempts, setLoginAttempts] = useState(0);
+    const [lockoutTime, setLockoutTime] = useState(0);
+    const MAX_ATTEMPTS = 5;
+    const LOCKOUT_DURATION = 30; // seconds
 
     /* ── Signup state ── */
     const [signupData, setSignupData] = useState({
@@ -57,12 +61,45 @@ const AdminLogin = ({ onLogin, onSignup, initialView = 'login' }) => {
     const [resetLoading, setResetLoading] = useState(false);
     const [resetError, setResetError] = useState('');
 
+    /* ── Lockout Timer ── */
+    React.useEffect(() => {
+        let timer;
+        if (lockoutTime > 0) {
+            timer = setInterval(() => {
+                setLockoutTime(prev => prev - 1);
+            }, 1000);
+        } else if (lockoutTime === 0 && loginAttempts >= MAX_ATTEMPTS) {
+            setLoginAttempts(0);
+        }
+        return () => clearInterval(timer);
+    }, [lockoutTime, loginAttempts]);
+
     /* ────── Login ────── */
     const handleLogin = async (e) => {
         e.preventDefault();
+        
+        if (lockoutTime > 0) {
+            setLoginError(`Too many failed attempts. Please try again in ${lockoutTime} seconds.`);
+            return;
+        }
+
         setLoginLoading(true); setLoginError('');
         const result = await onLogin(loginData.email, loginData.password);
-        if (!result.success) setLoginError(result.error || 'Login failed');
+        
+        if (!result.success) {
+            const newAttempts = loginAttempts + 1;
+            setLoginAttempts(newAttempts);
+            
+            if (newAttempts >= MAX_ATTEMPTS) {
+                setLockoutTime(LOCKOUT_DURATION);
+                setLoginError(`Too many failed attempts. Access locked for ${LOCKOUT_DURATION} seconds.`);
+            } else {
+                setLoginError(`${result.error || 'Login failed'}. (${MAX_ATTEMPTS - newAttempts} attempts remaining)`);
+            }
+        } else {
+            setLoginAttempts(0);
+            setLockoutTime(0);
+        }
         setLoginLoading(false);
     };
 
@@ -221,8 +258,13 @@ const AdminLogin = ({ onLogin, onSignup, initialView = 'login' }) => {
                                 </div>
                             </div>
 
-                            <button type="submit" className="al-btn-primary" disabled={loginLoading}>
-                                {loginLoading ? <span className="al-spinner" /> : 'Sign In with Email'}
+                            <button 
+                                type="submit" 
+                                className={`al-btn-primary ${lockoutTime > 0 ? 'disabled' : ''}`} 
+                                disabled={loginLoading || lockoutTime > 0}
+                            >
+                                {loginLoading ? <span className="al-spinner" /> : 
+                                 lockoutTime > 0 ? `Locked (${lockoutTime}s)` : 'Sign In with Email'}
                             </button>
                         </form>
 
