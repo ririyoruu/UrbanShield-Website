@@ -1625,7 +1625,7 @@ const AdminDashboard = ({ user, onLogout }) => {
           )}
 
           {activeTab === 'announcements' && (
-            <AnnouncementsManagement />
+            <AnnouncementsManagement user={user} />
           )}
 
           {activeTab === 'reports' && (

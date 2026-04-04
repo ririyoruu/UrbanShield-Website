@@ -6,6 +6,7 @@ import {
   Trash2,
   X,
   Clock,
+  User,
   AlertTriangle,
   CheckCircle,
   Loader2,
@@ -20,11 +21,11 @@ import './AnnouncementsManagement.css';
 
 const ALERT_LEVEL_CONFIG = {
   critical: { label: 'Critical', color: '#dc2626', bg: '#fef2f2', border: '#fecaca', dot: '🔴' },
-  warning:  { label: 'Warning',  color: '#f59e0b', bg: '#fffbeb', border: '#fde68a', dot: '🟡' },
-  info:     { label: 'Info',     color: '#2563eb', bg: '#eff6ff', border: '#bfdbfe', dot: '🔵' },
-  notice:   { label: 'Notice',   color: '#475569', bg: '#f8fafc', border: '#e2e8f0', dot: '⚫' },
+  warning: { label: 'Warning', color: '#f59e0b', bg: '#fffbeb', border: '#fde68a', dot: '🟡' },
+  info: { label: 'Info', color: '#2563eb', bg: '#eff6ff', border: '#bfdbfe', dot: '🔵' },
+  notice: { label: 'Notice', color: '#475569', bg: '#f8fafc', border: '#e2e8f0', dot: '⚫' },
 };
- 
+
 const emptyForm = {
   alert_level: 'info',
   alert_type: '',
@@ -34,7 +35,7 @@ const emptyForm = {
   action_items: [''],
 };
 
-const AnnouncementsManagement = () => {
+const AnnouncementsManagement = ({ user }) => {
   const [announcements, setAnnouncements] = useState([]);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [editing, setEditing] = useState(null);
@@ -88,7 +89,13 @@ const AnnouncementsManagement = () => {
     setLoading(true);
     setError('');
     try {
-      const payload = { ...formData, action_items: formData.action_items.filter(i => i.trim()) };
+      // 🛠️ include user's department for immediate UI feedback
+      const payload = { 
+        ...formData, 
+        action_items: formData.action_items.filter(i => i.trim()),
+        author_department: user?.department || 'URBANSHIELD HUB'
+      };
+
       if (editing) {
         const updated = await adminService.updateAnnouncement(editing, payload);
         const updatedData = updated.data || updated;
@@ -96,7 +103,13 @@ const AnnouncementsManagement = () => {
       } else {
         const result = await adminService.createAnnouncement(payload);
         const createdData = result.data || result;
-        setAnnouncements(prev => [createdData, ...prev]);
+        // Ensure the new card has the author info for immediate display
+        const enrichedData = {
+          ...createdData,
+          author_name: user?.full_name || 'System Administrator',
+          author_department: user?.department || 'URBANSHIELD HUB'
+        };
+        setAnnouncements(prev => [enrichedData, ...prev]);
       }
       
       loadAnnouncements();
@@ -189,7 +202,10 @@ const AnnouncementsManagement = () => {
                         {cfg.dot} {cfg.label}
                       </span>
                       {ann.alert_type && (
-                        <span className="ann-type-badge"><Tag size={10} /> {ann.alert_type}</span>
+                        <span className="ann-type-badge">
+                          <Tag size={10} /> 
+                          {ann.alert_type.includes('|') ? ann.alert_type.split('|')[0] : ann.alert_type}
+                        </span>
                       )}
                     </div>
                     <div className="ann-card-actions">
@@ -200,6 +216,12 @@ const AnnouncementsManagement = () => {
                         <Trash2 size={14} />
                       </button>
                     </div>
+                  </div>
+
+                  <div className="ann-card-eyebrow">
+                    <span className="ann-dept-badge">
+                      <Megaphone size={10} /> {ann.author_department}
+                    </span>
                   </div>
 
                   <h4 className="ann-card-title">{ann.title}</h4>
@@ -309,7 +331,7 @@ const AnnouncementsManagement = () => {
                   value={formData.areas} onChange={e => setFormData({ ...formData, areas: e.target.value })}
                   disabled={loading} />
               </div>
- 
+
               {/* 6. Action Items */}
               <div className="ann-field">
                 <label>Action Items</label>

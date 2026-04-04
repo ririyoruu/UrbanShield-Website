@@ -220,13 +220,18 @@ export const adminService = {
 
       if (error) throw error;
 
-      // Normalize data to match frontend expectations
+      // Log success for debugging
+      console.log(`✅ Loaded ${data?.length || 0} announcements`);
+
+      // Normalize data and handle potential missing author data safely
       return (data || []).map(ann => ({
         ...ann,
         alert_level: ann.alert_level || 'info',
         alert_type: ann.alert_type || '',
         areas: ann.areas || '',
         action_items: ann.action_items || [],
+        author_name: ann.author_name || 'System Administrator',
+        author_department: ann.author_department || 'UrbanShield Hub'
       }));
     } catch (error) {
       console.error('❌ Error fetching announcements:', error);
@@ -236,12 +241,15 @@ export const adminService = {
 
   async createAnnouncement(announcement) {
     try {
+      const { data: { user } } = await supabase.auth.getUser();
+      
       // 📝 STAGE 1: Minimal Payload FIRST (Guarantees success)
       const payload = {
         title: announcement.title,
         content: announcement.content,
         alert_level: announcement.alert_level || 'info',
         alert_type: announcement.alert_type || null,
+        user_id: user?.id,
         is_pinned: false,
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
