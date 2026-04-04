@@ -135,39 +135,9 @@ export const authService = {
           
           if (useError) {
             console.error('Failed to mark invitation as used:', useError);
-            // Don't throw error here - user was created successfully
+            // Non-fatal: user was created successfully
           } else {
             console.log('Invitation code marked as used successfully');
-          }
-
-          // Step 6: Always create admin_profiles entry for every admin signup
-          console.log('Step 6: Creating admin_profiles entry...');
-          try {
-            const { data: adminProfile, error: adminProfileError } = await supabase
-              .from('admin_profiles')
-              .upsert({
-                admin_id: data.user.id,
-                email: email,
-                full_name: userData.name,
-                department: userData.department || null,
-                position: userData.position || 'Administrator',
-                phone: userData.phone || null,
-                created_at: new Date().toISOString(),
-                updated_at: new Date().toISOString()
-              }, { onConflict: 'admin_id' })
-              .select()
-              .single();
-            
-            console.log('Admin profile creation result:', { adminProfile, adminProfileError });
-            
-            if (adminProfileError) {
-              console.warn('⚠️ Failed to create admin_profiles entry (non-fatal):', adminProfileError.message);
-              // Non-fatal: admin can still access system via profiles table
-            } else {
-              console.log('✅ Admin profile created in admin_profiles table successfully');
-            }
-          } catch (adminError) {
-            console.warn('⚠️ Admin profile creation error (non-fatal):', adminError);
           }
         } catch (profileError) {
           console.error('Profile creation failed:', profileError);

@@ -1355,9 +1355,9 @@ export const adminService = {
     try {
       console.log('Fetching admin profile for:', adminId);
       const { data, error } = await supabase
-        .from('admin_profiles')
+        .from('profiles')
         .select('*')
-        .eq('admin_id', adminId)
+        .eq('id', adminId)
         .single();
 
       if (error && error.code !== 'PGRST116') {
@@ -1377,12 +1377,12 @@ export const adminService = {
       console.log('Updating admin profile:', { adminId, profileData });
 
       const { data, error } = await supabase
-        .from('admin_profiles')
-        .upsert({
-          admin_id: adminId,
+        .from('profiles')
+        .update({
           ...profileData,
           updated_at: new Date().toISOString()
         })
+        .eq('id', adminId)
         .select()
         .single();
 
@@ -1420,7 +1420,7 @@ export const adminService = {
 
   async updateUserEmailInAllTables(userId, newEmail, otherData = {}) {
     try {
-      console.log('Updating email across all tables:', { userId, newEmail, otherData });
+      console.log('Updating user email:', { userId, newEmail, otherData });
 
       // Get current email before updating
       const { data: currentProfile } = await supabase
@@ -1431,11 +1431,13 @@ export const adminService = {
 
       const oldEmail = currentProfile?.email;
 
-      // Prepare data for profiles table (only basic fields)
+      // Prepare data for profiles table (all-in-one source of truth)
       const profileUpdateData = {
         email: newEmail,
         full_name: otherData.full_name,
         phone: otherData.phone_number,
+        department: otherData.department,
+        position: otherData.position,
         updated_at: new Date().toISOString()
       };
 
@@ -1452,41 +1454,15 @@ export const adminService = {
         throw profileError;
       }
 
-      // Prepare data for admin_profiles table (includes department and position)
-      const adminUpdateData = {
-        email: newEmail,
-        full_name: otherData.full_name,
-        phone: otherData.phone_number,
-        department: otherData.department,
-        position: otherData.position,
-        updated_at: new Date().toISOString()
-      };
-
-      // Update in admin_profiles table if it exists
-      const { data: adminData, error: adminError } = await supabase
-        .from('admin_profiles')
-        .upsert({
-          admin_id: userId,
-          ...adminUpdateData
-        })
-        .select()
-        .single();
-
-      if (adminError && adminError.code !== 'PGRST116') {
-        console.error('Error updating admin_profiles table:', adminError);
-        // Don't throw error here as admin_profiles might not exist for all users
-      }
-
       // Log the email change for security purposes
       if (oldEmail && oldEmail !== newEmail) {
         console.log(`Email changed for user ${userId}: ${oldEmail} -> ${newEmail}`);
-        // You could also store this in a separate audit log table if needed
       }
 
-      console.log('Email updated successfully in all tables');
-      return { profileData, adminData };
+      console.log('User info updated successfully in profiles table');
+      return { profileData, adminData: profileData }; // adminData is now the same as profileData
     } catch (error) {
-      console.error('Error updating email in all tables:', error);
+      console.error('Error updating user info:', error);
       throw error;
     }
   },
@@ -1530,18 +1506,13 @@ export const adminService = {
 
   async uploadAvatar(adminId, formData) {
     try {
-      console.log('Uploading avatar for admin:', adminId);
-
-      // For now, we'll simulate the upload process
-      // In a real implementation, you would upload to Supabase Storage
+      console.log('Uploading avatar for user:', adminId);
       const file = formData.get('avatar');
-      const fileName = `admin-${adminId}-${Date.now()}.${file.name.split('.').pop()}`;
-
-      // Simulate upload success
+      const fileName = `user-${adminId}-${Date.now()}.${file.name.split('.').pop()}`;
       const avatarUrl = `https://example.com/avatars/${fileName}`;
 
-      // Update the profile with the new avatar URL
-      await this.updateAdminProfile(adminId, { avatar_url: avatarUrl });
+      // Update the profile directly
+      await this.updateUserProfile(adminId, { avatar_url: avatarUrl });
 
       return {
         success: true,
@@ -1556,15 +1527,15 @@ export const adminService = {
 
   async updateSecuritySettings(adminId, settings) {
     try {
-      console.log('Updating security settings for admin:', adminId, settings);
+      console.log('Updating security settings for user:', adminId, settings);
 
       const { data, error } = await supabase
-        .from('admin_profiles')
+        .from('profiles')
         .update({
           security: settings,
           updated_at: new Date().toISOString()
         })
-        .eq('admin_id', adminId)
+        .eq('id', adminId)
         .select()
         .single();
 
@@ -1579,13 +1550,13 @@ export const adminService = {
 
   async toggleTwoFactor(adminId, enabled) {
     try {
-      console.log('Toggling two-factor for admin:', adminId, enabled);
+      console.log('Toggling two-factor for user:', adminId, enabled);
 
       // Get current security settings
       const { data: profile, error: fetchError } = await supabase
-        .from('admin_profiles')
+        .from('profiles')
         .select('security')
-        .eq('admin_id', adminId)
+        .eq('id', adminId)
         .single();
 
       if (fetchError && fetchError.code !== 'PGRST116') {
@@ -1599,12 +1570,12 @@ export const adminService = {
       };
 
       const { data, error } = await supabase
-        .from('admin_profiles')
-        .upsert({
-          admin_id: adminId,
+        .from('profiles')
+        .update({
           security: updatedSecurity,
           updated_at: new Date().toISOString()
         })
+        .eq('id', adminId)
         .select()
         .single();
 
