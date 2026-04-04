@@ -72,12 +72,12 @@ const AdminLogin = ({ onLogin, onSignup, initialView = 'login' }) => {
         setSignupError(''); setSignupSuccess('');
         if (!signupData.termsAccepted) return setSignupError('You must accept the Terms and Conditions');
         if (signupData.password !== signupData.confirmPassword) return setSignupError('Passwords do not match');
-        
+
         const pwdErrors = validatePassword(signupData.password);
         if (pwdErrors.length > 0) return setSignupError(`Password must contain ${pwdErrors.join(', ')}`);
-        
+
         if (!signupData.invitationCode.trim()) return setSignupError('Invitation code is required');
-        
+
         setSignupLoading(true);
         const result = await onSignup(signupData.email, signupData.password, {
             name: signupData.name, userType: 'admin', invitationCode: signupData.invitationCode
@@ -120,7 +120,7 @@ const AdminLogin = ({ onLogin, onSignup, initialView = 'login' }) => {
             setInvitationStatus('empty');
             return;
         }
-        
+
         setInvitationStatus('checking');
         try {
             const { data, error } = await supabase
@@ -130,7 +130,7 @@ const AdminLogin = ({ onLogin, onSignup, initialView = 'login' }) => {
                 .eq('is_used', false)
                 .gt('expires_at', new Date().toISOString())
                 .single();
-            
+
             if (error || !data) {
                 setInvitationStatus('invalid');
             } else {
@@ -145,11 +145,11 @@ const AdminLogin = ({ onLogin, onSignup, initialView = 'login' }) => {
     const handleInvitationChange = (e) => {
         const value = e.target.value;
         setSignupData({ ...signupData, invitationCode: value });
-        
+
         if (invitationTimeoutRef.current) {
             clearTimeout(invitationTimeoutRef.current);
         }
-        
+
         invitationTimeoutRef.current = setTimeout(() => {
             checkInvitationCode(value);
         }, 500);
@@ -265,7 +265,7 @@ const AdminLogin = ({ onLogin, onSignup, initialView = 'login' }) => {
                             <div className="al-field">
                                 <label>Password <span className="al-required">*</span></label>
                                 <div className="al-input-wrap">
-                                    <input type={showSignupPassword ? 'text' : 'password'} required 
+                                    <input type={showSignupPassword ? 'text' : 'password'} required
                                         placeholder="Min. 8 chars, uppercase, lowercase, number, special char"
                                         value={signupData.password}
                                         onChange={e => {
@@ -327,10 +327,10 @@ const AdminLogin = ({ onLogin, onSignup, initialView = 'login' }) => {
                                 </label>
                             </div>
 
-                            <button type="submit" className="al-btn-primary" 
+                            <button type="submit" className="al-btn-primary"
                                 disabled={
-                                    signupLoading || 
-                                    passwordErrors.length > 0 || 
+                                    signupLoading ||
+                                    passwordErrors.length > 0 ||
                                     signupData.password !== signupData.confirmPassword ||
                                     !signupData.password ||
                                     !signupData.termsAccepted

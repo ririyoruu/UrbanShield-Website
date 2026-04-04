@@ -57,7 +57,7 @@ const AdminManagement = ({ initialTab = 'all', isSuperAdmin }) => {
   const [saving, setSaving] = useState(false);
   const [modal, setModal] = useState({ show: false, type: 'success', title: '', message: '', onConfirm: null, undoAction: null });
   const [lastDemoted, setLastDemoted] = useState(null);
-  const [resetModal, setResetModal] = useState({ isOpen: false, email: '', generatedPass: null });
+  const [resetModal, setResetModal] = useState({ isOpen: false, email: '', userId: null, generatedPass: null });
 
   /* ── Helpers ── */
   const isActive = (u) => u && u.is_active !== false;
@@ -379,15 +379,15 @@ const AdminManagement = ({ initialTab = 'all', isSuperAdmin }) => {
     showFlash("Generated a secure password for you.", "success", "Password Generated");
   };
 
-  const handleResetPassword = async (email) => {
-    if (!email) return;
+  const handleResetPassword = async (user) => {
+    if (!user || !user.email) return;
 
     // Open confirmation modal first
-    setResetModal({ isOpen: true, email, generatedPass: null });
+    setResetModal({ isOpen: true, email: user.email, userId: user.id, generatedPass: null });
   };
 
   const confirmResetPassword = async () => {
-    const { email } = resetModal;
+    const { email, userId } = resetModal;
 
     // Generate secure password
     const chars = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*';
@@ -398,7 +398,7 @@ const AdminManagement = ({ initialTab = 'all', isSuperAdmin }) => {
 
     setSaving(true);
     try {
-      await superAdminService.resetUserPassword(email, generated);
+      await superAdminService.resetUserPassword(email, generated, userId);
 
       // Update modal to show the generated password
       setResetModal(prev => ({ ...prev, generatedPass: generated }));
@@ -806,7 +806,7 @@ const AdminManagement = ({ initialTab = 'all', isSuperAdmin }) => {
                     ) : null}
 
                     {isSuperAdmin && (
-                      <button type="button" className="reset-pass-btn-zenith" onClick={() => handleResetPassword(selectedStaff.email)}>
+                      <button type="button" className="reset-pass-btn-zenith" onClick={() => handleResetPassword(selectedStaff)}>
                         <Key size={16} /> Reset Password
                       </button>
                     )}

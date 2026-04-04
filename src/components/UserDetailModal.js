@@ -40,7 +40,7 @@ const UserDetailModal = ({ user, isOpen, onClose, onApprove, onReject, onSuspend
     department: ''
   });
   const [saving, setSaving] = useState(false);
-  const [resetModal, setResetModal] = useState({ isOpen: false, email: '', generatedPass: null });
+  const [resetModal, setResetModal] = useState({ isOpen: false, email: '', userId: null, generatedPass: null });
   const [resolvedDocuments, setResolvedDocuments] = useState([]);
 
   useEffect(() => {
@@ -173,7 +173,7 @@ const UserDetailModal = ({ user, isOpen, onClose, onApprove, onReject, onSuspend
   };
 
   const confirmResetPassword = async () => {
-    const { email } = resetModal;
+    const { email, userId } = resetModal;
     
     const chars = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*';
     let generated = '';
@@ -183,7 +183,7 @@ const UserDetailModal = ({ user, isOpen, onClose, onApprove, onReject, onSuspend
 
     setSaving(true);
     try {
-      await superAdminService.resetUserPassword(email, generated);
+      await superAdminService.resetUserPassword(email, generated, userId || user.id);
       
       setResetModal(prev => ({ ...prev, generatedPass: generated }));
       

@@ -276,10 +276,10 @@ export const superAdminService = {
   /**
    * Reset any user's password (super admin only)
    */
-  async resetUserPassword(email, newPassword) {
+  async resetUserPassword(email, newPassword, userId = null) {
     try {
       const { data, error } = await supabase.functions.invoke('reset-admin-password', {
-        body: { email, newPassword }
+        body: { email, newPassword, userId }
       });
 
       if (error || (data && !data.success)) {
@@ -290,7 +290,7 @@ export const superAdminService = {
       await this.logAudit({
         action: 'reset_user_password',
         resource_type: 'user',
-        resource_id: null,
+        resource_id: userId,
         details: { email }
       });
 
