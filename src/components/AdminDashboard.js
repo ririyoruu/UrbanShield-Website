@@ -1001,12 +1001,12 @@ const AdminDashboard = ({ user, onLogout }) => {
   const handleRevertReport = async (reportId) => {
     try {
       setLoading(true);
-      await adminService.updateReportStatus(reportId, 'pending', 'Status reverted to pending');
+      await adminService.updateReportStatus(reportId, 'open', 'Incident reverted back to open');
 
       // Optimistic update
       setReports(prev => prev.map(r => r.id === reportId ? {
         ...r,
-        status: 'pending',
+        status: 'open',
         status_updated_by_name: null,
         dispatched_departments: [],
         assigned_responders: [],
@@ -1014,7 +1014,7 @@ const AdminDashboard = ({ user, onLogout }) => {
         assigned_officer_id: null
       } : r));
 
-      await handleIncidentStatusChange(reportId, 'pending');
+      await handleIncidentStatusChange(reportId, 'open');
     } catch (err) {
       setError('Failed to revert report');
     } finally {
@@ -1717,7 +1717,7 @@ const AdminDashboard = ({ user, onLogout }) => {
         onStartAction={handleStartAction}
         onMarkResolved={handleMarkResolved}
         onMarkDuplicate={handleMarkDuplicate}
-        onRevertPending={handleRevertReport}
+        onRevertOpen={handleRevertReport}
         onAssignResponder={handleAssignResponder}
         onDeleteReport={handleDeleteReport}
         isSuperAdmin={isSuperAdmin}
