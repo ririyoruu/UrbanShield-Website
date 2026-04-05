@@ -41,7 +41,7 @@ const AdminManagement = ({ initialTab = 'all', isSuperAdmin }) => {
 
   const [showAddDrawer, setShowAddDrawer] = useState(false);
   const [addFormData, setAddFormData] = useState({
-    email: '', password: '', full_name: '', username: '', phone: '', department: '', user_type: 'admin',
+    email: '', password: '', full_name: '', username: '', phone: '', department: 'BFP', user_type: 'admin',
   });
   const [showPassword, setShowPassword] = useState(false);
 
@@ -178,7 +178,7 @@ const AdminManagement = ({ initialTab = 'all', isSuperAdmin }) => {
       full_name: user.full_name || '',
       username: user.username || '',
       phone: user.phone || '',
-      department: user.department || '',
+      department: user.department || 'BFP',
       user_type: user.user_type || 'admin',
     });
     setIsEditMode(false);
@@ -373,7 +373,7 @@ const AdminManagement = ({ initialTab = 'all', isSuperAdmin }) => {
         phone: digitsOnly
       });
       setShowAddDrawer(false);
-      setAddFormData({ email: '', password: '', full_name: '', username: '', phone: '', department: '', user_type: 'admin' });
+      setAddFormData({ email: '', password: '', full_name: '', username: '', phone: '', department: 'BFP', user_type: 'admin' });
       setAddUsernameError('');
       showFlash(`${isResponderMode ? 'Responder' : 'Admin'} added`);
       await loadStaff();
@@ -742,7 +742,6 @@ const AdminManagement = ({ initialTab = 'all', isSuperAdmin }) => {
                       <label>Department</label>
                       {isEditMode ? (
                         <select value={detailFormData.department} onChange={e => setDetailFormData({ ...detailFormData, department: e.target.value })}>
-                          <option value="">None</option>
                           <option value="BFP">BFP (Fire Station)</option>
                           <option value="PNP">PNP (Police Station)</option>
                           <option value="MHO">MHO (Health Office)</option>
@@ -953,7 +952,6 @@ const AdminManagement = ({ initialTab = 'all', isSuperAdmin }) => {
                   <div className="form-item">
                     <label>Department</label>
                     <select value={addFormData.department} onChange={e => setAddFormData({ ...addFormData, department: e.target.value })}>
-                      <option value="">None</option>
                       <option value="BFP">BFP (Fire Station)</option>
                       <option value="PNP">PNP (Police Station)</option>
                       <option value="MHO">MHO (Health Office)</option>

@@ -181,12 +181,18 @@ export const superAdminService = {
       
       const updateData = {
         full_name,
-        username,
-        phone,
-        department,
         user_type,
         updated_at: new Date().toISOString()
       };
+
+      if (username) updateData.username = username;
+      else updateData.username = null;
+
+      if (phone) updateData.phone = phone;
+      else updateData.phone = null;
+
+      if (department) updateData.department = department;
+      else updateData.department = null;
 
       const { error } = await supabase
         .from('profiles')
