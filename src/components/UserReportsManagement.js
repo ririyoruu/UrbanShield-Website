@@ -139,6 +139,33 @@ const UserReportsManagement = () => {
     }
   };
 
+  const handleToggleVisibility = async () => {
+    if (!selectedReport || !selectedReport.incident_id) return;
+    try {
+      setSaving(true);
+      const isHidden = selectedReport.incident?.is_flagged;
+      if (isHidden) {
+        await adminService.unhideIncident(selectedReport.incident_id);
+      } else {
+        await adminService.hideIncident(selectedReport.incident_id);
+      }
+      
+      // Update local state immediately
+      setSelectedReport({
+        ...selectedReport,
+        incident: {
+          ...selectedReport.incident,
+          is_flagged: !isHidden
+        }
+      });
+      await loadReports();
+    } catch (error) {
+      console.error('Error toggling visibility:', error);
+    } finally {
+      setSaving(false);
+    }
+  };
+
   return (
     <div className="user-reports-management">
       <div className="reports-filters">
@@ -404,7 +431,7 @@ const UserReportsManagement = () => {
                     }}
                   >
                     <CheckCircle size={16} style={{ display: 'inline', marginRight: '8px' }} />
-                    Resolve
+                    Resolve (Hide Post)
                   </button>
                   <button
                     onClick={handleDismissWithNotes}
@@ -422,7 +449,25 @@ const UserReportsManagement = () => {
                     }}
                   >
                     <XCircle size={16} style={{ display: 'inline', marginRight: '8px' }} />
-                    Dismiss
+                    Dismiss (Unhide Post)
+                  </button>
+                  <button
+                    onClick={handleToggleVisibility}
+                    disabled={saving}
+                    style={{
+                      flex: 1,
+                      padding: '0.75rem 1.5rem',
+                      background: selectedReport.incident?.is_flagged ? '#3b82f6' : '#f59e0b',
+                      color: 'white',
+                      border: 'none',
+                      borderRadius: '8px',
+                      cursor: saving ? 'not-allowed' : 'pointer',
+                      fontWeight: '600',
+                      opacity: saving ? 0.5 : 1
+                    }}
+                  >
+                    <Eye size={16} style={{ display: 'inline', marginRight: '8px' }} />
+                    {selectedReport.incident?.is_flagged ? 'Unhide Post' : 'Hide Post'}
                   </button>
                 </div>
               )}

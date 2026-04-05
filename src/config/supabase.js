@@ -784,12 +784,60 @@ export const adminService = {
         .from('reports')
         .update(updateData)
         .eq('id', reportId)
+        .select()
+        .single();
 
+      if (error) {
+        console.error('Database error updating report status:', error);
+        throw error;
+      }
 
-      if (error) throw error;
-      return data[0];
+      // If resolving, hide the post. If dismissing, unhide the post.
+      if (data && data.incident_id) {
+        if (status === 'resolved') {
+          await this.hideIncident(data.incident_id);
+        } else if (status === 'dismissed') {
+          await this.unhideIncident(data.incident_id);
+        }
+      }
+
+      return data;
     } catch (error) {
       console.error('Error updating user report status:', error);
+      throw error;
+    }
+  },
+
+  async hideIncident(incidentId) {
+    try {
+      const { data, error } = await supabase
+        .from('incidents')
+        .update({ is_flagged: true, updated_at: new Date().toISOString() })
+        .eq('id', incidentId)
+        .select()
+        .single();
+      
+      if (error) throw error;
+      return data;
+    } catch (error) {
+      console.error('Error hiding incident:', error);
+      throw error;
+    }
+  },
+
+  async unhideIncident(incidentId) {
+    try {
+      const { data, error } = await supabase
+        .from('incidents')
+        .update({ is_flagged: false, updated_at: new Date().toISOString() })
+        .eq('id', incidentId)
+        .select()
+        .single();
+      
+      if (error) throw error;
+      return data;
+    } catch (error) {
+      console.error('Error unhiding incident:', error);
       throw error;
     }
   },

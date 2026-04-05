@@ -40,7 +40,8 @@ import {
   Moon,
   Sun,
   Volume2,
-  VolumeX
+  VolumeX,
+  Flag
 } from 'lucide-react';
 import { AreaChart, Area, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart as RechartsBarChart, Bar, PieChart as RechartsPieChart, Pie, Cell } from 'recharts';
 import MapComponent from './MapComponent';
@@ -1152,6 +1153,11 @@ const AdminDashboard = ({ user, onLogout }) => {
             {notificationCount > 0 && (
               <span className="sidebar-badge">{notificationCount}</span>
             )}
+          </button>
+          <button className={`nav-item ${activeTab === 'reports' ? 'active' : ''}`} onClick={() => handleTabChange('reports')}>
+            <div className="nav-item-content">
+              <Flag size={18} /><span>Reported Posts</span>
+            </div>
           </button>
           <div className="sidebar-group">
             <button
