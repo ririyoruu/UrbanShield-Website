@@ -61,6 +61,7 @@ import './ZenithDashboard.css';
 const AdminDashboard = ({ user, onLogout }) => {
   const { isDark, toggleTheme } = useTheme();
   const [activeTab, setActiveTab] = useState('map');
+  const isAlreadyViewed = (id) => viewedNotifications instanceof Set ? viewedNotifications.has(id) : viewedNotifications?.includes?.(id);
 
   const handleTabChange = (tab) => {
     console.log('Tab changing from', activeTab, 'to', tab);
@@ -90,7 +91,7 @@ const AdminDashboard = ({ user, onLogout }) => {
   const [showNotifications, setShowNotifications] = useState(false);
   const [viewedNotifications, setViewedNotifications] = useState(() => {
     try {
-      const stored = localStorage.getItem('urbanshield_viewed_notifications');
+      const stored = localStorage.getItem('urbanshield_urbanshield_viewed_notifications');
       return stored ? new Set(JSON.parse(stored)) : new Set();
     } catch {
       return new Set();
@@ -1075,27 +1076,26 @@ const AdminDashboard = ({ user, onLogout }) => {
   const notificationCount = useMemo(() => {
     return reports.filter(r => {
       const isPending = !r.status || r.status === 'pending';
-      const isNotViewed = !viewedNotifications.has(r.id);
+      const isNotViewed = !isAlreadyViewed(r.id);
       return isPending && isNotViewed;
     }).length;
   }, [reports, viewedNotifications]);
 
   // Mark a notification as viewed
-  const handleViewNotification = useCallback((notificationId) => {
-    setViewedNotifications(prev => {
-      const newSet = new Set(prev);
-      newSet.add(notificationId);
-      localStorage.setItem('urbanshield_viewed_notifications', JSON.stringify([...newSet]));
-      return newSet;
-    });
-  }, []);
+  const handleViewNotification = (notifId) => {
+    if (!isAlreadyViewed(notifId)) {
+      const newViewed = new Set([...viewedNotifications, notifId]);
+      setViewedNotifications(newViewed);
+      localStorage.setItem('urbanshield_urbanshield_viewed_notifications', JSON.stringify([...newViewed]));
+    }
+  };
 
   // Clear all notifications (mark all current as viewed)
   const handleClearAllNotifications = useCallback(() => {
     const allIds = reports.filter(r => !r.status || r.status === 'pending').map(r => r.id);
     setViewedNotifications(prev => {
       const newSet = new Set([...prev, ...allIds]);
-      localStorage.setItem('urbanshield_viewed_notifications', JSON.stringify([...newSet]));
+      localStorage.setItem('urbanshield_urbanshield_viewed_notifications', JSON.stringify([...newSet]));
       return newSet;
     });
   }, [reports]);
@@ -1279,7 +1279,7 @@ const AdminDashboard = ({ user, onLogout }) => {
                   )}
                 </div>
               </button>
-              <div className={`realtime-indicator ${realtimeStatus}`} title={`Real-time: ${realtimeStatus}`}>
+              <div className={`realtime-indicator ${notificationCount > 0 ? 'unread' : 'read'}`} title={notificationCount > 0 ? `${notificationCount} unread reports` : 'All reports read'}>
                 <div className="realtime-dot"></div>
               </div>
               <NotificationDropdown
@@ -1288,7 +1288,15 @@ const AdminDashboard = ({ user, onLogout }) => {
                 isOpen={showNotifications}
                 onClose={() => setShowNotifications(false)}
                 onNavigateToIncidents={(id) => {
-                  if (id) handleViewNotification(id);
+                  if (id) {
+                    handleViewNotification(id);
+                    // Find specific report to open modal
+                    const report = reports.find(r => r.id === id);
+                    if (report) {
+                      setSelectedReport(report);
+                      setShowReportModal(true);
+                    }
+                  }
                   setActiveTab('incidents');
                   setShowNotifications(false);
                 }}

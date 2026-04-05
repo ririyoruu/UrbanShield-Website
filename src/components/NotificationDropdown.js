@@ -56,6 +56,9 @@ const NotificationDropdown = ({ user, reports = [], isOpen, onClose, onNavigateT
     .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
     .slice(0, 15);
 
+  const pendingCount = reports.filter(r => !r.status || r.status === 'open' || r.status === 'pending').length;
+  const inActionCount = reports.filter(r => r.status === 'in_progress' || r.status === 'dispatched').length;
+
   const notifications = actionable.map(r => {
     const isPending = !r.status || r.status === 'open' || r.status === 'pending';
     const location = cleanLocation(r);
@@ -86,10 +89,14 @@ const NotificationDropdown = ({ user, reports = [], isOpen, onClose, onNavigateT
 
   if (!isOpen) return null;
 
-  const pendingCount = notifications.filter(n => n.status === 'open').length;
-  const inActionCount = notifications.filter(n => n.status === 'in_progress').length;
+  const isViewed = (id) => {
+    if (!viewedNotifications) return false;
+    if (typeof viewedNotifications.has === 'function') return viewedNotifications.has(id);
+    if (typeof viewedNotifications.includes === 'function') return viewedNotifications.includes(id);
+    return false;
+  };
 
-  const isViewed = (id) => viewedNotifications.has(id);
+  const unviewedCount = notifications.filter(n => !isViewed(n.id)).length;
 
   return (
     <div className="nd-dropdown" ref={dropdownRef}>
@@ -99,12 +106,12 @@ const NotificationDropdown = ({ user, reports = [], isOpen, onClose, onNavigateT
         <div className="nd-header-left">
           <Bell size={15} />
           <span>Notifications</span>
-          {notifications.length > 0 && (
-            <span className="nd-count">{notifications.filter(n => !isViewed(n.id)).length}</span>
+          {unviewedCount > 0 && (
+            <span className="nd-count">{unviewedCount}</span>
           )}
         </div>
         <div className="nd-header-right">
-          {notifications.filter(n => !isViewed(n.id)).length > 0 && (
+          {unviewedCount > 0 && (
             <button className="nd-clear-btn" onClick={onClearAll} title="Mark all as read">
               <CheckCircle size={13} />
             </button>

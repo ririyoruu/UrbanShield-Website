@@ -844,7 +844,7 @@
   width: 100%;
   padding: 1rem;
   background: var(--primary);
-  color: #ffffff;
+  color: var(--primary-fg);
   border: none;
   border-radius: var(--radius);
   font-size: 1.125rem;
@@ -935,4 +935,96 @@
 .detail-field-row input.error-border {
   border-color: #ef4444 !important;
   box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.1) !important;
+}
+
+/* ── Dark Mode Overrides ── */
+[data-theme="dark"] .zenith-table-container {
+  background: #18181b;
+  border-color: #27272a;
+}
+
+[data-theme="dark"] .zenith-data-table th {
+  background: #27272a;
+  color: #a1a1aa;
+}
+
+[data-theme="dark"] .zenith-data-table td {
+  color: #fafafa;
+  border-top-color: #27272a;
+}
+
+[data-theme="dark"] .zenith-data-table tr:hover {
+  background: rgba(255, 255, 255, 0.02);
+}
+
+[data-theme="dark"] .zenith-drawer {
+  background: #18181b;
+  box-shadow: -10px 0 30px rgba(0, 0, 0, 0.4);
+}
+
+[data-theme="dark"] .drawer-header,
+[data-theme="dark"] .drawer-footer {
+  background: #18181b;
+  border-color: #27272a;
+}
+
+[data-theme="dark"] .detail-field-row {
+  background: #27272a;
+  border-color: #3f3f46;
+}
+
+[data-theme="dark"] .detail-field-row label {
+  color: #a1a1aa;
+}
+
+[data-theme="dark"] .detail-field-row .value {
+  color: #fafafa;
+}
+
+[data-theme="dark"] .form-item input,
+[data-theme="dark"] .form-item select {
+  background: #27272a;
+  border-color: #3f3f46;
+  color: #fafafa;
+}
+
+[data-theme="dark"] .form-item input:focus,
+[data-theme="dark"] .form-item select:focus {
+  border-color: var(--primary);
+}
+
+[data-theme="dark"] .status-row {
+  background: #27272a;
+  border-color: #3f3f46;
+}
+
+[data-theme="dark"] .status-row .label {
+  color: #fafafa;
+}
+
+[data-theme="dark"] .reset-pass-btn-zenith {
+  background: rgba(255, 255, 255, 0.05);
+  border-color: #3f3f46;
+  color: #a1a1aa;
+}
+
+[data-theme="dark"] .alert-card-zenith {
+  background: rgba(245, 158, 11, 0.1);
+  border-color: rgba(245, 158, 11, 0.3);
+  color: #fbbf24;
+}
+
+[data-theme="dark"] .large-avatar {
+  background: var(--primary);
+  color: var(--primary-fg);
+}
+
+[data-theme="dark"] .zenith-tab span {
+  background: #27272a;
+  color: #a1a1aa;
+}
+
+[data-theme="dark"] .zenith-tab.active span {
+  background: var(--primary);
+  color: var(--primary-fg);
 }
