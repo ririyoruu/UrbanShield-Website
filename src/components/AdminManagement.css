@@ -919,3 +919,20 @@
   cursor: pointer;
   display: flex;
 }
+
+.validation-error {
+  color: #ef4444;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  margin-top: 0.5rem;
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  animation: fadeIn 0.2s ease-out;
+}
+
+.form-item input.error-border,
+.detail-field-row input.error-border {
+  border-color: #ef4444 !important;
+  box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.1) !important;
+}

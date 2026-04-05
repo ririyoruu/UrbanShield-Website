@@ -58,6 +58,8 @@ const AdminManagement = ({ initialTab = 'all', isSuperAdmin }) => {
   const [modal, setModal] = useState({ show: false, type: 'success', title: '', message: '', onConfirm: null, undoAction: null });
   const [lastDemoted, setLastDemoted] = useState(null);
   const [resetModal, setResetModal] = useState({ isOpen: false, email: '', userId: null, generatedPass: null });
+  const [addUsernameError, setAddUsernameError] = useState('');
+  const [editUsernameError, setEditUsernameError] = useState('');
 
   /* ── Helpers ── */
   const isActive = (u) => u && u.is_active !== false;
@@ -226,6 +228,11 @@ const AdminManagement = ({ initialTab = 'all', isSuperAdmin }) => {
       return;
     }
 
+    if (/\s/.test(detailFormData.username)) {
+      showFlash('Spaces are not allowed in usernames', 'error');
+      return;
+    }
+
     setSaving(true);
     try {
       await superAdminService.updateStaff(selectedStaff.id, {
@@ -235,6 +242,7 @@ const AdminManagement = ({ initialTab = 'all', isSuperAdmin }) => {
       showFlash(`${isResponderMode ? 'Responder' : 'Admin'} details updated`);
       await loadStaff(true);
       setIsEditMode(false);
+      setEditUsernameError('');
     } catch (err) {
       showFlash('Update failed', 'error');
     } finally { setSaving(false); }
@@ -352,6 +360,11 @@ const AdminManagement = ({ initialTab = 'all', isSuperAdmin }) => {
       return;
     }
 
+    if (/\s/.test(addFormData.username)) {
+      showFlash('Spaces are not allowed in usernames', 'error');
+      return;
+    }
+
     setSaving(true);
     try {
       await superAdminService.createStaff({
@@ -361,6 +374,7 @@ const AdminManagement = ({ initialTab = 'all', isSuperAdmin }) => {
       });
       setShowAddDrawer(false);
       setAddFormData({ email: '', password: '', full_name: '', username: '', phone: '', department: '', user_type: 'admin' });
+      setAddUsernameError('');
       showFlash(`${isResponderMode ? 'Responder' : 'Admin'} added`);
       await loadStaff();
     } catch (err) {
@@ -766,11 +780,27 @@ const AdminManagement = ({ initialTab = 'all', isSuperAdmin }) => {
                   <div className="detail-field-row">
                     <label>Username</label>
                     {isEditMode ? (
-                      <input
-                        type="text"
-                        value={detailFormData.username}
-                        onChange={e => setDetailFormData({ ...detailFormData, username: e.target.value })}
-                      />
+                      <>
+                        <input
+                          type="text"
+                          className={editUsernameError ? 'error-border' : ''}
+                          value={detailFormData.username}
+                          onChange={e => {
+                            const val = e.target.value;
+                            setDetailFormData({ ...detailFormData, username: val });
+                            if (/\s/.test(val)) {
+                              setEditUsernameError('Spaces are not allowed in usernames');
+                            } else {
+                              setEditUsernameError('');
+                            }
+                          }}
+                        />
+                        {editUsernameError && (
+                          <div className="validation-error">
+                            <AlertTriangle size={14} /> {editUsernameError}
+                          </div>
+                        )}
+                      </>
                     ) : (
                       <div className="value">@{selectedStaff.username || '—'}</div>
                     )}
@@ -848,7 +878,29 @@ const AdminManagement = ({ initialTab = 'all', isSuperAdmin }) => {
               <div className="drawer-section">
                 <div className="admin-drawer-section-title">Login Credentials</div>
                 <div className="form-item"><label>Email</label><input type="email" required value={addFormData.email} onChange={e => setAddFormData({ ...addFormData, email: e.target.value })} /></div>
-                <div className="form-item"><label>Username</label><input type="text" required value={addFormData.username} onChange={e => setAddFormData({ ...addFormData, username: e.target.value })} /></div>
+                <div className="form-item">
+                  <label>Username</label>
+                  <input
+                    type="text"
+                    required
+                    className={addUsernameError ? 'error-border' : ''}
+                    value={addFormData.username}
+                    onChange={e => {
+                      const val = e.target.value;
+                      setAddFormData({ ...addFormData, username: val });
+                      if (/\s/.test(val)) {
+                        setAddUsernameError('Spaces are not allowed in usernames');
+                      } else {
+                        setAddUsernameError('');
+                      }
+                    }}
+                  />
+                  {addUsernameError && (
+                    <div className="validation-error">
+                      <AlertTriangle size={14} /> {addUsernameError}
+                    </div>
+                  )}
+                </div>
                 <div className="form-item">
                   <label>Password</label>
                   <div className="pass-wrap">
