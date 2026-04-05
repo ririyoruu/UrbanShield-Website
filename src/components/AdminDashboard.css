@@ -788,14 +788,14 @@ body {
   justify-content: center;
 }
 
-@keyframes bellBlink {
-  0% { opacity: 1; transform: scale(1); }
-  50% { opacity: 0.5; transform: scale(1.1); }
-  100% { opacity: 1; transform: scale(1); }
+@keyframes dotBlink {
+  0% { transform: scale(1); box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.4); }
+  50% { transform: scale(1.1); box-shadow: 0 0 0 4px rgba(239, 68, 68, 0); }
+  100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); }
 }
 
-.blinking-bell {
-  animation: bellBlink 1.5s ease-in-out infinite;
+.realtime-indicator.blinking-indicator .realtime-dot {
+  animation: dotBlink 1.5s ease-in-out infinite;
 }
 
 .notification-badge {

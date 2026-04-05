@@ -604,6 +604,7 @@ const AdminDashboard = ({ user, onLogout }) => {
       if (payload.eventType === 'INSERT') {
         console.log('📝 New incident reported - refreshing all data...');
         playNotificationSound();
+        setHasClickedBell(false);
 
         // Show browser notification
         showBrowserNotification(`New ${payload.new.category || 'Incident'} Reported`, {
@@ -621,6 +622,21 @@ const AdminDashboard = ({ user, onLogout }) => {
         setTimeout(() => {
           setNewReportsAvailable(false);
         }, 5000);
+      } else if (payload.eventType === 'UPDATE' && payload.old.status !== payload.new.status) {
+        console.log(`🔄 Incident status updated to ${payload.new.status}`);
+        
+        // Show browser notification for important updates
+        if (payload.new.status === 'resolved') {
+          showBrowserNotification('Incident Resolved', {
+            body: payload.new.title || `Incident #${payload.new.id} has been marked as resolved.`,
+            tag: `resolved-${payload.new.id}`
+          });
+        }
+        
+        if (payload.new.status === 'pending') {
+          setHasClickedBell(false);
+          playNotificationSound();
+        }
       } else if (payload.eventType === 'UPDATE') {
         console.log('✏️ Incident updated - synchronizing data...');
         const updatedIncident = payload.new;
@@ -1277,16 +1293,18 @@ const AdminDashboard = ({ user, onLogout }) => {
                 }}
               >
                 <div className="badge-container">
-                  <Bell 
-                    size={18} 
-                    color={notificationCount > 0 && !hasClickedBell ? '#ef4444' : 'currentColor'}
-                    className={notificationCount > 0 && !hasClickedBell ? 'blinking-bell' : ''}
-                  />
+                  <Bell size={18} />
                   {notificationCount > 0 && (
                     <span className="notification-badge">{notificationCount}</span>
                   )}
                 </div>
               </button>
+              <div 
+                className={`realtime-indicator ${notificationCount > 0 && !hasClickedBell ? 'unread blinking-indicator' : 'read'}`} 
+                title={notificationCount > 0 && !hasClickedBell ? `${notificationCount} unread reports` : 'All reports read'}
+              >
+                <div className="realtime-dot"></div>
+              </div>
               <NotificationDropdown
                 user={user}
                 reports={reports}
