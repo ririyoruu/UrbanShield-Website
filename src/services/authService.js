@@ -165,24 +165,20 @@ export const authService = {
   async signIn(email, password) {
     try {
       // Try to check if email exists in profiles table (optional check)
-      let profileExists = false;
       try {
         const { data: profileData, error: profileError } = await supabase
           .from('profiles')
-          .select('id, email, full_name, user_type')
+          .select('id, email, user_type')
           .eq('email', email)
           .single();
 
         if (!profileError && profileData) {
-          profileExists = true;
           console.log('✅ Profile found for email:', email);
         } else if (profileError && profileError.code === 'PGRST116') {
           console.warn('⚠️ No profile found for email:', email, '- will be created after login');
-        } else if (profileError) {
-          console.warn('⚠️ Profile check failed:', profileError.message, '- continuing with login');
         }
-      } catch (profileCheckError) {
-        console.warn('⚠️ Profile check error (non-fatal):', profileCheckError.message);
+      } catch (e) {
+        console.warn('Could not check profile pre-login:', e.message);
       }
 
       // Attempt to sign in with Supabase Auth (proceed regardless of profile check)

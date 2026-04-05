@@ -119,6 +119,7 @@ const AdminDashboard = ({ user, onLogout }) => {
     return saved === null ? true : saved === 'true';
   });
   const [mapFilter, setMapFilter] = useState('all');
+  const [hasClickedBell, setHasClickedBell] = useState(false);
 
   // Persist sound setting
   useEffect(() => {
@@ -1270,18 +1271,22 @@ const AdminDashboard = ({ user, onLogout }) => {
             <div className="notification-container">
               <button
                 className="notification-btn"
-                onClick={() => setShowNotifications(!showNotifications)}
+                onClick={() => {
+                  setShowNotifications(!showNotifications);
+                  if (notificationCount > 0) setHasClickedBell(true);
+                }}
               >
                 <div className="badge-container">
-                  <Bell size={18} color={notificationCount > 0 ? '#ef4444' : 'currentColor'} />
+                  <Bell 
+                    size={18} 
+                    color={notificationCount > 0 && !hasClickedBell ? '#ef4444' : 'currentColor'}
+                    className={notificationCount > 0 && !hasClickedBell ? 'blinking-bell' : ''}
+                  />
                   {notificationCount > 0 && (
                     <span className="notification-badge">{notificationCount}</span>
                   )}
                 </div>
               </button>
-              <div className={`realtime-indicator ${notificationCount > 0 ? 'unread' : 'read'}`} title={notificationCount > 0 ? `${notificationCount} unread reports` : 'All reports read'}>
-                <div className="realtime-dot"></div>
-              </div>
               <NotificationDropdown
                 user={user}
                 reports={reports}
