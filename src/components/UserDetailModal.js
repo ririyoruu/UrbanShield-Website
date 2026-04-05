@@ -52,7 +52,12 @@ const UserDetailModal = ({ user, isOpen, onClose, onApprove, onReject, onSuspend
       else if (user.documents) rawDocs = Array.isArray(user.documents) ? user.documents : [user.documents];
       else if (user.id_documents) rawDocs = Array.isArray(user.id_documents) ? user.id_documents : [user.id_documents];
       
-      const filtered = rawDocs.filter(d => d && (typeof d === 'string' ? d.trim() !== '' : true));
+      const filtered = rawDocs.filter(d => {
+        if (!d) return false;
+        if (typeof d === 'string') return d.trim() !== '';
+        return true;
+      });
+
       if (filtered.length === 0) {
         setResolvedDocuments([]);
         return;
@@ -61,9 +66,17 @@ const UserDetailModal = ({ user, isOpen, onClose, onApprove, onReject, onSuspend
       setResolvedDocuments(filtered.map(() => 'loading')); 
 
       const resolved = await Promise.all(filtered.map(async (doc) => {
-        if (typeof doc === 'string' && !doc.startsWith('http')) {
+        // If doc is an object, try to extract its URL or path
+        let docStr = doc;
+        if (typeof doc === 'object') {
+          if (doc.url) docStr = doc.url;
+          else if (doc.path) docStr = doc.path;
+          else return null;
+        }
+
+        if (typeof docStr === 'string' && !docStr.startsWith('http')) {
           try {
-            const path = doc.includes(user.id) ? doc : `${user.id}/${doc}`;
+            const path = docStr.includes(user.id) ? docStr : `${user.id}/${docStr}`;
             // Use createSignedUrl for private documents
             const { data, error } = await supabase.storage
               .from('verification-documents')
@@ -72,13 +85,13 @@ const UserDetailModal = ({ user, isOpen, onClose, onApprove, onReject, onSuspend
             if (error) throw error;
             return data.signedUrl;
           } catch (err) {
-            const { data } = supabase.storage.from('verification-documents').getPublicUrl(doc);
-            return data?.publicUrl || doc;
+            const { data } = supabase.storage.from('verification-documents').getPublicUrl(docStr);
+            return data?.publicUrl || docStr;
           }
         }
-        return doc;
+        return docStr;
       }));
-      setResolvedDocuments(resolved);
+      setResolvedDocuments(resolved.filter(Boolean));
     };
 
     resolveDocs();
@@ -263,18 +276,6 @@ const UserDetailModal = ({ user, isOpen, onClose, onApprove, onReject, onSuspend
           <div className="udm-header-info">
             <h2 className="udm-name">{user.full_name || user.name || 'Unknown User'}</h2>
             <span className="udm-email">{user.email}</span>
-            {isSuperAdmin && (
-              <button 
-                className={`udm-edit-toggle ${isEditMode ? 'active' : ''}`}
-                onClick={handleEditToggle}
-              >
-                {isEditMode ? (
-                  <><X size={14} /> Cancel Edit</>
-                ) : (
-                  <><Edit size={14} /> Edit Details</>
-                )}
-              </button>
-            )}
           </div>
           <button className="udm-close" onClick={onClose}><X size={16} /></button>
         </div>
@@ -368,70 +369,6 @@ const UserDetailModal = ({ user, isOpen, onClose, onApprove, onReject, onSuspend
           )}
 
           {/* Details */}
-          {isEditMode ? (
-            <div className="udm-edit-form">
-              <div className="udm-edit-stack">
-                <div className="udm-edit-group">
-                  <label>Full Name</label>
-                  <input
-                    type="text"
-                    value={editForm.full_name}
-                    onChange={(e) => setEditForm({...editForm, full_name: e.target.value})}
-                    placeholder="Enter full name"
-                  />
-                </div>
-                <div className="udm-edit-group">
-                  <label>Email Address</label>
-                  <input
-                    type="email"
-                    value={editForm.email}
-                    onChange={(e) => setEditForm({...editForm, email: e.target.value})}
-                    placeholder="Enter email"
-                  />
-                </div>
-                <div className="udm-edit-group">
-                  <label>Phone Number</label>
-                  <input
-                    type="tel"
-                    value={editForm.phone}
-                    onChange={(e) => {
-                      const val = e.target.value.replace(/\D/g, '').slice(0, 11);
-                      setEditForm({...editForm, phone: val});
-                    }}
-                    placeholder="e.g. 09123456789"
-                    maxLength={11}
-                  />
-                </div>
-                <div className="udm-edit-group">
-                  <label>Home Address</label>
-                  <input
-                    type="text"
-                    value={editForm.address}
-                    onChange={(e) => setEditForm({...editForm, address: e.target.value})}
-                    placeholder="Enter address"
-                  />
-                </div>
-                <div className="udm-edit-group">
-                  <label>Department</label>
-                  <input
-                    type="text"
-                    value={editForm.department}
-                    onChange={(e) => setEditForm({...editForm, department: e.target.value})}
-                    placeholder="Enter department"
-                  />
-                </div>
-              </div>
-              <div className="udm-edit-actions">
-                <button className="udm-btn-save" onClick={handleSaveEdit} disabled={saving}>
-                  <Save size={16} />
-                  {saving ? 'Saving...' : 'Save Changes'}
-                </button>
-                <button className="udm-btn-cancel" onClick={handleEditToggle}>
-                  Cancel
-                </button>
-              </div>
-            </div>
-          ) : (
             <>
               <div className="udm-section-label" style={{ marginTop: 4 }}>Details</div>
               <div className="udm-details-stack">
@@ -465,7 +402,6 @@ const UserDetailModal = ({ user, isOpen, onClose, onApprove, onReject, onSuspend
                 )}
               </div>
             </>
-          )}
         </div>
 
         {/* ── Footer — context-sensitive buttons ── */}
