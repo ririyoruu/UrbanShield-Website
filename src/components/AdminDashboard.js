@@ -1273,7 +1273,7 @@ const AdminDashboard = ({ user, onLogout }) => {
                 onClick={() => setShowNotifications(!showNotifications)}
               >
                 <div className="badge-container">
-                  <Bell size={18} />
+                  <Bell size={18} color={notificationCount > 0 ? '#ef4444' : 'currentColor'} />
                   {notificationCount > 0 && (
                     <span className="notification-badge">{notificationCount}</span>
                   )}
