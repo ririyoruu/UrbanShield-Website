@@ -1,0 +1,12 @@
+﻿Searching for tables with records...
+Γ£ô [reports] EXISTS - Count: 0
+Γ£ô [reported_posts] EXISTS - Count: null
+Γ£ô [post_reports] EXISTS - Count: null
+Γ£ô [incident_reports] EXISTS - Count: null
+Γ£ô [user_reports] EXISTS - Count: null
+Γ£ô [flagged_posts] EXISTS - Count: null
+Γ£ô [moderation_cases] EXISTS - Count: null
+Γ£ô [reported_content] EXISTS - Count: null
+Γ£ô [reported_incidents] EXISTS - Count: null
+Γ£ô [complaints] EXISTS - Count: null
+Γ£ô [feedback] EXISTS - Count: null

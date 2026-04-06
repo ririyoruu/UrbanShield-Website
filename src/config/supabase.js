@@ -119,6 +119,149 @@ export const adminService = {
     }
   },
 
+  async hideIncident(incidentId) {
+    try {
+      const { error } = await supabase
+        .from('incidents')
+        .update({ is_flagged: true, updated_at: new Date().toISOString() })
+        .eq('id', incidentId);
+      if (error) throw error;
+      return { success: true };
+    } catch (e) { console.error(e); throw e; }
+  },
+
+  async unhideIncident(incidentId) {
+    try {
+      const { error } = await supabase
+        .from('incidents')
+        .update({ is_flagged: false, updated_at: new Date().toISOString() })
+        .eq('id', incidentId);
+      if (error) throw error;
+      return { success: true };
+    } catch (e) { console.error(e); throw e; }
+  },
+  
+  // Get all user-submitted reports for incidents
+  async getUserReports() {
+    try {
+      console.log('Fetching community reports...');
+      const { data, error } = await supabase
+        .from('reports')
+        .select(`
+          *,
+          reporting_user:profiles!reporter_id (
+            full_name,
+            fullname,
+            name,
+            display_name,
+            username,
+            email
+          ),
+          incident:incident_id (
+            *,
+            author:profiles!reporter_id (
+              full_name,
+              fullname,
+              name,
+              display_name,
+              username,
+              email
+            )
+          )
+        `)
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+      return data || [];
+    } catch (error) {
+      console.error('Error fetching user reports:', error);
+      throw error;
+    }
+  },
+
+  // Update a single report's moderation status and append admin notes
+  async updateUserReports(incidentId, options = {}) {
+    const { status, admin_note, reviewed_by, reviewed_at } = options;
+    try {
+      console.log("Updating status:", status, "for incident:", incidentId);
+      
+      const { error } = await supabase
+        .from('reports')
+        .update({
+          status,
+          admin_note,
+          reviewed_by,
+          reviewed_at: reviewed_at || new Date().toISOString()
+        })
+        .eq('incident_id', incidentId);
+
+      if (error) throw error;
+      return { success: true };
+    } catch (error) {
+      console.error('Error updating reports:', error);
+      throw error;
+    }
+  },
+
+  async updateUserReportStatus(reportId, options = {}) {
+    const { status, admin_note, reviewed_by, reviewed_at } = options;
+    try {
+      console.log("Updating status:", status, "for report:", reportId);
+      
+      const { error } = await supabase
+        .from('reports')
+        .update({ 
+          status, 
+          admin_note,
+          reviewed_by,
+          reviewed_at: reviewed_at || new Date().toISOString()
+        })
+        .eq('id', reportId);
+
+      if (error) throw error;
+      return { success: true };
+    } catch (error) {
+      console.error('Error updating report status:', error);
+      throw error;
+    }
+  },
+
+  async deleteUserReport(reportId) {
+    try {
+      const { error } = await supabase.from('reports').delete().eq('id', reportId);
+      if (error) throw error;
+      return { success: true };
+    } catch (e) { console.error(e); throw e; }
+  },
+
+  async bulkDeleteIncidents(incidentIds) {
+    if (!incidentIds || incidentIds.length === 0) return { success: true };
+    try {
+      console.log(`Bulk deleting ${incidentIds.length} incidents...`);
+      
+      // 1. Delete reports first (to prevent FK violations if not cascading)
+      const { error: reportsError } = await supabase
+        .from('reports')
+        .delete()
+        .in('incident_id', incidentIds);
+      
+      if (reportsError) console.warn('Non-critical reports delete error:', reportsError);
+
+      // 2. Delete the incidents themselves
+      const { error: incError } = await supabase
+        .from('incidents')
+        .delete()
+        .in('id', incidentIds);
+      
+      if (incError) throw incError;
+      
+      return { success: true };
+    } catch (error) {
+      console.error('CRITICAL BULK DELETE ERROR:', error);
+      throw error;
+    }
+  },
+
   async getIncidentById(incidentId) {
     try {
       if (!incidentId) throw new Error('Missing incidentId');
@@ -758,6 +901,23 @@ export const adminService = {
       console.error('Error fetching user reports:', error);
       // Return empty array instead of throwing - don't show errors to user
       return [];
+    }
+  },
+
+  async deleteUserReports(reportIds) {
+    if (!Array.isArray(reportIds) || reportIds.length === 0) return { success: false };
+    try {
+      console.log('🗑️ Mass deleting reports:', reportIds);
+      const { data, error } = await supabase
+        .from('reports')
+        .delete()
+        .in('id', reportIds);
+
+      if (error) throw error;
+      return { success: true };
+    } catch (error) {
+      console.error('Error deleting reports:', error);
+      throw error;
     }
   },
 

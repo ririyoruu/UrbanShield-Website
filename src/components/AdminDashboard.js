@@ -50,8 +50,8 @@ import InvitationManager from './InvitationManager';
 import UserManagement from './UserManagement';
 import ReportDetailModal from './ReportDetailModal';
 import VerificationManagement from './VerificationManagement';
+import ReportsZenith from './ReportsZenith';
 import IncidentModeration from './IncidentModeration';
-import UserReportsManagement from './UserReportsManagement';
 import AnnouncementsManagement from './AnnouncementsManagement';
 import NotificationDropdown from './NotificationDropdown';
 import Settings from './Settings';
@@ -1257,7 +1257,7 @@ const AdminDashboard = ({ user, onLogout }) => {
               {activeTab === 'map' && <span style={{ fontSize: '2em', fontWeight: 'bold' }}>🗺️ Live Post Map</span>}
               {activeTab === 'overview' && <span style={{ fontSize: '2em', fontWeight: 'bold' }}>Dashboard</span>}
               {activeTab === 'incidents' && <span style={{ fontSize: '2em', fontWeight: 'bold' }}>Post Management</span>}
-              {activeTab === 'reports' && <span style={{ fontSize: '2em', fontWeight: 'bold' }}>Posts Management</span>}
+              {activeTab === 'reports' && <span style={{ fontSize: '2em', fontWeight: 'bold' }}>Reports Management</span>}
               {activeTab === 'users' && <span style={{ fontSize: '2em', fontWeight: 'bold' }}>Residents</span>}
               {activeTab === 'admin-management' && staffFilter === 'responders' && <span style={{ fontSize: '2em', fontWeight: 'bold' }}>Responders</span>}
               {activeTab === 'admin-management' && staffFilter === 'admins' && <span style={{ fontSize: '2em', fontWeight: 'bold' }}>Admins</span>}
@@ -1666,7 +1666,10 @@ const AdminDashboard = ({ user, onLogout }) => {
           )}
 
           {activeTab === 'reports' && (
-            <UserReportsManagement />
+            <ReportsZenith 
+              isSuperAdmin={isSuperAdmin} 
+              user={user} 
+            />
           )}
 
           {activeTab === 'profile' && (

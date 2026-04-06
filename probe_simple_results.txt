@@ -1,0 +1,10 @@
+﻿--- Probing table: reports ---
+Table reports EXISTS, data length: 0
+--- Probing table: incident_reports ---
+Table incident_reports error: PGRST205 - Could not find the table 'public.incident_reports' in the schema cache
+--- Probing table: reported_incidents ---
+Table reported_incidents error: PGRST205 - Could not find the table 'public.reported_incidents' in the schema cache
+--- Probing table: user_reports ---
+Table user_reports error: PGRST205 - Could not find the table 'public.user_reports' in the schema cache
+--- Probing table: reported_posts ---
+Table reported_posts error: PGRST205 - Could not find the table 'public.reported_posts' in the schema cache

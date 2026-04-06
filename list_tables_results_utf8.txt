@@ -1,0 +1,9 @@
+﻿START_LIST
+Table notifications: EXISTS
+Table system_notifications: EXISTS
+Table announcements: EXISTS
+Table incidents: EXISTS
+Table profiles: EXISTS
+Table admin_profiles: EXISTS
+Table staff_profiles: EXISTS
+END_LIST

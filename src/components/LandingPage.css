@@ -564,23 +564,11 @@
     width: 100%;
     max-width: 480px;
     height: auto;
-    filter: drop-shadow(0 30px 60px rgba(0, 0, 0, 0.8));
+    filter: drop-shadow(0 30px 60px rgba(0, 0, 0, 0.4));
     z-index: 2;
-    background-color: var(--bg-dark); /* Effectively hides the checkerboard */
 }
 
-.mockup-glow {
-    position: absolute;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%);
-    width: 80%;
-    height: 80%;
-    background: var(--brand-blue);
-    filter: blur(100px);
-    opacity: 0.2;
-    z-index: 1;
-}
+/* Removed mockup-glow based on user request for 'only the phone' */
 
 .app-tag {
     color: var(--brand-blue);
@@ -609,26 +597,43 @@
 }
 
 .app-qr-area {
+    margin-bottom: 4rem;
+    display: flex;
+    justify-content: flex-start;
+}
+
+.qr-box-zenith {
     display: flex;
     align-items: center;
-    gap: 1.5rem;
-    margin-bottom: 3rem;
+    gap: 2rem;
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    padding: 1.5rem 2rem 1.5rem 1.5rem;
+    border-radius: 20px;
+    backdrop-filter: blur(8px);
+    transition: all 0.3s ease;
+}
+
+.qr-box-zenith:hover {
+    background: rgba(255, 255, 255, 0.05);
+    border-color: rgba(37, 99, 235, 0.4);
+    transform: translateY(-5px);
 }
 
 .qr-container {
     position: relative;
-    width: 100px;
-    height: 100px;
+    width: 160px; /* MUCH BIGGER QR */
+    height: 160px;
     background: #fff;
-    padding: 8px;
-    border-radius: 12px;
+    padding: 12px;
+    border-radius: 16px;
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
 }
 
 .qr-img {
     width: 100%;
     height: 100%;
     object-fit: contain;
-    background: #fff; /* Solid white background for QR */
 }
 
 .qr-overlay {
@@ -637,26 +642,26 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    background: rgba(37, 99, 235, 0.1);
+    background: rgba(37, 99, 235, 0.15);
     opacity: 0;
     transition: opacity 0.3s;
-    border-radius: 12px;
-}
-
-.qr-container:hover .qr-overlay {
-    opacity: 1;
+    border-radius: 16px;
+    color: var(--brand-blue);
 }
 
 .qr-text p {
-    font-weight: 700;
-    margin: 0;
-    font-size: 1.125rem;
+    font-size: 1.5rem;
+    font-weight: 800;
+    margin-bottom: 0.5rem;
     color: #ffffff;
 }
 
 .qr-text span {
-    font-size: 0.875rem;
-    color: var(--text-secondary);
+    font-size: 1rem;
+    color: #ffffff;
+    display: block;
+    max-width: 180px;
+    opacity: 0.9;
 }
 
 .app-buttons {
@@ -708,17 +713,24 @@
 }
 
 .footer-top {
-    display: grid;
-    grid-template-columns: 2fr 1fr;
-    gap: 4rem;
+    display: flex;
+    justify-content: flex-start;
+    align-items: flex-start;
+    gap: 8rem; /* Large gap between brand and links */
     margin-bottom: 4rem;
+    flex-wrap: wrap; 
+}
+
+.footer-brand-info {
+    flex: 2; /* Give more space to brand */
+    min-width: 300px;
 }
 
 .footer-brand-info h3 {
     font-size: 1.5rem;
     font-weight: 800;
     margin: 1rem 0;
-    color: #fff; /* Force white */
+    color: #fff;
 }
 
 .footer-brand-info p {
@@ -731,29 +743,26 @@
     height: 40px;
 }
 
-.footer-links {
-    display: flex;
-    gap: 4rem;
-}
-
-.footer-links h4 {
-    font-size: 1.35rem; /* Bigger footer headers */
+.footer-column h4 {
+    font-size: 1.35rem;
     font-weight: 800;
     margin-bottom: 2rem;
-    color: #fff; /* High contrast */
+    color: #fff;
 }
 
-.footer-links a {
+.footer-column a {
     display: block;
-    color: var(--text-secondary); /* Now #cbd5e1 */
+    color: var(--text-secondary) !important;
     text-decoration: none;
     margin-bottom: 1rem;
-    font-size: 1.125rem; /* Bigger footer links */
-    transition: color 0.2s;
+    font-size: 1.125rem;
+    font-weight: 500;
+    transition: all 0.2s ease;
 }
 
-.footer-links a:hover {
-    color: #fff;
+.footer-column a:hover {
+    color: #ffffff !important;
+    transform: translateX(4px);
 }
 
 .footer-bottom {

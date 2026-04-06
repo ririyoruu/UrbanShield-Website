@@ -1,0 +1,7 @@
+﻿Checking incidents table for is_flagged flag...
+Found 1 flagged incidents.
+Sample: {
+  id: '120a4e8a-747e-4fb0-ae9c-583c46b5cd57',
+  title: 'Baha',
+  is_flagged: true
+}

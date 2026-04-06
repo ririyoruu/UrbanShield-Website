@@ -409,11 +409,6 @@ const UserManagement = ({ isSuperAdmin }) => {
           />
         </div>
         <div className="zenith-toolbar-actions" style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
-          <button className="zenith-toolbar-btn" onClick={loadUsers} disabled={loading} title="Refresh results">
-            <RefreshCw size={14} className={loading ? 'spinning' : ''} />
-            Reload
-          </button>
-
           {/* Document Filter */}
           <select
             className="zenith-toolbar-select"

@@ -249,14 +249,18 @@ const LandingPage = ({ onLoginClick, onSignupClick }) => {
                             initial={{ x: -50, opacity: 0 }}
                             whileInView={{ x: 0, opacity: 1 }}
                             viewport={{ once: false, amount: 0.3 }}
-                            transition={{ duration: 0.8 }}
+                            animate={{ y: [0, -20, 0] }}
+                            transition={{ 
+                                y: { duration: 4, repeat: Infinity, ease: "easeInOut" },
+                                x: { duration: 0.8 },
+                                opacity: { duration: 0.8 }
+                            }}
                         >
                             <img
                                 src="/urbanshield_mobile_mockup.png"
                                 alt="UrbanShield Mobile App"
                                 className="app-mockup"
                             />
-                            <div className="mockup-glow" />
                         </motion.div>
 
                         <motion.div
@@ -273,22 +277,24 @@ const LandingPage = ({ onLoginClick, onSignupClick }) => {
                             </p>
 
                             <div className="app-qr-area">
-                                <div className="qr-container">
-                                    <img src="/qr.png" alt="Scan to Download" className="qr-img" />
-                                    <div className="qr-overlay">
-                                        <QrCode size={24} />
+                                <div className="qr-box-zenith">
+                                    <div className="qr-container">
+                                        <img src="/qr.png" alt="Scan to Download" className="qr-img" />
+                                        <div className="qr-overlay">
+                                            <QrCode size={32} />
+                                        </div>
                                     </div>
-                                </div>
-                                <div className="qr-text">
-                                    <p>Scan to download</p>
-                                    <span>Available for Android</span>
+                                    <div className="qr-text">
+                                        <p>Scan to download</p>
+                                        <span>Official UrbanShield App for Android</span>
+                                    </div>
                                 </div>
                             </div>
 
                             <div className="app-buttons">
                                 <button 
                                     className="app-btn cta-primary" 
-                                    onClick={() => window.open('https://www.mediafire.com/file/3a99ie59sg5ges5/application-2d06a44d-6ec1-446d-9f90-08a92abac1f7.apk/file', '_blank')}
+                                    onClick={() => window.open('https://www.mediafire.com/file/4u82yh64n22kckm/UrbanShield.apk/file', '_blank')}
                                 >
                                     <Smartphone size={20} />
                                     <span>Download APK</span>
@@ -308,19 +314,17 @@ const LandingPage = ({ onLoginClick, onSignupClick }) => {
                             <h3>UrbanShield</h3>
                             <p>Innovating public safety through real-time communication and analysis.</p>
                         </div>
-                        <div className="footer-links">
-                            <div>
-                                <h4>System</h4>
-                                <a href="#features">Features</a>
-                                <a href="#app">Mobile App</a>
-                                <a href="/login">Admin Login</a>
-                            </div>
-                            <div>
-                                <h4>Support</h4>
-                                <a href="#">Documentation</a>
-                                <a href="mailto:ninamarieantonio13@gmail.com,urbanshield.ad@gmail.com?subject=UrbanShield Support Request">Contact Us</a>
-                                <a href="https://www.redcross.org/get-help/how-to-prepare-for-emergencies.html" target="_blank" rel="noopener noreferrer">Safety Resources</a>
-                            </div>
+                        <div className="footer-column">
+                            <h4>System</h4>
+                            <a href="#features">Features</a>
+                            <a href="#app">Mobile App</a>
+                            <a href="/login">Admin Login</a>
+                        </div>
+                        <div className="footer-column">
+                            <h4>Support</h4>
+                            <a href="#">Documentation</a>
+                            <a href="mailto:ninamarieantonio13@gmail.com,urbanshield.ad@gmail.com?subject=UrbanShield Support Request">Contact Us</a>
+                            <a href="https://www.redcross.org/get-help/how-to-prepare-for-emergencies.html" target="_blank" rel="noopener noreferrer">Safety Resources</a>
                         </div>
                     </div>
                     <div className="footer-bottom">

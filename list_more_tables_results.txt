@@ -1,0 +1,16 @@
+﻿Attempting to list all tables in public schema...
+RPC get_tables failed: Could not find the function public.get_tables without parameters in the schema cache
+Table found: reports, Count: 0
+Table found: user_reports, Count: null
+Table found: incident_reports, Count: null
+Table found: reported_posts, Count: null
+Table found: reported_incidents, Count: null
+Table found: post_reports, Count: null
+Table found: flagged_posts, Count: null
+Table found: moderation_reports, Count: null
+Table found: content_reports, Count: null
+Table found: reports_table, Count: null
+Table found: report, Count: null
+Table found: reported, Count: null
+Table found: flagged, Count: null
+Table found: moderation, Count: null

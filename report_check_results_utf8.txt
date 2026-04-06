@@ -1,0 +1,9 @@
+﻿--- Checking table: reports ---
+Γ£ô Table "reports" exists, count: 0
+Sample data: []
+
+--- Checking table: user_reports ---
+X Table "user_reports" error: Could not find the table 'public.user_reports' in the schema cache
+
+--- Checking table: reported_posts ---
+X Table "reported_posts" error: Could not find the table 'public.reported_posts' in the schema cache

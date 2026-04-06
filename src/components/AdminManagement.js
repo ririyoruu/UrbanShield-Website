@@ -21,7 +21,9 @@ import {
   Sparkles,
   Copy,
   Check,
-  Key
+  Key,
+  ArrowUp,
+  ArrowDown
 } from 'lucide-react';
 import { supabase } from '../config/supabase';
 import superAdminService from '../services/superAdminService';
@@ -60,6 +62,15 @@ const AdminManagement = ({ initialTab = 'all', isSuperAdmin }) => {
   const [resetModal, setResetModal] = useState({ isOpen: false, email: '', userId: null, generatedPass: null });
   const [addUsernameError, setAddUsernameError] = useState('');
   const [editUsernameError, setEditUsernameError] = useState('');
+  const [filterDepartment, setFilterDepartment] = useState('all');
+  const [sortConfig, setSortConfig] = useState({ key: 'created_at', direction: 'desc' });
+
+  const handleSort = (key) => {
+    setSortConfig(prev => ({
+      key,
+      direction: prev.key === key && prev.direction === 'desc' ? 'asc' : 'desc'
+    }));
+  };
 
   /* ── Helpers ── */
   const isActive = (u) => u && u.is_active !== false;
@@ -115,17 +126,42 @@ const AdminManagement = ({ initialTab = 'all', isSuperAdmin }) => {
     let result = [...users];
     if (activeTab === 'super_admins') result = result.filter(u => u.user_type === 'super_admin');
     else if (activeTab === 'admins') result = result.filter(u => u.user_type === 'admin' || u.user_type === 'super_admin');
-    else if (activeTab === 'responders') result = result.filter(u => u.user_type === 'responder');
+    else if (activeTab === 'responders') {
+      result = result.filter(u => u.user_type === 'responder');
+      if (filterDepartment !== 'all') {
+        result = result.filter(u => (u.department || '').toLowerCase() === filterDepartment.toLowerCase());
+      }
+    }
 
     if (searchTerm) {
       const s = searchTerm.toLowerCase();
       result = result.filter(u =>
         (u.full_name || '').toLowerCase().includes(s) ||
-        (u.email || '').toLowerCase().includes(s)
+        (u.email || '').toLowerCase().includes(s) ||
+        (u.username || '').toLowerCase().includes(s)
       );
     }
+
+    // Sort result
+    result.sort((a, b) => {
+      let valA = a[sortConfig.key] || '';
+      let valB = b[sortConfig.key] || '';
+
+      if (sortConfig.key === 'created_at') {
+        valA = new Date(valA).getTime();
+        valB = new Date(valB).getTime();
+      } else {
+        valA = valA.toString().toLowerCase();
+        valB = valB.toString().toLowerCase();
+      }
+
+      if (valA < valB) return sortConfig.direction === 'asc' ? -1 : 1;
+      if (valA > valB) return sortConfig.direction === 'asc' ? 1 : -1;
+      return 0;
+    });
+
     return result;
-  }, [users, activeTab, searchTerm]);
+  }, [users, activeTab, searchTerm, sortConfig, filterDepartment]);
 
   /* ── Actions ── */
   const handleCloseDetail = () => {
@@ -563,7 +599,34 @@ const AdminManagement = ({ initialTab = 'all', isSuperAdmin }) => {
             onChange={(e) => setSearchTerm(e.target.value)}
           />
         </div>
-        <div className="zenith-toolbar-actions">
+        <div className="zenith-toolbar-actions" style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
+          {isResponderMode && (
+            <select 
+              className="zenith-toolbar-select"
+              value={filterDepartment}
+              onChange={(e) => setFilterDepartment(e.target.value)}
+              style={{ width: 'auto', minWidth: '220px' }}
+            >
+              <option value="all">All Departments</option>
+              <option value="BFP">BFP (Fire Station)</option>
+              <option value="PNP">PNP (Police Station)</option>
+              <option value="MHO">MHO (Health Office)</option>
+              <option value="Community Hospital">Community Hospital</option>
+              <option value="MSWDO">MSWDO (Social Welfare)</option>
+              <option value="Civil Registrar">Civil Registrar</option>
+              <option value="Mayor Office">Mayor's Office</option>
+              <option value="Vice Mayor Office">Vice Mayor's Office</option>
+              <option value="Sangguniang Bayan">Sangguniang Bayan</option>
+              <option value="Treasurer Office">Treasurer's Office</option>
+              <option value="Accountant Office">Accountant's Office</option>
+              <option value="Budget Office">Budget Office</option>
+              <option value="Agriculture Office">Agriculture Office</option>
+              <option value="Engineering Office">Engineering Office</option>
+              <option value="Waterworks">Waterworks</option>
+              <option value="Barangay Office">Barangay Office</option>
+            </select>
+          )}
+
           {(!isAdminMode || isSuperAdmin) && (
             <button className="add-staff-btn-zenith" onClick={() => {
               setAddFormData({ ...addFormData, user_type: isResponderMode ? 'responder' : 'admin' });
@@ -604,9 +667,15 @@ const AdminManagement = ({ initialTab = 'all', isSuperAdmin }) => {
                       />
                     </th>
                   )}
-                  <th>ID</th>
+                  <th onClick={() => handleSort('created_at')} className="sortable-header" style={{ width: '80px' }}>
+                    ID {sortConfig.key === 'created_at' && (sortConfig.direction === 'asc' ? <ArrowUp size={14} /> : <ArrowDown size={14} />)}
+                  </th>
                   <th>PERSONNEL</th>
-                  {isResponderMode ? <th>DEPARTMENT</th> : <th>ROLE</th>}
+                  {isResponderMode ? (
+                    <th>DEPARTMENT</th>
+                  ) : (
+                    <th>ROLE</th>
+                  )}
                   <th>STATUS</th>
                   <th className="zenith-actions-cell" style={{ width: '40px' }}></th>
                 </tr>
@@ -745,7 +814,7 @@ const AdminManagement = ({ initialTab = 'all', isSuperAdmin }) => {
                           <option value="BFP">BFP (Fire Station)</option>
                           <option value="PNP">PNP (Police Station)</option>
                           <option value="MHO">MHO (Health Office)</option>
-                          <option value="Hospital">Community Hospital</option>
+                          <option value="Community Hospital">Community Hospital</option>
                           <option value="MSWDO">MSWDO (Social Welfare)</option>
                           <option value="Civil Registrar">Civil Registrar</option>
                           <option value="Mayor Office">Mayor's Office</option>
@@ -951,11 +1020,11 @@ const AdminManagement = ({ initialTab = 'all', isSuperAdmin }) => {
                 ) : (
                   <div className="form-item">
                     <label>Department</label>
-                    <select value={addFormData.department} onChange={e => setAddFormData({ ...addFormData, department: e.target.value })}>
+                    <select value={addFormData.department} onChange={e => setAddFormData({ ...addFormData, department: e.target.value })} required>
                       <option value="BFP">BFP (Fire Station)</option>
                       <option value="PNP">PNP (Police Station)</option>
                       <option value="MHO">MHO (Health Office)</option>
-                      <option value="Hospital">Community Hospital</option>
+                      <option value="Community Hospital">Community Hospital</option>
                       <option value="MSWDO">MSWDO (Social Welfare)</option>
                       <option value="Civil Registrar">Civil Registrar</option>
                       <option value="Mayor Office">Mayor's Office</option>
