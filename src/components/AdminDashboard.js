@@ -120,7 +120,7 @@ const AdminDashboard = ({ user, onLogout }) => {
     return saved === null ? true : saved === 'true';
   });
   const [mapFilter, setMapFilter] = useState('all');
-  const [hasClickedBell, setHasClickedBell] = useState(false);
+  const [hasViewedNotifications, setHasViewedNotifications] = useState(false);
 
   // Persist sound setting
   useEffect(() => {
@@ -605,7 +605,7 @@ const AdminDashboard = ({ user, onLogout }) => {
       if (payload.eventType === 'INSERT') {
         console.log('📝 New incident reported - refreshing all data...');
         playNotificationSound();
-        setHasClickedBell(false);
+        setHasViewedNotifications(false);
 
         // Show browser notification
         showBrowserNotification(`New ${payload.new.category || 'Incident'} Reported`, {
@@ -635,7 +635,7 @@ const AdminDashboard = ({ user, onLogout }) => {
         }
         
         if (payload.new.status === 'pending') {
-          setHasClickedBell(false);
+          setHasViewedNotifications(false);
           playNotificationSound();
         }
       } else if (payload.eventType === 'UPDATE') {
@@ -680,6 +680,7 @@ const AdminDashboard = ({ user, onLogout }) => {
 
       if (payload.eventType === 'INSERT') {
         console.log('📝 New user report submitted - refreshing...');
+        setHasViewedNotifications(false);
         loadReports(); // Refresh reports data
       } else if (payload.eventType === 'UPDATE') {
         console.log('✏️ User report updated - refreshing...');
@@ -1099,6 +1100,12 @@ const AdminDashboard = ({ user, onLogout }) => {
     }).length;
   }, [reports, viewedNotifications]);
 
+  // Derived indicator state
+  const hasNewNotifications = useMemo(() => notificationCount > 0, [notificationCount]);
+  const indicatorColor = useMemo(() => {
+    return hasNewNotifications && !hasViewedNotifications ? 'unread' : 'read';
+  }, [hasNewNotifications, hasViewedNotifications]);
+
   // Mark a notification as viewed
   const handleViewNotification = (notifId) => {
     if (!isAlreadyViewed(notifId)) {
@@ -1295,7 +1302,7 @@ const AdminDashboard = ({ user, onLogout }) => {
                 className="notification-btn"
                 onClick={() => {
                   setShowNotifications(!showNotifications);
-                  if (notificationCount > 0) setHasClickedBell(true);
+                  if (hasNewNotifications) setHasViewedNotifications(true);
                 }}
               >
                 <div className="badge-container">
@@ -1306,8 +1313,8 @@ const AdminDashboard = ({ user, onLogout }) => {
                 </div>
               </button>
               <div 
-                className={`realtime-indicator ${notificationCount > 0 && !hasClickedBell ? 'unread blinking-indicator' : 'read'}`} 
-                title={notificationCount > 0 && !hasClickedBell ? `${notificationCount} unread reports` : 'All reports read'}
+                className={`realtime-indicator ${indicatorColor === 'unread' ? 'unread blinking-indicator' : 'read'}`} 
+                title={indicatorColor === 'unread' ? `${notificationCount} unread reports` : 'All reports read'}
               >
                 <div className="realtime-dot"></div>
               </div>
