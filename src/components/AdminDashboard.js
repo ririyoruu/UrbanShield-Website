@@ -411,7 +411,15 @@ const AdminDashboard = ({ user, onLogout }) => {
         };
       });
       console.log('Formatted reports:', formattedReports);
-      setReports(formattedReports);
+      // Custom sort: Resolved at the bottom, newest atop
+      const sortedReports = [...formattedReports].sort((a, b) => {
+        const isResolvedA = a.status === 'resolved';
+        const isResolvedB = b.status === 'resolved';
+
+        if (isResolvedA !== isResolvedB) return isResolvedA ? 1 : -1;
+        return new Date(b.created_at || 0) - new Date(a.created_at || 0);
+      });
+      setReports(sortedReports);
     } catch (err) {
       console.error('Error loading reports:', err);
       throw err;
@@ -571,6 +579,7 @@ const AdminDashboard = ({ user, onLogout }) => {
       const notification = new Notification(title, {
         icon: '/logourb.png',
         badge: '/logourb.png',
+        silent: true,
         ...options
       });
 
@@ -634,7 +643,7 @@ const AdminDashboard = ({ user, onLogout }) => {
           });
         }
         
-        if (payload.new.status === 'pending') {
+        if (payload.new.status === 'pending' || payload.new.status === 'open') {
           setHasViewedNotifications(false);
           playNotificationSound();
         }
@@ -1094,17 +1103,20 @@ const AdminDashboard = ({ user, onLogout }) => {
   // Calculate notification count (open/pending posts not yet viewed)
   const notificationCount = useMemo(() => {
     return reports.filter(r => {
-      const isPending = !r.status || r.status === 'pending';
+      const isActionable = !r.status || r.status === 'pending' || r.status === 'open';
       const isNotViewed = !isAlreadyViewed(r.id);
-      return isPending && isNotViewed;
+      return isActionable && isNotViewed;
     }).length;
   }, [reports, viewedNotifications]);
 
   // Derived indicator state
   const hasNewNotifications = useMemo(() => notificationCount > 0, [notificationCount]);
+  
   const indicatorColor = useMemo(() => {
+    // If panel is currently open, we consider it "viewed"
+    if (showNotifications) return 'read';
     return hasNewNotifications && !hasViewedNotifications ? 'unread' : 'read';
-  }, [hasNewNotifications, hasViewedNotifications]);
+  }, [hasNewNotifications, hasViewedNotifications, showNotifications]);
 
   // Mark a notification as viewed
   const handleViewNotification = (notifId) => {
@@ -1301,8 +1313,9 @@ const AdminDashboard = ({ user, onLogout }) => {
               <button
                 className="notification-btn"
                 onClick={() => {
-                  setShowNotifications(!showNotifications);
-                  if (hasNewNotifications) setHasViewedNotifications(true);
+                  const nextState = !showNotifications;
+                  setShowNotifications(nextState);
+                  if (nextState) setHasViewedNotifications(true);
                 }}
               >
                 <div className="badge-container">

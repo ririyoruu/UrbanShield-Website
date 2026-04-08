@@ -418,7 +418,7 @@ const IncidentModeration = ({ initialSearch = '', onStatusChange, onAssignRespon
   };
 
   const filteredIncidents = useMemo(() => {
-    return incidents.filter(incident => {
+    const filtered = incidents.filter(incident => {
       const matchesSearch = !searchTerm ||
         incident.title?.toLowerCase().includes(searchTerm.toLowerCase()) ||
         incident.description?.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -430,6 +430,17 @@ const IncidentModeration = ({ initialSearch = '', onStatusChange, onAssignRespon
       const status = getStatus(incident);
       const matchesStatus = filterStatus === 'all' || status === filterStatus;
       return matchesSearch && matchesCategory && matchesSeverity && matchesStatus;
+    });
+
+    // Custom Sort: Non-resolved items first (Actionable), then by date descending
+    return [...filtered].sort((a, b) => {
+      const statusA = getStatus(a);
+      const statusB = getStatus(b);
+      const isResolvedA = statusA === 'resolved';
+      const isResolvedB = statusB === 'resolved';
+      
+      if (isResolvedA !== isResolvedB) return isResolvedA ? 1 : -1;
+      return new Date(b.created_at || 0) - new Date(a.created_at || 0);
     });
   }, [incidents, searchTerm, filterCategory, filterSeverity, filterStatus]);
 
