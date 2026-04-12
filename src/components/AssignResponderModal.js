@@ -17,15 +17,7 @@ const AssignResponderModal = ({ incident, isOpen, onClose, onAssign, loading }) 
     { id: 'MHO', label: 'MHO (HEALTH)', icon: <Heart size={16} /> },
     { id: 'Hospital', label: 'COMMUNITY HOSPITAL', icon: <Building2 size={16} /> },
     { id: 'MSWDO', label: 'MSWDO (SOCIAL)', icon: <Users size={16} /> },
-    { id: 'Civil Registrar', label: 'REGISTRAR', icon: <Activity size={16} /> },
-    { id: 'Mayor Office', label: 'MAYOR', icon: <Crown size={16} /> },
-    { id: 'Vice Mayor Office', label: 'V-MAYOR', icon: <Crown size={16} /> },
-    { id: 'Sangguniang Bayan', label: 'SB', icon: <Activity size={16} /> },
-    { id: 'Treasurer Office', label: 'TREASURER', icon: <Building2 size={16} /> },
-    { id: 'Accountant Office', label: 'ACCOUNTANT', icon: <Building2 size={16} /> },
-    { id: 'Budget Office', label: 'BUDGET', icon: <Building2 size={16} /> },
-    { id: 'Agriculture Office', label: 'AGRI', icon: <Activity size={16} /> },
-    { id: 'Engineering Office', label: 'ENGR', icon: <HardHat size={16} /> },
+    { id: 'TERSU', label: 'TERSU (EMERGENCY)', icon: <Activity size={16} /> },
     { id: 'Waterworks', label: 'WATERWORKS', icon: <Activity size={16} /> },
     { id: 'Barangay Office', label: 'BARANGAY', icon: <Building2 size={16} /> }
   ];

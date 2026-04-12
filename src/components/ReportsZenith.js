@@ -235,6 +235,24 @@ const ReportsZenith = ({ isSuperAdmin, user }) => {
     }
   };
 
+  const handleShadowban = async (deviceId, incidentId) => {
+    if (!window.confirm(`Are you sure you want to SHADOWBAN this device? \n\nDevice ID: ${deviceId}\n\nThis will ban the device from submitting further reports and mark this entire incident as invalid (removed).`)) {
+      return;
+    }
+
+    try {
+      setSaving(true);
+      await adminService.shadowbanDevice(deviceId, incidentId);
+      await loadReports();
+      handleCloseCase();
+      alert('Device has been shadowbanned and incident marked as invalid.');
+    } catch (error) {
+      alert('Shadowban failed: ' + error.message);
+    } finally {
+      setSaving(false);
+    }
+  };
+
   const renderModal = () => {
     if (!selectedCase) return null;
 
@@ -318,6 +336,52 @@ const ReportsZenith = ({ isSuperAdmin, user }) => {
                     <span className="reason-count">{count}</span>
                   </div>
                 ))}
+              </div>
+            </div>
+
+            {/* Individual Reports & Device Security */}
+            <div className="case-section device-security-section">
+              <div className="section-header-flex">
+                <h4>Reporter Content & Devices</h4>
+                <ShieldAlert size={16} className="security-icon-header" />
+              </div>
+              <div className="device-id-list">
+                {selectedCase.reports.map((report, idx) => {
+                  const rUser = report.reporting_user;
+                  const displayName = rUser ? (rUser.full_name || rUser.username || rUser.email?.split('@')[0]) : 'Guest Reporter';
+                  const deviceId = report.device_id;
+                  
+                  return (
+                    <div key={report.id || idx} className="device-item-card">
+                      <div className="device-user-info">
+                        <div className="user-line">
+                          <UserIcon size={14} />
+                          <strong>{displayName}</strong>
+                          {!rUser && <span className="guest-tag">GUEST</span>}
+                        </div>
+                        <div className="device-id-line">
+                          <Activity size={12} />
+                          <code>{deviceId || 'No unique device ID logged'}</code>
+                        </div>
+                      </div>
+                      <div className="device-actions">
+                        {deviceId ? (
+                          <button 
+                            className="shadowban-action-btn"
+                            onClick={() => handleShadowban(deviceId, selectedCase.id)}
+                            disabled={saving}
+                            title="Bans this device and invalidates this incident"
+                          >
+                            <ShieldAlert size={14} />
+                            Shadowban
+                          </button>
+                        ) : (
+                          <span className="no-action-label">No device ID</span>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
             </div>
 

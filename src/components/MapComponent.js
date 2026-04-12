@@ -11,7 +11,8 @@ const MapComponent = ({
   onMarkerClick,
   isDark = false,
   statusFilter = 'all', 
-  setStatusFilter = () => {}
+  setStatusFilter = () => {},
+  focusIncidentId = null
 }) => {
   const STREET_STYLE = 'mapbox://styles/mapbox/streets-v12';
   const [viewState, setViewState] = useState({
@@ -229,6 +230,34 @@ const MapComponent = ({
 
     processIncidents();
   }, [incidents]);
+  
+  const handleIncidentClick = useCallback((incident) => {
+    if (incident._lat && incident._lng) {
+      // Use flyTo for smooth animated zoom
+      const map = mapRef.current;
+      if (map && map.flyTo) {
+        map.flyTo({
+          center: [incident._lng, incident._lat],
+          zoom: 16,
+          duration: 1500,
+          essential: true
+        });
+      }
+      // Just highlight the marker, don't show popup
+      setHighlightedMarker(incident);
+    }
+  }, []);
+
+  // Effect to handle focus from external components
+  useEffect(() => {
+    if (focusIncidentId && pins.length > 0) {
+      const targetPin = pins.find(p => p.id === focusIncidentId);
+      if (targetPin) {
+        handleIncidentClick(targetPin);
+      }
+    }
+  }, [focusIncidentId, pins, handleIncidentClick]);
+
 
   const getMarkerColor = (status) => {
     // Color based on status only
@@ -297,22 +326,6 @@ const MapComponent = ({
     // Hover preview removed - do nothing
   }, []);
 
-  const handleIncidentClick = useCallback((incident) => {
-    if (incident._lat && incident._lng) {
-      // Use flyTo for smooth animated zoom
-      const map = mapRef.current;
-      if (map && map.flyTo) {
-        map.flyTo({
-          center: [incident._lng, incident._lat],
-          zoom: 16,
-          duration: 1500,
-          essential: true
-        });
-      }
-      // Just highlight the marker, don't show popup
-      setHighlightedMarker(incident);
-    }
-  }, []);
 
   return (
     <div className="map-container">

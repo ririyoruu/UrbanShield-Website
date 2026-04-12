@@ -43,7 +43,7 @@ const AdminManagement = ({ initialTab = 'all', isSuperAdmin }) => {
 
   const [showAddDrawer, setShowAddDrawer] = useState(false);
   const [addFormData, setAddFormData] = useState({
-    email: '', password: '', full_name: '', username: '', phone: '', department: 'BFP', user_type: 'admin',
+    email: '', password: '', full_name: '', username: '', phone: '', department: 'BFP', user_type: 'super_admin',
   });
   const [showPassword, setShowPassword] = useState(false);
 
@@ -99,7 +99,7 @@ const AdminManagement = ({ initialTab = 'all', isSuperAdmin }) => {
       const { data, error: dbErr } = await supabase
         .from('profiles')
         .select('*')
-        .in('user_type', ['admin', 'super_admin', 'responder'])
+        .in('user_type', ['super_admin', 'responder'])
         .order('created_at', { ascending: false });
       if (dbErr) throw dbErr;
       setUsers(data || []);
@@ -118,14 +118,12 @@ const AdminManagement = ({ initialTab = 'all', isSuperAdmin }) => {
   const stats = useMemo(() => ({
     all: users.length,
     super_admins: users.filter(u => u.user_type === 'super_admin').length,
-    admins: users.filter(u => u.user_type === 'admin').length,
     responders: users.filter(u => u.user_type === 'responder').length,
   }), [users]);
 
   const filteredUsers = useMemo(() => {
     let result = [...users];
     if (activeTab === 'super_admins') result = result.filter(u => u.user_type === 'super_admin');
-    else if (activeTab === 'admins') result = result.filter(u => u.user_type === 'admin' || u.user_type === 'super_admin');
     else if (activeTab === 'responders') {
       result = result.filter(u => u.user_type === 'responder');
       if (filterDepartment !== 'all') {
@@ -215,7 +213,7 @@ const AdminManagement = ({ initialTab = 'all', isSuperAdmin }) => {
       username: user.username || '',
       phone: user.phone || '',
       department: user.department || 'BFP',
-      user_type: user.user_type || 'admin',
+      user_type: user.user_type || 'super_admin',
     });
     setIsEditMode(false);
     setShowDetailDrawer(true);
@@ -409,7 +407,7 @@ const AdminManagement = ({ initialTab = 'all', isSuperAdmin }) => {
         phone: digitsOnly
       });
       setShowAddDrawer(false);
-      setAddFormData({ email: '', password: '', full_name: '', username: '', phone: '', department: 'BFP', user_type: 'admin' });
+      setAddFormData({ email: '', password: '', full_name: '', username: '', phone: '', department: 'BFP', user_type: 'super_admin' });
       setAddUsernameError('');
       showFlash(`${isResponderMode ? 'Responder' : 'Admin'} added`);
       await loadStaff();
@@ -516,7 +514,7 @@ const AdminManagement = ({ initialTab = 'all', isSuperAdmin }) => {
   }), [filteredUsers]);
 
   const isResponderMode = initialTab === 'responders';
-  const isAdminMode = initialTab === 'admins';
+  const isAdminMode = initialTab === 'super_admins';
 
   return (
     <div className="zenith-table-moderation admin-management-module">
@@ -594,7 +592,7 @@ const AdminManagement = ({ initialTab = 'all', isSuperAdmin }) => {
           <Search size={18} />
           <input
             type="text"
-            placeholder={`Search ${isResponderMode ? 'responder' : isAdminMode ? 'admin' : 'staff'}...`}
+            placeholder={`Search ${isResponderMode ? 'responder' : isAdminMode ? 'super admin' : 'staff'}...`}
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
           />
@@ -613,15 +611,7 @@ const AdminManagement = ({ initialTab = 'all', isSuperAdmin }) => {
               <option value="MHO">MHO (Health Office)</option>
               <option value="Community Hospital">Community Hospital</option>
               <option value="MSWDO">MSWDO (Social Welfare)</option>
-              <option value="Civil Registrar">Civil Registrar</option>
-              <option value="Mayor Office">Mayor's Office</option>
-              <option value="Vice Mayor Office">Vice Mayor's Office</option>
-              <option value="Sangguniang Bayan">Sangguniang Bayan</option>
-              <option value="Treasurer Office">Treasurer's Office</option>
-              <option value="Accountant Office">Accountant's Office</option>
-              <option value="Budget Office">Budget Office</option>
-              <option value="Agriculture Office">Agriculture Office</option>
-              <option value="Engineering Office">Engineering Office</option>
+              <option value="TERSU">TERSU (Emergency Response)</option>
               <option value="Waterworks">Waterworks</option>
               <option value="Barangay Office">Barangay Office</option>
             </select>
@@ -776,6 +766,9 @@ const AdminManagement = ({ initialTab = 'all', isSuperAdmin }) => {
               )}
 
               <div className="drawer-section">
+                <div className="admin-drawer-section-title">
+                  {selectedStaff.user_type === 'responder' ? 'Responder Details' : 'Personnel Details'}
+                </div>
                 <div className="details-stack-zenith">
                   <div className="detail-field-row">
                     <label>Full Name</label>
@@ -816,15 +809,7 @@ const AdminManagement = ({ initialTab = 'all', isSuperAdmin }) => {
                           <option value="MHO">MHO (Health Office)</option>
                           <option value="Community Hospital">Community Hospital</option>
                           <option value="MSWDO">MSWDO (Social Welfare)</option>
-                          <option value="Civil Registrar">Civil Registrar</option>
-                          <option value="Mayor Office">Mayor's Office</option>
-                          <option value="Vice Mayor Office">Vice Mayor's Office</option>
-                          <option value="Sangguniang Bayan">Sangguniang Bayan</option>
-                          <option value="Treasurer Office">Treasurer's Office</option>
-                          <option value="Accountant Office">Accountant's Office</option>
-                          <option value="Budget Office">Budget Office</option>
-                          <option value="Agriculture Office">Agriculture Office</option>
-                          <option value="Engineering Office">Engineering Office</option>
+                          <option value="TERSU">TERSU (Emergency Response)</option>
                           <option value="Waterworks">Waterworks</option>
                           <option value="Barangay Office">Barangay Office</option>
                         </select>
@@ -874,7 +859,7 @@ const AdminManagement = ({ initialTab = 'all', isSuperAdmin }) => {
                     )}
                   </div>
                   <div className="detail-field-row">
-                    <label>Admin ID</label>
+                    <label>{selectedStaff.user_type === 'responder' ? 'Responder ID' : 'Super Admin ID'}</label>
                     <div className="value muted">{formatDisplayId(users.indexOf(selectedStaff), users.length, selectedStaff.user_type)}</div>
                   </div>
                 </div>
@@ -883,15 +868,12 @@ const AdminManagement = ({ initialTab = 'all', isSuperAdmin }) => {
               {!isEditMode && (
                 <div className="danger-zone-zenith">
                   <div className="danger-zone-title">Account Management</div>
-                  <p>Manage this personnel's access to the UrbanShield platform.</p>
+                  <p>Manage this {selectedStaff.user_type === 'responder' ? 'responder' : 'personnel'}'s access to the UrbanShield platform.</p>
                   <div className="danger-zone-actions">
-                    {isSuperAdmin && selectedStaff.user_type === 'admin' && (
-                      <button type="button" className="status-btn-zenith activate" style={{ background: 'var(--primary)', marginBottom: '0.5rem' }} onClick={(e) => handlePromoteToSuperAdmin(e, selectedStaff)}>
-                        <Crown size={16} /> Promote to Super Admin
-                      </button>
-                    )}
                     <button type="button" className={`status-btn-zenith ${isActive(selectedStaff) ? 'deactivate' : 'activate'}`} onClick={(e) => handleToggleActive(e, selectedStaff)}>
-                      {isActive(selectedStaff) ? 'Suspend Personnel' : 'Reactivate Personnel'}
+                      {isActive(selectedStaff) 
+                        ? (selectedStaff.user_type === 'responder' ? 'Suspend Responder' : 'Suspend Personnel') 
+                        : (selectedStaff.user_type === 'responder' ? 'Reactivate Responder' : 'Reactivate Personnel')}
                     </button>
                     {selectedStaff.user_type === 'super_admin' ? (
                       <button type="button" className="remove-btn-zenith" onClick={(e) => handleRemoveStaff(e, selectedStaff)}>
@@ -938,7 +920,7 @@ const AdminManagement = ({ initialTab = 'all', isSuperAdmin }) => {
           <div className="zenith-overlay" onClick={() => setShowAddDrawer(false)} />
           <div className="zenith-drawer">
             <div className="drawer-header">
-              <h3>Add {isResponderMode ? 'Responder' : isAdminMode ? 'Admin' : 'Staff Member'}</h3>
+              <h3>Add {isResponderMode ? 'Responder' : isAdminMode ? 'Super Admin' : 'Staff Member'}</h3>
               <button className="close-btn" onClick={() => setShowAddDrawer(false)}><X size={22} /></button>
             </div>
             <form onSubmit={handleAddStaff} className="drawer-scrollable">
@@ -1007,13 +989,12 @@ const AdminManagement = ({ initialTab = 'all', isSuperAdmin }) => {
               </div>
 
               <div className="drawer-section">
-                <div className="admin-drawer-section-title">Staff Details</div>
+                <div className="admin-drawer-section-title">{isResponderMode ? 'Responder Details' : 'Staff Details'}</div>
                 <div className="form-item"><label>Full Name</label><input type="text" required value={addFormData.full_name} onChange={e => setAddFormData({ ...addFormData, full_name: e.target.value })} /></div>
                 {!isResponderMode ? (
                   <div className="form-item">
                     <label>Role</label>
                     <select value={addFormData.user_type} onChange={e => setAddFormData({ ...addFormData, user_type: e.target.value })}>
-                      <option value="admin">Admin</option>
                       <option value="super_admin">Super Admin</option>
                     </select>
                   </div>
@@ -1026,15 +1007,7 @@ const AdminManagement = ({ initialTab = 'all', isSuperAdmin }) => {
                       <option value="MHO">MHO (Health Office)</option>
                       <option value="Community Hospital">Community Hospital</option>
                       <option value="MSWDO">MSWDO (Social Welfare)</option>
-                      <option value="Civil Registrar">Civil Registrar</option>
-                      <option value="Mayor Office">Mayor's Office</option>
-                      <option value="Vice Mayor Office">Vice Mayor's Office</option>
-                      <option value="Sangguniang Bayan">Sangguniang Bayan</option>
-                      <option value="Treasurer Office">Treasurer's Office</option>
-                      <option value="Accountant Office">Accountant's Office</option>
-                      <option value="Budget Office">Budget Office</option>
-                      <option value="Agriculture Office">Agriculture Office</option>
-                      <option value="Engineering Office">Engineering Office</option>
+                      <option value="TERSU">TERSU (Emergency Response)</option>
                       <option value="Waterworks">Waterworks</option>
                       <option value="Barangay Office">Barangay Office</option>
                     </select>
@@ -1056,7 +1029,7 @@ const AdminManagement = ({ initialTab = 'all', isSuperAdmin }) => {
               <div className="drawer-footer">
                 <button type="button" className="footer-btn secondary" onClick={() => setShowAddDrawer(false)}>Cancel</button>
                 <button type="submit" className="footer-btn primary" disabled={saving}>
-                  Add {isResponderMode ? 'Responder' : isAdminMode ? 'Admin' : 'Staff'}
+                  Add {isResponderMode ? 'Responder' : isAdminMode ? 'Super Admin' : 'Staff'}
                 </button>
               </div>
             </form>

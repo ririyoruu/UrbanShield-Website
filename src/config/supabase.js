@@ -52,7 +52,8 @@ export const adminService = {
         .select(`
           *,
           reporter:reporter_id (
-            full_name
+            full_name,
+            phone
           )
         `)
         .order('created_at', { ascending: false });
@@ -262,6 +263,63 @@ export const adminService = {
     }
   },
 
+  /**
+   * Shadowban a device by ID and mark the incident as invalid
+   * @param {string} deviceId The device ID to ban
+   * @param {string} incidentId The incident ID to mark as invalid
+   */
+  async shadowbanDevice(deviceId, incidentId) {
+    try {
+      console.log(`🛡️ Shadowbanning device: ${deviceId} for incident: ${incidentId}`);
+      
+      // 1. Insert into banned_devices table
+      const { error: banError } = await supabase
+        .from('banned_devices')
+        .insert([{ 
+          device_id: deviceId, 
+          reason: 'Spam/False report via admin shadowban',
+          banned_at: new Date().toISOString()
+        }]);
+      
+      if (banError) {
+        // If it's a duplicate (already banned), we still proceed to invalidate the report
+        if (banError.code !== '23505') { 
+          throw banError;
+        }
+        console.log('Device already banned, proceeding to invalidate incident.');
+      }
+
+      // 2. Mark incident as flag-hidden (invalid)
+      const { error: incError } = await supabase
+        .from('incidents')
+        .update({ 
+          is_flagged: true, 
+          status: 'removed', // Set status to removed as part of 'invalidating'
+          updated_at: new Date().toISOString() 
+        })
+        .eq('id', incidentId);
+        
+      if (incError) throw incError;
+
+      // 3. Update all reports tied to this incident to 'removed' status
+      const { error: repError } = await supabase
+        .from('reports')
+        .update({
+          status: 'removed',
+          admin_note: `Shadowbanned reporter device: ${deviceId}`,
+          reviewed_at: new Date().toISOString()
+        })
+        .eq('incident_id', incidentId);
+
+      if (repError) throw repError;
+
+      return { success: true };
+    } catch (error) {
+      console.error('CRITICAL SHADOWBAN ERROR:', error);
+      throw error;
+    }
+  },
+
   async getIncidentById(incidentId) {
     try {
       if (!incidentId) throw new Error('Missing incidentId');
@@ -270,7 +328,8 @@ export const adminService = {
         .select(`
           *,
           reporter:reporter_id (
-            full_name
+            full_name,
+            phone
           )
         `)
         .eq('id', incidentId)
@@ -521,7 +580,8 @@ export const adminService = {
         .select(`
           *,
           reporter:reporter_id (
-            full_name
+            full_name,
+            phone
           )
         `)
         .eq('status', status)

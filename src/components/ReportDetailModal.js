@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import {
   X,
+  Mail,
+  Phone,
   MapPin,
   Clock,
   User,
@@ -42,6 +44,7 @@ const ReportDetailModal = ({
   onDeleteReport,
   onSaveNote,
   onAssignResponder,
+  onLocateOnMap,
   loading,
   isSuperAdmin = false,
   isSidePanel = false
@@ -326,11 +329,24 @@ const ReportDetailModal = ({
 
           <div className="post-body-content">
             <div className="post-meta-list">
-              <div className="post-meta-list-item">
+              <div 
+                className="post-meta-list-item clickable-meta" 
+                onClick={() => {
+                  if (onLocateOnMap) {
+                    onLocateOnMap(report.id);
+                  } else {
+                    const address = report.address || report.location;
+                    if (address) {
+                      window.open(`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(address)}`, '_blank');
+                    }
+                  }
+                }}
+                title="Locate on Map"
+              >
                 <MapPin size={15} className="meta-icon" />
                 <div className="meta-content">
-                  <span className="meta-label">Location</span>
-                  <span className="meta-value">{report.address || report.location || 'Not specified'}</span>
+                  <span className="meta-label">Location (Tap to view maps)</span>
+                  <span className="meta-value address-link">{report.address || report.location || 'Not specified'}</span>
                 </div>
               </div>
               <div className="post-meta-list-item">
@@ -340,6 +356,15 @@ const ReportDetailModal = ({
                   <span className="meta-value">{report.reporter || report.reporter_name || 'Anonymous'}</span>
                 </div>
               </div>
+              {(report.contact_number || report.reporter?.phone) && (
+                <div className="post-meta-list-item">
+                  <Phone size={15} className="meta-icon" />
+                  <div className="meta-content">
+                    <span className="meta-label">Contact Number</span>
+                    <span className="meta-value">{report.contact_number || report.reporter.phone}</span>
+                  </div>
+                </div>
+              )}
               <div className="post-meta-list-item">
                 <Clock size={15} className="meta-icon" />
                 <div className="meta-content">
@@ -357,6 +382,7 @@ const ReportDetailModal = ({
                 </div>
               </div>
             </div>
+
 
             {report.description && (
               <>

@@ -104,6 +104,15 @@ const AdminDashboard = ({ user, onLogout }) => {
   const [reportsViewMode, setReportsViewMode] = useState('default'); // 'default' or 'list'
   const [selectedReport, setSelectedReport] = useState(null);
   const [showReportModal, setShowReportModal] = useState(false);
+  const [focusIncidentId, setFocusIncidentId] = useState(null);
+
+  const handleFocusOnMap = (incidentId) => {
+    setActiveTab('map');
+    setFocusIncidentId(incidentId);
+    setShowReportModal(false);
+    // Reset focus after a short delay so it can be re-triggered if needed
+    setTimeout(() => setFocusIncidentId(null), 1000);
+  };
   const [usersSubTab, setUsersSubTab] = useState('users');
   const [settingsSubTab, setSettingsSubTab] = useState('settings');
   const [adminAvatarUrl, setAdminAvatarUrl] = useState('');
@@ -1213,8 +1222,8 @@ const AdminDashboard = ({ user, onLogout }) => {
                   <UserCheck size={16} /><span>Responders</span>
                 </button>
                 {isSuperAdmin && (
-                  <button className={`nav-sub-item ${(activeTab === 'admin-management' && staffFilter === 'admins') ? 'active' : ''}`} onClick={() => { handleTabChange('admin-management'); setStaffFilter('admins'); }}>
-                    <Shield size={16} /><span>Admins</span>
+                  <button className={`nav-sub-item ${(activeTab === 'admin-management' && staffFilter === 'super_admins') ? 'active' : ''}`} onClick={() => { handleTabChange('admin-management'); setStaffFilter('super_admins'); }}>
+                    <Shield size={16} /><span>Super Admins</span>
                   </button>
                 )}
               </div>
@@ -1372,14 +1381,15 @@ const AdminDashboard = ({ user, onLogout }) => {
         {/* Content Area */}
         <div className="content">
           {activeTab === 'map' && (
-            <MapComponent
-              incidents={reports}
-              userType="admin"
-              onMarkerClick={(incident) => handleViewReport(incident)}
-              isDark={isDark}
-              statusFilter={mapFilter}
-              setStatusFilter={setMapFilter}
-            />
+              <MapComponent
+                incidents={reports}
+                userType="admin"
+                onMarkerClick={(incident) => handleViewReport(incident)}
+                isDark={isDark}
+                statusFilter={mapFilter}
+                setStatusFilter={setMapFilter}
+                focusIncidentId={focusIncidentId}
+              />
           )}
 
           {activeTab === 'overview' && (
@@ -1669,6 +1679,7 @@ const AdminDashboard = ({ user, onLogout }) => {
               initialSearch={searchTerm}
               onStatusChange={handleIncidentStatusChange}
               onAssignResponder={handleAssignResponder}
+              onLocateOnMap={handleFocusOnMap}
               isSuperAdmin={isSuperAdmin}
             />
           )}
@@ -1780,6 +1791,7 @@ const AdminDashboard = ({ user, onLogout }) => {
         onRevertOpen={handleRevertReport}
         onAssignResponder={handleAssignResponder}
         onDeleteReport={handleDeleteReport}
+        onLocateOnMap={handleFocusOnMap}
         isSuperAdmin={isSuperAdmin}
         loading={loading}
       />

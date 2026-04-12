@@ -28,7 +28,7 @@ import './IncidentModeration.css';
 import './ZenithIncidentModeration.css';
 import './ZenithTableModeration.css';
 
-const IncidentModeration = ({ initialSearch = '', onStatusChange, onAssignResponder, isSuperAdmin: propIsSuperAdmin }) => {
+const IncidentModeration = ({ initialSearch = '', onStatusChange, onAssignResponder, onLocateOnMap, isSuperAdmin: propIsSuperAdmin }) => {
   const [incidents, setIncidents] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
@@ -1075,6 +1075,7 @@ const IncidentModeration = ({ initialSearch = '', onStatusChange, onAssignRespon
           onDeleteReport={handleDelete}
           onSaveNote={handleSaveNote}
           onAssignResponder={handleLocalAssignResponder}
+          onLocateOnMap={onLocateOnMap}
           loading={saving}
         />
       </div>
