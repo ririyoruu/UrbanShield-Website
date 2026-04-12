@@ -294,7 +294,7 @@ const LandingPage = ({ onLoginClick, onSignupClick }) => {
                             <div className="app-buttons">
                                 <button
                                     className="app-btn cta-primary"
-                                    onClick={() => window.open('https://www.mediafire.com/file/4u82yh64n22kckm/UrbanShield.apk/file', '_blank')}
+                                    onClick={() => window.open('https://download1581.mediafire.com/ypyb3zmedgmgT-Ir_YGCLte46TGJ5ABLlEbGr9qWWLlZZjtZF3VU0tdYoa3ajN_qptfRXySrkOm1xmZ0TUlgEa2C2sVC2fLlM-UsfXsomxmHO61sPl2tBmHV5ng8C9SlogbM8HmiMHcUzxSFfPGk9lLI7-A-n_iLR230Yx7n69fTorM/zye9x2dx7xgoolh/UrbanShield.apk', '_blank')}
                                 >
                                     <Smartphone size={20} />
                                     <span>Download APK</span>
