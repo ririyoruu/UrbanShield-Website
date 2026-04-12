@@ -1270,7 +1270,7 @@ const AdminDashboard = ({ user, onLogout }) => {
             </div>
             <div className="user-details">
               <h3>{adminName || user.name}</h3>
-              <p>{isSuperAdmin ? 'Super Administrator' : 'Administrator'}</p>
+              <p>Administrator</p>
             </div>
           </button>
           <button className="logout-btn" onClick={handleLogout}>
