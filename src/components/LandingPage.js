@@ -67,10 +67,10 @@ const LandingPage = ({ onLoginClick, onSignupClick }) => {
                 <div className="bg-grid-overlay" />
 
                 <div className="bg-grid-overlay" />
-                
+
                 {/* Tactical Radar Sweep Only */}
                 <div className="bg-radar-layer">
-                    <motion.div 
+                    <motion.div
                         className="radar-beam"
                         animate={{ rotate: 360 }}
                         transition={{ duration: 10, repeat: Infinity, ease: "linear" }}
@@ -97,8 +97,8 @@ const LandingPage = ({ onLoginClick, onSignupClick }) => {
                         <span>UrbanShield</span>
                     </motion.div>
                     <div className="landing-nav-links">
-                        <a 
-                            href="#" 
+                        <a
+                            href="#"
                             className="landing-nav-link"
                             onClick={(e) => {
                                 e.preventDefault();
@@ -107,32 +107,32 @@ const LandingPage = ({ onLoginClick, onSignupClick }) => {
                         >
                             Home
                         </a>
-                        <a 
-                            href="#features" 
+                        <a
+                            href="#features"
                             className="landing-nav-link"
                             onClick={(e) => {
                                 e.preventDefault();
                                 const element = document.getElementById('features');
                                 if (element) {
-                                    window.scrollTo({ 
-                                        top: element.offsetTop - 80, 
-                                        behavior: 'smooth' 
+                                    window.scrollTo({
+                                        top: element.offsetTop - 80,
+                                        behavior: 'smooth'
                                     });
                                 }
                             }}
                         >
                             Features
                         </a>
-                        <a 
-                            href="#app" 
+                        <a
+                            href="#app"
                             className="landing-nav-link"
                             onClick={(e) => {
                                 e.preventDefault();
                                 const element = document.getElementById('app');
                                 if (element) {
-                                    window.scrollTo({ 
-                                        top: element.offsetTop - 80, 
-                                        behavior: 'smooth' 
+                                    window.scrollTo({
+                                        top: element.offsetTop - 80,
+                                        behavior: 'smooth'
                                     });
                                 }
                             }}
@@ -250,7 +250,7 @@ const LandingPage = ({ onLoginClick, onSignupClick }) => {
                             whileInView={{ x: 0, opacity: 1 }}
                             viewport={{ once: false, amount: 0.3 }}
                             animate={{ y: [0, -20, 0] }}
-                            transition={{ 
+                            transition={{
                                 y: { duration: 4, repeat: Infinity, ease: "easeInOut" },
                                 x: { duration: 0.8 },
                                 opacity: { duration: 0.8 }
@@ -292,8 +292,8 @@ const LandingPage = ({ onLoginClick, onSignupClick }) => {
                             </div>
 
                             <div className="app-buttons">
-                                <button 
-                                    className="app-btn cta-primary" 
+                                <button
+                                    className="app-btn cta-primary"
                                     onClick={() => window.open('https://www.mediafire.com/file/4u82yh64n22kckm/UrbanShield.apk/file', '_blank')}
                                 >
                                     <Smartphone size={20} />

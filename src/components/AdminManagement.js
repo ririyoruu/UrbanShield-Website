@@ -611,7 +611,7 @@ const AdminManagement = ({ initialTab = 'all', isSuperAdmin }) => {
               <option value="MHO">MHO (Health Office)</option>
               <option value="Community Hospital">Community Hospital</option>
               <option value="MSWDO">MSWDO (Social Welfare)</option>
-              <option value="TERSU">TERSU (Emergency Response)</option>
+              <option value="TERSSU">TERSSU (Emergency Response)</option>
               <option value="Waterworks">Waterworks</option>
               <option value="Barangay Office">Barangay Office</option>
             </select>
@@ -809,7 +809,7 @@ const AdminManagement = ({ initialTab = 'all', isSuperAdmin }) => {
                           <option value="MHO">MHO (Health Office)</option>
                           <option value="Community Hospital">Community Hospital</option>
                           <option value="MSWDO">MSWDO (Social Welfare)</option>
-                          <option value="TERSU">TERSU (Emergency Response)</option>
+                          <option value="TERSSU">TERSSU (Emergency Response)</option>
                           <option value="Waterworks">Waterworks</option>
                           <option value="Barangay Office">Barangay Office</option>
                         </select>
@@ -1007,7 +1007,7 @@ const AdminManagement = ({ initialTab = 'all', isSuperAdmin }) => {
                       <option value="MHO">MHO (Health Office)</option>
                       <option value="Community Hospital">Community Hospital</option>
                       <option value="MSWDO">MSWDO (Social Welfare)</option>
-                      <option value="TERSU">TERSU (Emergency Response)</option>
+                      <option value="TERSSU">TERSSU (Emergency Response)</option>
                       <option value="Waterworks">Waterworks</option>
                       <option value="Barangay Office">Barangay Office</option>
                     </select>

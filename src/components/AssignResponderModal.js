@@ -17,7 +17,7 @@ const AssignResponderModal = ({ incident, isOpen, onClose, onAssign, loading }) 
     { id: 'MHO', label: 'MHO (HEALTH)', icon: <Heart size={16} /> },
     { id: 'Hospital', label: 'COMMUNITY HOSPITAL', icon: <Building2 size={16} /> },
     { id: 'MSWDO', label: 'MSWDO (SOCIAL)', icon: <Users size={16} /> },
-    { id: 'TERSU', label: 'TERSU (EMERGENCY)', icon: <Activity size={16} /> },
+    { id: 'TERSSU', label: 'TERSSU (EMERGENCY)', icon: <Activity size={16} /> },
     { id: 'Waterworks', label: 'WATERWORKS', icon: <Activity size={16} /> },
     { id: 'Barangay Office', label: 'BARANGAY', icon: <Building2 size={16} /> }
   ];

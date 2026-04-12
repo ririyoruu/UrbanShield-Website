@@ -106,6 +106,14 @@ const AdminDashboard = ({ user, onLogout }) => {
   const [showReportModal, setShowReportModal] = useState(false);
   const [focusIncidentId, setFocusIncidentId] = useState(null);
 
+  // Sound management
+  const notificationAudioRef = useRef(null);
+
+  useEffect(() => {
+    notificationAudioRef.current = new Audio('/notification.wav');
+    notificationAudioRef.current.volume = 0.5;
+  }, []);
+
   const handleFocusOnMap = (incidentId) => {
     setActiveTab('map');
     setFocusIncidentId(incidentId);
@@ -557,13 +565,14 @@ const AdminDashboard = ({ user, onLogout }) => {
 
   // Play notification sound
   const playNotificationSound = useCallback(() => {
-    if (!isSoundEnabled) return;
+    if (!isSoundEnabled || !notificationAudioRef.current) return;
 
     try {
-      // Use a professional, mission-critical alert sound
-      const audio = new Audio('/notification.wav');
-      audio.volume = 0.5;
-      audio.play().catch(e => console.log('Audio playback prevented by browser:', e));
+      // Reset sound to beginning and play
+      notificationAudioRef.current.currentTime = 0;
+      notificationAudioRef.current.play().catch(e => {
+        console.warn('Audio playback prevented by browser interaction policy:', e);
+      });
     } catch (error) {
       console.error('Error playing notification sound:', error);
     }
@@ -697,7 +706,8 @@ const AdminDashboard = ({ user, onLogout }) => {
       console.log('🔄 Real-time user report update received:', payload);
 
       if (payload.eventType === 'INSERT') {
-        console.log('📝 New user report submitted - refreshing...');
+        console.log('📝 New user report submitted - playing alert...');
+        playNotificationSound();
         setHasViewedNotifications(false);
         loadReports(); // Refresh reports data
       } else if (payload.eventType === 'UPDATE') {
@@ -711,7 +721,8 @@ const AdminDashboard = ({ user, onLogout }) => {
       console.log('🔄 Real-time profile update received:', payload);
 
       if (payload.eventType === 'INSERT') {
-        console.log('👤 New user registered - refreshing stats...');
+        console.log('👤 New user registered - playing alert...');
+        playNotificationSound();
         loadStats();
       } else if (payload.eventType === 'UPDATE') {
         console.log('✏️ User profile updated - refreshing...');
