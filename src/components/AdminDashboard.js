@@ -41,7 +41,8 @@ import {
   Sun,
   Volume2,
   VolumeX,
-  Flag
+  Flag,
+  Crown
 } from 'lucide-react';
 import { AreaChart, Area, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart as RechartsBarChart, Bar, PieChart as RechartsPieChart, Pie, Cell } from 'recharts';
 import MapComponent from './MapComponent';
@@ -1246,8 +1247,13 @@ const AdminDashboard = ({ user, onLogout }) => {
                   <UserCheck size={16} /><span>Responders</span>
                 </button>
                 {isSuperAdmin && (
+                  <button className={`nav-sub-item ${(activeTab === 'admin-management' && staffFilter === 'admins') ? 'active' : ''}`} onClick={() => { handleTabChange('admin-management'); setStaffFilter('admins'); }}>
+                    <Shield size={16} /><span>Admins</span>
+                  </button>
+                )}
+                {isSuperAdmin && (
                   <button className={`nav-sub-item ${(activeTab === 'admin-management' && staffFilter === 'super_admins') ? 'active' : ''}`} onClick={() => { handleTabChange('admin-management'); setStaffFilter('super_admins'); }}>
-                    <Shield size={16} /><span>Super Admins</span>
+                    <Crown size={16} /><span>Super Admins</span>
                   </button>
                 )}
               </div>
@@ -1313,6 +1319,7 @@ const AdminDashboard = ({ user, onLogout }) => {
               {activeTab === 'users' && <span style={{ fontSize: '2em', fontWeight: 'bold' }}>Residents</span>}
               {activeTab === 'admin-management' && staffFilter === 'responders' && <span style={{ fontSize: '2em', fontWeight: 'bold' }}>Responders</span>}
               {activeTab === 'admin-management' && staffFilter === 'admins' && <span style={{ fontSize: '2em', fontWeight: 'bold' }}>Admins</span>}
+              {activeTab === 'admin-management' && staffFilter === 'super_admins' && <span style={{ fontSize: '2em', fontWeight: 'bold' }}>Super Admins</span>}
               {activeTab === 'admin-management' && staffFilter === 'all' && <span style={{ fontSize: '2em', fontWeight: 'bold' }}>Staff Management</span>}
               {activeTab === 'announcements' && <span style={{ fontSize: '2em', fontWeight: 'bold' }}>Announcements</span>}
               {activeTab === 'logs' && <span style={{ fontSize: '2em', fontWeight: 'bold' }}>Audit Logs</span>}

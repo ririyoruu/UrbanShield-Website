@@ -99,7 +99,7 @@ const AdminManagement = ({ initialTab = 'all', isSuperAdmin }) => {
       const { data, error: dbErr } = await supabase
         .from('profiles')
         .select('*')
-        .in('user_type', ['super_admin', 'responder'])
+        .in('user_type', ['admin', 'super_admin', 'responder'])
         .order('created_at', { ascending: false });
       if (dbErr) throw dbErr;
       setUsers(data || []);
@@ -118,12 +118,14 @@ const AdminManagement = ({ initialTab = 'all', isSuperAdmin }) => {
   const stats = useMemo(() => ({
     all: users.length,
     super_admins: users.filter(u => u.user_type === 'super_admin').length,
+    admins: users.filter(u => u.user_type === 'admin').length,
     responders: users.filter(u => u.user_type === 'responder').length,
   }), [users]);
 
   const filteredUsers = useMemo(() => {
     let result = [...users];
     if (activeTab === 'super_admins') result = result.filter(u => u.user_type === 'super_admin');
+    else if (activeTab === 'admins') result = result.filter(u => u.user_type === 'admin');
     else if (activeTab === 'responders') {
       result = result.filter(u => u.user_type === 'responder');
       if (filterDepartment !== 'all') {
@@ -514,7 +516,8 @@ const AdminManagement = ({ initialTab = 'all', isSuperAdmin }) => {
   }), [filteredUsers]);
 
   const isResponderMode = initialTab === 'responders';
-  const isAdminMode = initialTab === 'super_admins';
+  const isSuperAdminMode = initialTab === 'super_admins';
+  const isAdminMode = initialTab === 'admins';
 
   return (
     <div className="zenith-table-moderation admin-management-module">
@@ -617,13 +620,13 @@ const AdminManagement = ({ initialTab = 'all', isSuperAdmin }) => {
             </select>
           )}
 
-          {(!isAdminMode || isSuperAdmin) && (
+          {(!isSuperAdminMode || isSuperAdmin) && (
             <button className="add-staff-btn-zenith" onClick={() => {
-              setAddFormData({ ...addFormData, user_type: isResponderMode ? 'responder' : 'admin' });
+              setAddFormData({ ...addFormData, user_type: isResponderMode ? 'responder' : isAdminMode ? 'admin' : 'super_admin' });
               setShowAddDrawer(true);
             }}>
               <UserPlus size={18} />
-              Add {isResponderMode ? 'Responder' : 'Admin'}
+              Add {isResponderMode ? 'Responder' : isAdminMode ? 'Admin' : 'Super Admin'}
             </button>
           )}
         </div>
@@ -920,7 +923,7 @@ const AdminManagement = ({ initialTab = 'all', isSuperAdmin }) => {
           <div className="zenith-overlay" onClick={() => setShowAddDrawer(false)} />
           <div className="zenith-drawer">
             <div className="drawer-header">
-              <h3>Add {isResponderMode ? 'Responder' : isAdminMode ? 'Super Admin' : 'Staff Member'}</h3>
+              <h3>Add {isResponderMode ? 'Responder' : isAdminMode ? 'Admin' : 'Super Admin'}</h3>
               <button className="close-btn" onClick={() => setShowAddDrawer(false)}><X size={22} /></button>
             </div>
             <form onSubmit={handleAddStaff} className="drawer-scrollable">
@@ -995,7 +998,11 @@ const AdminManagement = ({ initialTab = 'all', isSuperAdmin }) => {
                   <div className="form-item">
                     <label>Role</label>
                     <select value={addFormData.user_type} onChange={e => setAddFormData({ ...addFormData, user_type: e.target.value })}>
-                      <option value="super_admin">Super Admin</option>
+                      {isAdminMode ? (
+                        <option value="admin">Admin</option>
+                      ) : (
+                        <option value="super_admin">Super Admin</option>
+                      )}
                     </select>
                   </div>
                 ) : (
@@ -1029,7 +1036,7 @@ const AdminManagement = ({ initialTab = 'all', isSuperAdmin }) => {
               <div className="drawer-footer">
                 <button type="button" className="footer-btn secondary" onClick={() => setShowAddDrawer(false)}>Cancel</button>
                 <button type="submit" className="footer-btn primary" disabled={saving}>
-                  Add {isResponderMode ? 'Responder' : isAdminMode ? 'Super Admin' : 'Staff'}
+                  Add {isResponderMode ? 'Responder' : isAdminMode ? 'Admin' : 'Super Admin'}
                 </button>
               </div>
             </form>

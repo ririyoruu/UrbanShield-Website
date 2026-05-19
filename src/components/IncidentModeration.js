@@ -999,11 +999,7 @@ const IncidentModeration = ({ initialSearch = '', onStatusChange, onAssignRespon
                         <td className="zenith-date-cell">
                           {new Date(incident.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
                         </td>
-                        <td className="zenith-actions-cell" onClick={(e) => e.stopPropagation()}>
-                          <button className="zenith-actions-btn">
-                            <Activity size={16} />
-                          </button>
-                        </td>
+                        <td className="zenith-actions-cell"></td>
                       </tr>
                     );
                   })}
