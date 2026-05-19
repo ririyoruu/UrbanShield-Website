@@ -279,7 +279,11 @@ const LandingPage = ({ onLoginClick, onSignupClick }) => {
                             <div className="app-qr-area">
                                 <div className="qr-box-zenith">
                                     <div className="qr-container">
-                                        <img src="/qr.png" alt="Scan to Download" className="qr-img" />
+                                        <img 
+                                            src="https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=https://download850.mediafire.com/ci2ymcx86oggxh5z7jmUSEM3o8WjSL0M6Mf9hoSUIgfJ-aFbYKW16_1DXmQuh8J2CjpKLoxK9E-J7pPVHlyXMe6NZfITr7d4DBuipG1MwdUWHOXfFqd_YolytBG4S-0hqtFYVF4JIcv7NW4FfhV6JLa3IhOTcGwY7poY6bTwch47YA/w38vcw26pocngxc/UrbanShield.apk" 
+                                            alt="Scan to Download UrbanShield APK" 
+                                            className="qr-img" 
+                                        />
                                         <div className="qr-overlay">
                                             <QrCode size={32} />
                                         </div>
@@ -294,7 +298,7 @@ const LandingPage = ({ onLoginClick, onSignupClick }) => {
                             <div className="app-buttons">
                                 <button
                                     className="app-btn cta-primary"
-                                    onClick={() => window.open('https://download1581.mediafire.com/ypyb3zmedgmgT-Ir_YGCLte46TGJ5ABLlEbGr9qWWLlZZjtZF3VU0tdYoa3ajN_qptfRXySrkOm1xmZ0TUlgEa2C2sVC2fLlM-UsfXsomxmHO61sPl2tBmHV5ng8C9SlogbM8HmiMHcUzxSFfPGk9lLI7-A-n_iLR230Yx7n69fTorM/zye9x2dx7xgoolh/UrbanShield.apk', '_blank')}
+                                    onClick={() => window.open('https://download850.mediafire.com/ci2ymcx86oggxh5z7jmUSEM3o8WjSL0M6Mf9hoSUIgfJ-aFbYKW16_1DXmQuh8J2CjpKLoxK9E-J7pPVHlyXMe6NZfITr7d4DBuipG1MwdUWHOXfFqd_YolytBG4S-0hqtFYVF4JIcv7NW4FfhV6JLa3IhOTcGwY7poY6bTwch47YA/w38vcw26pocngxc/UrbanShield.apk', '_blank')}
                                 >
                                     <Smartphone size={20} />
                                     <span>Download APK</span>
