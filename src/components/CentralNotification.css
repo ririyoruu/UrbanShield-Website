@@ -1,0 +1,261 @@
+/* ── Overlay ── */
+.cn-overlay {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(6px);
+  z-index: 9999;
+  animation: cnFadeIn 0.25s ease-out;
+}
+
+/* ── Card ── */
+.cn-card {
+  width: 420px;
+  background: #ffffff;
+  border-radius: 20px;
+  box-shadow: 0 32px 64px -12px rgba(0, 0, 0, 0.3);
+  overflow: hidden;
+  border: 1.5px solid rgba(0, 0, 0, 0.08);
+  animation: cnSlideUp 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.cn-card.high {
+  border-color: #ef4444;
+  box-shadow: 0 32px 64px -12px rgba(239, 68, 68, 0.35), 0 0 0 1px rgba(239, 68, 68, 0.3);
+  animation: cnSlideUp 0.4s cubic-bezier(0.16, 1, 0.3, 1), cnHighPulse 1.8s ease-in-out infinite;
+}
+
+/* ── Progress Bar ── */
+.cn-progress-bar {
+  height: 4px;
+  background: rgba(0, 0, 0, 0.06);
+  width: 100%;
+}
+
+.cn-progress-fill {
+  height: 100%;
+  background: #ef4444;
+  border-radius: 0 2px 2px 0;
+}
+
+.cn-card.medium .cn-progress-fill { background: #f59e0b; }
+.cn-card.low .cn-progress-fill    { background: #3b82f6; }
+
+/* ── Header ── */
+.cn-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 18px;
+  background: #f8fafc;
+  border-bottom: 1px solid #f1f5f9;
+}
+
+.cn-badge {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 10px;
+  border-radius: 99px;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.cn-badge.high   { background: #fee2e2; color: #dc2626; }
+.cn-badge.medium { background: #fef3c7; color: #b45309; }
+.cn-badge.low    { background: #dbeafe; color: #1d4ed8; }
+
+.cn-close {
+  background: transparent;
+  border: none;
+  color: #94a3b8;
+  cursor: pointer;
+  padding: 5px;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s;
+}
+
+.cn-close:hover {
+  background: #f1f5f9;
+  color: #475569;
+}
+
+/* ── Body ── */
+.cn-body {
+  padding: 22px 18px 18px;
+  display: flex;
+  gap: 18px;
+}
+
+.cn-icon-wrapper {
+  position: relative;
+  width: 62px;
+  height: 62px;
+  border-radius: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.cn-icon-wrapper.high   { background: #fee2e2; color: #dc2626; }
+.cn-icon-wrapper.medium { background: #fef3c7; color: #d97706; }
+.cn-icon-wrapper.low    { background: #dbeafe; color: #2563eb; }
+
+/* Pulsing ring for high severity */
+.cn-pulse-ring {
+  position: absolute;
+  inset: -4px;
+  border-radius: 20px;
+  border: 2px solid #ef4444;
+  animation: cnRingPulse 1.4s ease-out infinite;
+}
+
+.cn-content {
+  flex: 1;
+  min-width: 0;
+}
+
+.cn-category-tag {
+  display: inline-block;
+  font-size: 10.5px;
+  font-weight: 700;
+  color: #64748b;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  margin-bottom: 3px;
+}
+
+.cn-title {
+  margin: 0 0 8px 0;
+  font-size: 17px;
+  font-weight: 700;
+  color: #0f172a;
+  line-height: 1.35;
+  word-break: break-word;
+}
+
+.cn-location {
+  display: flex;
+  align-items: flex-start;
+  gap: 5px;
+  color: #64748b;
+  font-size: 12.5px;
+  margin-bottom: 6px;
+}
+
+.cn-location svg { margin-top: 1px; flex-shrink: 0; }
+
+.cn-description {
+  font-size: 12.5px;
+  color: #475569;
+  margin: 6px 0 0;
+  line-height: 1.5;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+/* ── Footer ── */
+.cn-footer {
+  padding: 13px 18px;
+  background: #f8fafc;
+  border-top: 1px solid #f1f5f9;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.cn-timer {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11.5px;
+  color: #94a3b8;
+  white-space: nowrap;
+}
+
+.cn-action-btn {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  background: #0f172a;
+  color: white;
+  border: none;
+  padding: 10px 16px;
+  border-radius: 10px;
+  font-weight: 600;
+  font-size: 13.5px;
+  cursor: pointer;
+  transition: all 0.2s;
+  white-space: nowrap;
+}
+
+.cn-card.high .cn-action-btn   { background: #dc2626; }
+.cn-card.medium .cn-action-btn { background: #b45309; }
+.cn-card.low .cn-action-btn    { background: #1d4ed8; }
+
+.cn-action-btn:hover { opacity: 0.88; transform: translateY(-1px); }
+
+/* ── Animations ── */
+@keyframes cnFadeIn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+@keyframes cnSlideUp {
+  from { transform: translateY(36px) scale(0.96); opacity: 0; }
+  to   { transform: translateY(0) scale(1); opacity: 1; }
+}
+
+@keyframes cnHighPulse {
+  0%, 100% { box-shadow: 0 32px 64px -12px rgba(239, 68, 68, 0.35), 0 0 0 1px rgba(239, 68, 68, 0.3); }
+  50%       { box-shadow: 0 32px 64px -12px rgba(239, 68, 68, 0.5),  0 0 0 4px rgba(239, 68, 68, 0.15); }
+}
+
+@keyframes cnRingPulse {
+  0%   { opacity: 1; transform: scale(1); }
+  100% { opacity: 0; transform: scale(1.35); }
+}
+
+/* ── Dark mode ── */
+[data-theme="dark"] .cn-card {
+  background: #1e293b;
+  border-color: rgba(255, 255, 255, 0.08);
+}
+
+[data-theme="dark"] .cn-card.high {
+  border-color: #ef4444;
+}
+
+[data-theme="dark"] .cn-header,
+[data-theme="dark"] .cn-footer {
+  background: #0f172a;
+  border-color: rgba(255, 255, 255, 0.05);
+}
+
+[data-theme="dark"] .cn-title  { color: #f1f5f9; }
+[data-theme="dark"] .cn-location,
+[data-theme="dark"] .cn-description { color: #94a3b8; }
+
+[data-theme="dark"] .cn-badge.high   { background: rgba(239,68,68,0.15); }
+[data-theme="dark"] .cn-badge.medium { background: rgba(245,158,11,0.15); }
+[data-theme="dark"] .cn-badge.low    { background: rgba(59,130,246,0.15); }
+
+[data-theme="dark"] .cn-icon-wrapper.high   { background: rgba(239,68,68,0.15); }
+[data-theme="dark"] .cn-icon-wrapper.medium { background: rgba(245,158,11,0.15); }
+[data-theme="dark"] .cn-icon-wrapper.low    { background: rgba(59,130,246,0.15); }
+
+[data-theme="dark"] .cn-progress-bar { background: rgba(255,255,255,0.06); }
+
+[data-theme="dark"] .cn-close:hover { background: rgba(255,255,255,0.07); color: #cbd5e1; }
