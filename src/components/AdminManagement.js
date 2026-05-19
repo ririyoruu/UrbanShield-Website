@@ -117,15 +117,13 @@ const AdminManagement = ({ initialTab = 'all', isSuperAdmin }) => {
   /* ── Filtering ── */
   const stats = useMemo(() => ({
     all: users.length,
-    super_admins: users.filter(u => u.user_type === 'super_admin').length,
-    admins: users.filter(u => u.user_type === 'admin').length,
+    admins: users.filter(u => u.user_type === 'admin' || u.user_type === 'super_admin').length,
     responders: users.filter(u => u.user_type === 'responder').length,
   }), [users]);
 
   const filteredUsers = useMemo(() => {
     let result = [...users];
-    if (activeTab === 'super_admins') result = result.filter(u => u.user_type === 'super_admin');
-    else if (activeTab === 'admins') result = result.filter(u => u.user_type === 'admin');
+    if (activeTab === 'admins') result = result.filter(u => u.user_type === 'admin' || u.user_type === 'super_admin');
     else if (activeTab === 'responders') {
       result = result.filter(u => u.user_type === 'responder');
       if (filterDepartment !== 'all') {
@@ -516,7 +514,6 @@ const AdminManagement = ({ initialTab = 'all', isSuperAdmin }) => {
   }), [filteredUsers]);
 
   const isResponderMode = initialTab === 'responders';
-  const isSuperAdminMode = initialTab === 'super_admins';
   const isAdminMode = initialTab === 'admins';
 
   return (
@@ -571,24 +568,6 @@ const AdminManagement = ({ initialTab = 'all', isSuperAdmin }) => {
         </button>
       </div>
 
-      {/* Bulk Action Bar — Super Admin Only */}
-      {isSuperAdmin && selectedStaffIds.size > 0 && (
-        <div className="zenith-selection-bar active">
-          <div className="selection-info">
-            <span className="selection-count">{selectedStaffIds.size}</span>
-            <span className="selection-text">Personnel selected</span>
-          </div>
-          <div className="selection-actions">
-            <button className="selection-btn cancel" onClick={() => setSelectedStaffIds(new Set())}>
-              Clear selection
-            </button>
-            <button className="selection-btn delete" onClick={handleBulkDelete} disabled={saving}>
-              <Trash2 size={16} />
-              {saving ? 'Deleting...' : 'Delete rows'}
-            </button>
-          </div>
-        </div>
-      )}
 
       <div className="zenith-toolbar">
         <div className="zenith-search">
@@ -620,13 +599,13 @@ const AdminManagement = ({ initialTab = 'all', isSuperAdmin }) => {
             </select>
           )}
 
-          {(!isSuperAdminMode || isSuperAdmin) && (
+          {(!isAdminMode || isSuperAdmin) && (
             <button className="add-staff-btn-zenith" onClick={() => {
-              setAddFormData({ ...addFormData, user_type: isResponderMode ? 'responder' : isAdminMode ? 'admin' : 'super_admin' });
+              setAddFormData({ ...addFormData, user_type: isResponderMode ? 'responder' : 'admin' });
               setShowAddDrawer(true);
             }}>
               <UserPlus size={18} />
-              Add {isResponderMode ? 'Responder' : isAdminMode ? 'Admin' : 'Super Admin'}
+              Add {isResponderMode ? 'Responder' : 'Admin'}
             </button>
           )}
         </div>
@@ -649,17 +628,6 @@ const AdminManagement = ({ initialTab = 'all', isSuperAdmin }) => {
             <table className="zenith-data-table">
               <thead>
                 <tr>
-                  {isSuperAdmin && (
-                    <th className="zenith-checkbox-cell">
-                      <input
-                        type="checkbox"
-                        className="zenith-checkbox"
-                        checked={isAllSelected}
-                        ref={el => el && (el.indeterminate = isIndeterminate)}
-                        onChange={handleSelectAll}
-                      />
-                    </th>
-                  )}
                   <th onClick={() => handleSort('created_at')} className="sortable-header" style={{ width: '80px' }}>
                     ID {sortConfig.key === 'created_at' && (sortConfig.direction === 'asc' ? <ArrowUp size={14} /> : <ArrowDown size={14} />)}
                   </th>
@@ -679,16 +647,6 @@ const AdminManagement = ({ initialTab = 'all', isSuperAdmin }) => {
                   const active = isActive(user);
                   return (
                     <tr key={user.id} onClick={() => handleOpenDetail(user)}>
-                      {isSuperAdmin && (
-                        <td className="zenith-checkbox-cell" onClick={e => e.stopPropagation()}>
-                          <input
-                            type="checkbox"
-                            className="zenith-checkbox"
-                            checked={selectedStaffIds.has(user.id)}
-                            onChange={e => handleSelectStaff(e, user.id)}
-                          />
-                        </td>
-                      )}
                       <td className="zenith-order-cell">
                         {formatDisplayId(users.indexOf(user), users.length, user.user_type)}
                       </td>
@@ -923,7 +881,7 @@ const AdminManagement = ({ initialTab = 'all', isSuperAdmin }) => {
           <div className="zenith-overlay" onClick={() => setShowAddDrawer(false)} />
           <div className="zenith-drawer">
             <div className="drawer-header">
-              <h3>Add {isResponderMode ? 'Responder' : isAdminMode ? 'Admin' : 'Super Admin'}</h3>
+              <h3>Add {isResponderMode ? 'Responder' : 'Admin'}</h3>
               <button className="close-btn" onClick={() => setShowAddDrawer(false)}><X size={22} /></button>
             </div>
             <form onSubmit={handleAddStaff} className="drawer-scrollable">
@@ -992,17 +950,14 @@ const AdminManagement = ({ initialTab = 'all', isSuperAdmin }) => {
               </div>
 
               <div className="drawer-section">
-                <div className="admin-drawer-section-title">{isResponderMode ? 'Responder Details' : 'Staff Details'}</div>
+                <div className="admin-drawer-section-title">{isResponderMode ? 'Responder Details' : 'Admin Details'}</div>
                 <div className="form-item"><label>Full Name</label><input type="text" required value={addFormData.full_name} onChange={e => setAddFormData({ ...addFormData, full_name: e.target.value })} /></div>
                 {!isResponderMode ? (
                   <div className="form-item">
                     <label>Role</label>
                     <select value={addFormData.user_type} onChange={e => setAddFormData({ ...addFormData, user_type: e.target.value })}>
-                      {isAdminMode ? (
-                        <option value="admin">Admin</option>
-                      ) : (
-                        <option value="super_admin">Super Admin</option>
-                      )}
+                      <option value="admin">Admin</option>
+                      <option value="super_admin">Super Admin</option>
                     </select>
                   </div>
                 ) : (
@@ -1036,7 +991,7 @@ const AdminManagement = ({ initialTab = 'all', isSuperAdmin }) => {
               <div className="drawer-footer">
                 <button type="button" className="footer-btn secondary" onClick={() => setShowAddDrawer(false)}>Cancel</button>
                 <button type="submit" className="footer-btn primary" disabled={saving}>
-                  Add {isResponderMode ? 'Responder' : isAdminMode ? 'Admin' : 'Super Admin'}
+                  Add {isResponderMode ? 'Responder' : addFormData.user_type === 'super_admin' ? 'Super Admin' : 'Admin'}
                 </button>
               </div>
             </form>

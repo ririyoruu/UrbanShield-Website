@@ -20,7 +20,8 @@ import {
   ShieldAlert,
   Activity,
   MessageSquare,
-  SlidersHorizontal
+  SlidersHorizontal,
+  Archive
 } from 'lucide-react';
 import { adminService, supabase } from '../config/supabase';
 import ReportDetailModal from './ReportDetailModal';
@@ -565,6 +566,25 @@ const IncidentModeration = ({ initialSearch = '', onStatusChange, onAssignRespon
     }
   };
 
+  const handleBulkArchive = async () => {
+    if (selectedIncidents.size === 0) return;
+    if (!window.confirm(`Archive ${selectedIncidents.size} selected post(s)?`)) return;
+    try {
+      setSaving(true);
+      await Promise.all(Array.from(selectedIncidents).map(id =>
+        adminService.updateReportStatus(id, 'archived', 'Archived by admin')
+      ));
+      setSelectedIncidents(new Set());
+      setSelectAll(false);
+      await loadIncidents();
+    } catch (error) {
+      console.error('Error archiving posts:', error);
+      setError('Failed to archive selected posts');
+    } finally {
+      setSaving(false);
+    }
+  };
+
   const handleBulkResolve = async () => {
     if (selectedIncidents.size === 0) return;
     if (!window.confirm(`Mark ${selectedIncidents.size} selected post(s) as resolved?`)) return;
@@ -853,15 +873,13 @@ const IncidentModeration = ({ initialSearch = '', onStatusChange, onAssignRespon
                   <Copy size={16} /> Mark Duplicate
                 </button>
               )}
-              {isSuperAdmin && (
-                <button
-                  className="zenith-toolbar-btn zenith-btn-danger"
-                  onClick={handleBulkDelete}
-                  disabled={saving}
-                >
-                  <Trash2 size={16} /> Delete
-                </button>
-              )}
+              <button
+                className="zenith-toolbar-btn zenith-btn-warning"
+                onClick={handleBulkArchive}
+                disabled={saving}
+              >
+                <Archive size={16} /> Archive
+              </button>
               <button
                 className="zenith-toolbar-btn"
                 onClick={() => setSelectedIncidents(new Set())}

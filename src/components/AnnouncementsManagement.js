@@ -9,6 +9,7 @@ import {
   User,
   AlertTriangle,
   CheckCircle,
+  XCircle,
   Loader2,
   MapPin,
   Tag,
@@ -17,6 +18,7 @@ import {
   ListChecks
 } from 'lucide-react';
 import { adminService } from '../config/supabase';
+import './AdminManagement.css';
 import './AnnouncementsManagement.css';
 
 const ALERT_LEVEL_CONFIG = {
@@ -44,6 +46,7 @@ const AnnouncementsManagement = ({ user }) => {
   const [fetchLoading, setFetchLoading] = useState(false);
   const [error, setError] = useState('');
   const [expandedId, setExpandedId] = useState(null);
+  const [modal, setModal] = useState({ show: false, type: 'success', title: '', message: '', onConfirm: null });
 
   useEffect(() => { loadAnnouncements(); }, []);
 
@@ -123,8 +126,18 @@ const AnnouncementsManagement = ({ user }) => {
     }
   };
 
-  const handleDelete = async (id) => {
-    if (!window.confirm('Delete this announcement?')) return;
+  const handleDelete = (id) => {
+    setModal({
+      show: true,
+      type: 'confirm',
+      title: 'Delete Announcement?',
+      message: 'Are you sure you want to delete this announcement? This action cannot be undone.',
+      onConfirm: () => executeDelete(id)
+    });
+  };
+
+  const executeDelete = async (id) => {
+    setModal({ show: false });
     try {
       await adminService.deleteAnnouncement(id);
       setAnnouncements(prev => prev.filter(a => a.id !== id));
@@ -154,7 +167,7 @@ const AnnouncementsManagement = ({ user }) => {
   );
 
   return (
-    <div className="ann-root">
+    <div className="zenith-table-moderation">
 
       {/* ── Top bar ── */}
       <div className="ann-topbar">
@@ -193,67 +206,57 @@ const AnnouncementsManagement = ({ user }) => {
             const cfg = getAlertConfig(ann);
             const isExpanded = expandedId === ann.id;
             return (
-              <div key={ann.id} className="ann-card" style={{ borderLeftColor: cfg.color }}>
-                <div className="ann-card-body">
-
-                  <div className="ann-card-top">
-                    <div className="ann-card-badges">
-                      <span className="ann-alert-badge" style={{ color: cfg.color, background: cfg.bg, borderColor: cfg.border }}>
-                        {cfg.dot} {cfg.label}
+              <div key={ann.id} className="ann-card">
+                <div className="ann-card-header">
+                  <div className="ann-card-header-left">
+                    <span className="ann-alert-badge" style={{ color: cfg.color, background: cfg.bg, borderColor: cfg.border }}>
+                      {cfg.dot} {cfg.label}
+                    </span>
+                    {ann.alert_type && (
+                      <span className="ann-type-badge">
+                        <Tag size={12} /> 
+                        {ann.alert_type.includes('|') ? ann.alert_type.split('|')[0] : ann.alert_type}
                       </span>
-                      {ann.alert_type && (
-                        <span className="ann-type-badge">
-                          <Tag size={10} /> 
-                          {ann.alert_type.includes('|') ? ann.alert_type.split('|')[0] : ann.alert_type}
-                        </span>
-                      )}
-                    </div>
-                    <div className="ann-card-actions">
-                      <button className="ann-icon-btn" onClick={() => openEdit(ann)} title="Edit">
-                        <Edit size={14} />
-                      </button>
-                      <button className="ann-icon-btn danger" onClick={() => handleDelete(ann.id)} title="Delete">
-                        <Trash2 size={14} />
-                      </button>
-                    </div>
-                  </div>
-
-                  <div className="ann-card-eyebrow">
+                    )}
                     <span className="ann-dept-badge">
-                      <Megaphone size={10} /> {ann.author_department}
+                      <Megaphone size={12} /> {ann.author_department}
                     </span>
                   </div>
-
+                  <div className="ann-card-actions">
+                    <button className="ann-icon-btn" onClick={() => openEdit(ann)} title="Edit">
+                      <Edit size={16} />
+                    </button>
+                    <button className="ann-icon-btn danger" onClick={() => handleDelete(ann.id)} title="Delete">
+                      <Trash2 size={16} />
+                    </button>
+                  </div>
+                </div>
+                <div className="ann-card-body">
                   <h4 className="ann-card-title">{ann.title}</h4>
-
                   {(ann.areas || ann.districts) && (
-                    <p className="ann-card-district"><MapPin size={12} /> {ann.areas || ann.districts}</p>
+                    <p className="ann-card-district"><MapPin size={14} /> {ann.areas || ann.districts}</p>
                   )}
-
                   <p className={`ann-card-content ${!isExpanded ? 'ann-card-content--clamped' : ''}`}>
                     {ann.content}
                   </p>
-
                   {ann.action_items?.length > 0 && isExpanded && (
                     <div className="ann-action-items">
-                      <p className="ann-action-items-label"><ListChecks size={13} /> What You Should Do</p>
+                      <p className="ann-action-items-label"><ListChecks size={14} /> What You Should Do</p>
                       <ul>
                         {ann.action_items.map((item, i) => <li key={i}>{item}</li>)}
                       </ul>
                     </div>
                   )}
-
                   <div className="ann-card-footer">
                     <div className="ann-footer-left">
                       {ann.created_at && (
-                        <span className="ann-footer-item"><Clock size={11} /> {formatDate(ann.created_at)}</span>
+                        <span className="ann-footer-item"><Clock size={12} /> {formatDate(ann.created_at)}</span>
                       )}
                     </div>
                     <button className="ann-expand-btn" onClick={() => setExpandedId(isExpanded ? null : ann.id)}>
-                      {isExpanded ? <><ChevronUp size={13} /> Less</> : <><ChevronDown size={13} /> More</>}
+                      {isExpanded ? <><ChevronUp size={14} /> Less</> : <><ChevronDown size={14} /> More</>}
                     </button>
                   </div>
-
                 </div>
               </div>
             );
@@ -264,8 +267,8 @@ const AnnouncementsManagement = ({ user }) => {
       {/* ── Drawer ── */}
       {drawerOpen && (
         <>
-          <div className="ann-backdrop" onClick={closeDrawer} />
-          <div className="ann-drawer">
+          <div className="zenith-overlay" onClick={closeDrawer} />
+          <div className="zenith-drawer" style={{ width: '560px' }}>
             <div className="ann-drawer-header">
               <div>
                 <p className="ann-drawer-eyebrow">{editing ? 'Edit' : 'New'} Announcement</p>
@@ -368,6 +371,36 @@ const AnnouncementsManagement = ({ user }) => {
             </form>
           </div>
         </>
+      )}
+
+      {/* Zenith Status Modal */}
+      {modal.show && (
+        <div className="zenith-status-modal-overlay">
+          <div className={`zenith-status-modal ${modal.type}`}>
+            <div className={`status-icon-glow ${modal.type}`}>
+              {modal.type === 'success' && <CheckCircle size={40} className="status-checkmark" />}
+              {modal.type === 'error' && <XCircle size={40} className="status-error" />}
+              {modal.type === 'confirm' && <AlertTriangle size={40} className="status-warning" />}
+            </div>
+            <h3>{modal.title}</h3>
+            <p>{modal.message}</p>
+
+            {modal.type === 'confirm' ? (
+              <div className="zenith-modal-actions">
+                <button className="zenith-modal-btn cancel" onClick={() => setModal({ show: false })}>
+                  Cancel
+                </button>
+                <button className="zenith-modal-btn confirm-delete" onClick={modal.onConfirm}>
+                  Delete
+                </button>
+              </div>
+            ) : (
+              <div className="zenith-modal-actions">
+                <button className="status-close-btn" onClick={() => setModal({ show: false })}>Done</button>
+              </div>
+            )}
+          </div>
+        </div>
       )}
     </div>
   );

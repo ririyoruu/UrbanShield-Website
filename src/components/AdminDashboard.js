@@ -1251,11 +1251,6 @@ const AdminDashboard = ({ user, onLogout }) => {
                     <Shield size={16} /><span>Admins</span>
                   </button>
                 )}
-                {isSuperAdmin && (
-                  <button className={`nav-sub-item ${(activeTab === 'admin-management' && staffFilter === 'super_admins') ? 'active' : ''}`} onClick={() => { handleTabChange('admin-management'); setStaffFilter('super_admins'); }}>
-                    <Crown size={16} /><span>Super Admins</span>
-                  </button>
-                )}
               </div>
             )}
           </div>
@@ -1319,7 +1314,6 @@ const AdminDashboard = ({ user, onLogout }) => {
               {activeTab === 'users' && <span style={{ fontSize: '2em', fontWeight: 'bold' }}>Residents</span>}
               {activeTab === 'admin-management' && staffFilter === 'responders' && <span style={{ fontSize: '2em', fontWeight: 'bold' }}>Responders</span>}
               {activeTab === 'admin-management' && staffFilter === 'admins' && <span style={{ fontSize: '2em', fontWeight: 'bold' }}>Admins</span>}
-              {activeTab === 'admin-management' && staffFilter === 'super_admins' && <span style={{ fontSize: '2em', fontWeight: 'bold' }}>Super Admins</span>}
               {activeTab === 'admin-management' && staffFilter === 'all' && <span style={{ fontSize: '2em', fontWeight: 'bold' }}>Staff Management</span>}
               {activeTab === 'announcements' && <span style={{ fontSize: '2em', fontWeight: 'bold' }}>Announcements</span>}
               {activeTab === 'logs' && <span style={{ fontSize: '2em', fontWeight: 'bold' }}>Audit Logs</span>}

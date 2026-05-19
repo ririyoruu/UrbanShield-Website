@@ -379,24 +379,6 @@ const UserManagement = ({ isSuperAdmin }) => {
         </button>
       </div>
 
-      {/* Bulk Action Bar (Supabase Style) — Super Admin Only */}
-      {isSuperAdmin && selectedUsers.size > 0 && (
-        <div className="zenith-selection-bar active">
-          <div className="selection-info">
-            <span className="selection-count">{selectedUsers.size}</span>
-            <span className="selection-text">Resident{selectedUsers.size > 1 ? 's' : ''} selected</span>
-          </div>
-          <div className="selection-actions">
-            <button className="selection-btn cancel" onClick={() => setSelectedUsers(new Set())}>
-              Clear selection
-            </button>
-            <button className="selection-btn delete" onClick={handleBulkDelete} disabled={saving}>
-              <Trash2 size={16} />
-              {saving ? 'Deleting...' : 'Delete rows'}
-            </button>
-          </div>
-        </div>
-      )}
 
       <div className="zenith-toolbar">
         <div className="zenith-search">
@@ -440,15 +422,6 @@ const UserManagement = ({ isSuperAdmin }) => {
             <table className="zenith-data-table">
               <thead>
                 <tr>
-                  <th className="zenith-checkbox-cell">
-                    <input
-                      type="checkbox"
-                      className="zenith-checkbox"
-                      checked={isAllSelected}
-                      ref={el => el && (el.indeterminate = isIndeterminate)}
-                      onChange={handleSelectAll}
-                    />
-                  </th>
                   <th>User ID</th>
                   <th>User</th>
                   <th>Role</th>
@@ -468,14 +441,6 @@ const UserManagement = ({ isSuperAdmin }) => {
                   const statusClass = `status-${statusInfo.key}`;
                   return (
                     <tr key={user.id} onClick={() => handleViewUser(user)}>
-                      <td className="zenith-checkbox-cell" onClick={(e) => e.stopPropagation()}>
-                        <input
-                          type="checkbox"
-                          className="zenith-checkbox"
-                          checked={selectedUsers.has(user.id)}
-                          onChange={(e) => handleSelectUser(e, user.id)}
-                        />
-                      </td>
                       <td className="zenith-order-cell">
                         {formatDisplayId(index, filteredUsers.length)}
                       </td>
