@@ -64,6 +64,7 @@ import './ZenithDashboard.css';
 const AdminDashboard = ({ user, onLogout }) => {
   const { isDark, toggleTheme } = useTheme();
   const [activeTab, setActiveTab] = useState('map');
+  const [currentTime, setCurrentTime] = useState(new Date());
   const isAlreadyViewed = (id) => viewedNotifications instanceof Set ? viewedNotifications.has(id) : viewedNotifications?.includes?.(id);
 
   const handleTabChange = (tab) => {
@@ -291,6 +292,15 @@ const AdminDashboard = ({ user, onLogout }) => {
       loadRecentActivity();
     }
   }, [activeTab]);
+
+  // Update live time every second
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setCurrentTime(new Date());
+    }, 1000);
+
+    return () => clearInterval(timer);
+  }, []);
 
   // Load initial data
   useEffect(() => {
@@ -1308,7 +1318,84 @@ const AdminDashboard = ({ user, onLogout }) => {
             </button>
             <h1 className="page-title">
               {activeTab === 'map' && <span style={{ fontSize: '2em', fontWeight: 'bold' }}>🗺️ Live Post Map</span>}
-              {activeTab === 'overview' && <span style={{ fontSize: '2em', fontWeight: 'bold' }}>Dashboard</span>}
+              {activeTab === 'overview' && (
+                <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                  <span style={{ fontSize: '2em', fontWeight: 'bold' }}>Dashboard</span>
+                  <div style={{ 
+                    display: 'flex', 
+                    alignItems: 'center',
+                    gap: '0.5rem',
+                    padding: '0.4rem 0.8rem',
+                    background: 'linear-gradient(135deg, #3b82f6, #1d4ed8)',
+                    borderRadius: '10px',
+                    border: '1px solid #2563eb',
+                    boxShadow: '0 2px 8px rgba(59, 130, 246, 0.25)',
+                    fontSize: '0.875rem',
+                    fontWeight: '500',
+                    color: '#ffffff',
+                    position: 'relative',
+                    overflow: 'hidden'
+                  }}>
+                    <div style={{
+                      position: 'absolute',
+                      top: 0,
+                      left: 0,
+                      right: 0,
+                      bottom: 0,
+                      background: 'linear-gradient(45deg, transparent 30%, rgba(255,255,255,0.1) 50%, transparent 70%)',
+                      animation: 'shimmer 3s ease-in-out infinite'
+                    }} />
+                    <div style={{ 
+                      display: 'flex', 
+                      alignItems: 'center', 
+                      gap: '0.4rem',
+                      position: 'relative',
+                      zIndex: 1
+                    }}>
+                      <div style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        width: '24px',
+                        height: '24px',
+                        borderRadius: '50%',
+                        background: 'rgba(255, 255, 255, 0.15)',
+                        backdropFilter: 'blur(8px)'
+                      }}>
+                        <Clock size={12} style={{ color: '#ffffff' }} />
+                      </div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
+                        <span style={{ 
+                          fontSize: '0.875rem', 
+                          fontWeight: '600',
+                          letterSpacing: '0.025em',
+                          fontFamily: 'monospace'
+                        }}>
+                          {currentTime.toLocaleTimeString('en-US', { 
+                            hour: '2-digit', 
+                            minute: '2-digit', 
+                            second: '2-digit',
+                            hour12: false 
+                          })}
+                        </span>
+                        <span style={{ 
+                          fontSize: '0.7rem', 
+                          color: 'rgba(255, 255, 255, 0.8)',
+                          fontWeight: '400',
+                          textTransform: 'uppercase',
+                          letterSpacing: '0.05em'
+                        }}>
+                          {currentTime.toLocaleDateString('en-US', { 
+                            weekday: 'short', 
+                            month: 'short', 
+                            day: 'numeric' 
+                          })}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
               {activeTab === 'incidents' && <span style={{ fontSize: '2em', fontWeight: 'bold' }}>Post Management</span>}
               {activeTab === 'reports' && <span style={{ fontSize: '2em', fontWeight: 'bold' }}>Reports Management</span>}
               {activeTab === 'users' && <span style={{ fontSize: '2em', fontWeight: 'bold' }}>Residents</span>}

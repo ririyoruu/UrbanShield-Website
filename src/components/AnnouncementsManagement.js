@@ -96,7 +96,7 @@ const AnnouncementsManagement = ({ user }) => {
       const payload = { 
         ...formData, 
         action_items: formData.action_items.filter(i => i.trim()),
-        author_department: user?.department || 'URBANSHIELD HUB'
+        author_department: user?.department || 'URBANSHIELD'
       };
 
       if (editing) {
@@ -110,7 +110,7 @@ const AnnouncementsManagement = ({ user }) => {
         const enrichedData = {
           ...createdData,
           author_name: user?.full_name || 'System Administrator',
-          author_department: user?.department || 'URBANSHIELD HUB'
+          author_department: user?.department || 'URBANSHIELD'
         };
         setAnnouncements(prev => [enrichedData, ...prev]);
       }
