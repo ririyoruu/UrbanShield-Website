@@ -77,6 +77,7 @@ const UserManagement = ({ isSuperAdmin }) => {
           verification_documents: user.verification_documents || user.documents || user.id_documents || [],
           documents: user.verification_documents || user.documents || user.id_documents || [],
           id_documents: user.verification_documents || user.documents || user.id_documents || [],
+          avatar_url: user.avatar_url || user.profile_picture || user.photo || null,
         }));
       setUsers(transformedUsers);
     } catch (error) {
@@ -446,7 +447,22 @@ const UserManagement = ({ isSuperAdmin }) => {
                       </td>
                       <td>
                         <div className="zenith-customer-cell">
-                          <div className="zenith-avatar">{initials}</div>
+                          <div className="zenith-avatar">
+                            {user.avatar_url ? (
+                              <img 
+                                src={user.avatar_url} 
+                                alt={user.full_name} 
+                                className="zenith-avatar-img"
+                                onError={(e) => {
+                                  e.target.style.display = 'none';
+                                  e.target.nextSibling.style.display = 'flex';
+                                }}
+                              />
+                            ) : null}
+                            <div className="zenith-avatar-fallback" style={{ display: user.avatar_url ? 'none' : 'flex' }}>
+                              {initials}
+                            </div>
+                          </div>
                           <div className="zenith-customer-info">
                             <div className="zenith-customer-name">{user.full_name}</div>
                             <div className="zenith-customer-email">{user.email}</div>
