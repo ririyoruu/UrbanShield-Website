@@ -197,11 +197,19 @@ const MapComponent = ({
         }
       }
 
-      // Combine and sort by newest first (created_at descending)
+      // Combine and sort: open/in-progress first (by newest), then resolved (by newest)
       const allPins = [...pinsWithCoords, ...geocodedPins].sort((a, b) => {
+        // Priority: open/in-progress > resolved
+        const aActive = a._status !== 'resolved';
+        const bActive = b._status !== 'resolved';
+        
+        if (aActive && !bActive) return -1; // a comes first
+        if (!aActive && bActive) return 1;  // b comes first
+        
+        // Within same priority, sort by newest first
         const dateA = new Date(a.created_at || 0).getTime();
         const dateB = new Date(b.created_at || 0).getTime();
-        return dateB - dateA; // Newest first
+        return dateB - dateA;
       });
       
       setPins(allPins);
