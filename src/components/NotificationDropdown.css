@@ -121,6 +121,25 @@
   color: #059669;
 }
 
+/* Clear all button - text version */
+.nd-clear-btn-text {
+  padding: 4px 8px;
+  background: transparent;
+  border: none;
+  border-radius: 6px;
+  color: #2563eb;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background .12s, color .12s;
+  font-family: inherit;
+}
+
+.nd-clear-btn-text:hover {
+  background: rgba(37, 99, 235, 0.1);
+  color: #1d4ed8;
+}
+
 /* ── Summary chips ── */
 .nd-summary {
   display: flex;
@@ -274,12 +293,12 @@
   flex-shrink: 0;
   display: inline-flex;
   align-items: center;
-  padding: 1px 7px;
+  padding: 1px 6px;
   border-radius: 999px;
-  font-size: 10px;
-  font-weight: 700;
+  font-size: 9px;
+  font-weight: 600;
   text-transform: uppercase;
-  letter-spacing: .04em;
+  letter-spacing: .02em;
   border: 1px solid;
 }
 

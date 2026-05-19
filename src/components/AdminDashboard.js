@@ -54,6 +54,7 @@ import ReportsZenith from './ReportsZenith';
 import IncidentModeration from './IncidentModeration';
 import AnnouncementsManagement from './AnnouncementsManagement';
 import NotificationDropdown from './NotificationDropdown';
+import CentralNotification from './CentralNotification';
 import Settings from './Settings';
 import AdminManagement from './AdminManagement';
 import './AdminDashboard.css';
@@ -108,6 +109,7 @@ const AdminDashboard = ({ user, onLogout }) => {
 
   // Sound management
   const notificationAudioRef = useRef(null);
+  const [centralNotification, setCentralNotification] = useState(null);
 
   useEffect(() => {
     notificationAudioRef.current = new Audio('/notification.wav');
@@ -634,6 +636,15 @@ const AdminDashboard = ({ user, onLogout }) => {
         playNotificationSound();
         setHasViewedNotifications(false);
 
+        // Show central notification popup
+        setCentralNotification({
+          ...payload.new,
+          onClick: () => {
+            setActiveTab('incidents');
+            setReportsViewMode('list');
+          }
+        });
+
         // Show browser notification
         showBrowserNotification(`New ${payload.new.category || 'Incident'} Reported`, {
           body: payload.new.title || payload.new.address || 'Check the dashboard for details.',
@@ -663,7 +674,6 @@ const AdminDashboard = ({ user, onLogout }) => {
         
         if (payload.new.status === 'pending' || payload.new.status === 'open') {
           setHasViewedNotifications(false);
-          playNotificationSound();
         }
       } else if (payload.eventType === 'UPDATE') {
         console.log('✏️ Incident updated - synchronizing data...');
@@ -706,8 +716,7 @@ const AdminDashboard = ({ user, onLogout }) => {
       console.log('🔄 Real-time user report update received:', payload);
 
       if (payload.eventType === 'INSERT') {
-        console.log('📝 New user report submitted - playing alert...');
-        playNotificationSound();
+        console.log('📝 New user report submitted - refreshing...');
         setHasViewedNotifications(false);
         loadReports(); // Refresh reports data
       } else if (payload.eventType === 'UPDATE') {
@@ -721,8 +730,7 @@ const AdminDashboard = ({ user, onLogout }) => {
       console.log('🔄 Real-time profile update received:', payload);
 
       if (payload.eventType === 'INSERT') {
-        console.log('👤 New user registered - playing alert...');
-        playNotificationSound();
+        console.log('👤 New user registered...');
         loadStats();
       } else if (payload.eventType === 'UPDATE') {
         console.log('✏️ User profile updated - refreshing...');
@@ -1159,6 +1167,11 @@ const AdminDashboard = ({ user, onLogout }) => {
 
   return (
     <div className="admin-dashboard">
+      {/* Central Notification Popup — only fires on new incident INSERT */}
+      <CentralNotification
+        notification={centralNotification}
+        onClose={() => setCentralNotification(null)}
+      />
       {/* Sidebar */}
       <div className={`sidebar ${sidebarCollapsed ? 'collapsed' : ''}`}>
         {/* Logo */}

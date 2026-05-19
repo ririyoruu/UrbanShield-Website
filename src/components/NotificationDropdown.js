@@ -112,8 +112,8 @@ const NotificationDropdown = ({ user, reports = [], isOpen, onClose, onNavigateT
         </div>
         <div className="nd-header-right">
           {unviewedCount > 0 && (
-            <button className="nd-clear-btn" onClick={onClearAll} title="Mark all as read">
-              <CheckCircle size={13} />
+            <button className="nd-clear-btn-text" onClick={onClearAll} title="Mark all as read">
+              Mark all as read
             </button>
           )}
           <button className="nd-icon-btn" onClick={onClose} title="Close">
@@ -122,22 +122,7 @@ const NotificationDropdown = ({ user, reports = [], isOpen, onClose, onNavigateT
         </div>
       </div>
 
-      {/* Summary chips */}
-      {notifications.length > 0 && (
-        <div className="nd-summary">
-          {pendingCount > 0 && (
-            <span className="nd-chip open">
-              <AlertTriangle size={11} /> {pendingCount} Open
-            </span>
-          )}
-          {inActionCount > 0 && (
-            <span className="nd-chip in_progress">
-              <Shield size={11} /> {inActionCount} In Progress
-            </span>
-          )}
-        </div>
-      )}
-
+      
       {/* List */}
       <div className="nd-list">
         {notifications.length === 0 ? (
@@ -160,9 +145,11 @@ const NotificationDropdown = ({ user, reports = [], isOpen, onClose, onNavigateT
               <div className="nd-item-body">
                 <div className="nd-item-top">
                   <span className="nd-item-title">{notif.title}</span>
-                  <span className={`nd-status-pill ${notif.status}`}>
-                    {notif.status === 'in_progress' ? 'In Progress' : 'Open'}
-                  </span>
+                  {notif.status === 'in_progress' && (
+                    <span className={`nd-status-pill ${notif.status}`}>
+                      In Progress
+                    </span>
+                  )}
                 </div>
                 <div className="nd-item-meta">
                   {notif.category && (
